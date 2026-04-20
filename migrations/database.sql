@@ -209,10 +209,15 @@ CREATE TABLE fee_payments (
     amount DECIMAL(10,2) NOT NULL,
     payment_method payment_method NOT NULL,
     transaction_code VARCHAR(100), -- M-Pesa code, cheque number, etc.
-    mpesa_receipt VARCHAR(100),
+    mpesa_receipt_number VARCHAR(100),
+    mpesa_checkout_id VARCHAR(100), -- For STK Push tracking
+    mpesa_transaction_date BIGINT, -- M-Pesa timestamp
+    status VARCHAR(20) DEFAULT 'completed', -- completed, pending, failed
+    failure_reason TEXT,
+    completed_at TIMESTAMP,
     paid_by VARCHAR(100), -- Name of payer
     phone_number VARCHAR(20),
-    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    payment_date DATE DEFAULT CURRENT_DATE,
     academic_year_id UUID REFERENCES academic_years(id),
     term_id UUID REFERENCES terms(id),
     allocated_by VARCHAR(20) DEFAULT 'auto', -- auto, manual, priority

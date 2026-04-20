@@ -8,7 +8,7 @@ const rateLimit = require('express-rate-limit');
 // Route imports
 const authRoutes = require('./src/routes/auth.routes');
 const studentRoutes = require('./src/routes/student.routes');
-const gradeRoutes = require('./src/routes/grade.routes');
+const gradeRoutes = require('./src/routes/grades.routes');
 const feeRoutes = require('./src/routes/fee.routes');
 const reportRoutes = require('./src/routes/report.routes');
 const webhookRoutes = require('./src/routes/webhook.routes'); // Added import
