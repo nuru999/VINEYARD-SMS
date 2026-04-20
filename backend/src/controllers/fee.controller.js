@@ -1,8 +1,6 @@
 const db = require('../config/database');
-const MpesaService = require('../services/mpesa.service');
+const mpesaService = require('../services/mpesa.service');
 const { generateTransactionCode } = require('../utils/helpers');
-
-const mpesaService = new MpesaService();
 
 exports.getFeeStatement = async (req, res) => {
   try {
@@ -99,9 +97,34 @@ exports.initiateMpesaPayment = async (req, res) => {
     const { studentId, amount, phoneNumber } = req.body;
     const schoolId = req.user.school_id;
 
+    // Validate input
+    if (!studentId || !amount || !phoneNumber) {
+      return res.status(400).json({
+        message: 'Missing required fields',
+        required: ['studentId', 'amount', 'phoneNumber']
+      });
+    }
+
+    // Validate amount
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount < 1) {
+      return res.status(400).json({
+        message: 'Amount must be a valid number greater than 0'
+      });
+    }
+
+    // Check if M-Pesa is configured
+    if (!mpesaService.isConfigured()) {
+      return res.status(503).json({
+        message: 'M-Pesa is not configured',
+        details: 'Please configure M-Pesa credentials in .env file',
+        configStatus: mpesaService.getConfigStatus()
+      });
+    }
+
     // Verify student
     const student = await db.query(
-      'SELECT first_name, last_name, admission_number FROM students WHERE id = $1 AND school_id = $2',
+      'SELECT id, first_name, last_name, admission_number FROM students WHERE id = $1 AND school_id = $2',
       [studentId, schoolId]
     );
 
@@ -111,35 +134,91 @@ exports.initiateMpesaPayment = async (req, res) => {
 
     const studentData = student.rows[0];
     const accountReference = studentData.admission_number;
-    const transactionDesc = `School fees - ${studentData.first_name} ${studentData.last_name}`;
+    const transactionDesc = `${studentData.first_name} ${studentData.last_name}`.substring(0, 13);
+
+    console.log(`\n💳 Processing M-Pesa payment:`);
+    console.log(`   Student: ${studentData.first_name} ${studentData.last_name}`);
+    console.log(`   Amount: KES ${numAmount}`);
+    console.log(`   Phone: ${phoneNumber}`);
 
     // Initiate M-Pesa STK Push
-    const stkResponse = await mpesaService.initiateSTKPush(
-      phoneNumber,
-      amount,
-      accountReference,
-      transactionDesc
-    );
+    let stkResponse;
+    try {
+      stkResponse = await mpesaService.initiateSTKPush(
+        phoneNumber,
+        numAmount,
+        accountReference,
+        transactionDesc
+      );
+    } catch (mpesaError) {
+      console.error(`❌ M-Pesa Error: ${mpesaError.message}`);
+      return res.status(503).json({
+        message: 'M-Pesa payment initiation failed',
+        error: mpesaError.message,
+        details: 'Check your M-Pesa credentials and try again'
+      });
+    }
+
+    // Verify M-Pesa response
+    if (!stkResponse.checkoutRequestId) {
+      return res.status(503).json({
+        message: 'M-Pesa did not return checkout ID',
+        response: stkResponse
+      });
+    }
 
     // Record pending payment
     const transactionCode = generateTransactionCode();
-    await db.query(
-      `INSERT INTO fee_payments
-       (student_id, amount, payment_method, transaction_code, mpesa_checkout_id,
-        status, recorded_by)
-       VALUES ($1, $2, 'mpesa', $3, $4, 'pending', $5)`,
-      [studentId, amount, transactionCode, stkResponse.CheckoutRequestID, req.user.id]
-    );
+    const client = await db.pool.connect();
+    
+    try {
+      await client.query('BEGIN');
 
-    res.json({
-      message: 'M-Pesa payment initiated',
-      checkoutRequestId: stkResponse.CheckoutRequestID,
-      responseCode: stkResponse.ResponseCode,
-      responseDescription: stkResponse.ResponseDescription,
-      transactionCode
-    });
+      const paymentInsert = await client.query(
+        `INSERT INTO fee_payments
+         (student_id, amount, payment_method, transaction_code, mpesa_checkout_id,
+          status, phone_number, recorded_by, payment_date)
+         VALUES ($1, $2, 'mpesa', $3, $4, 'pending', $5, $6, CURRENT_DATE)
+         RETURNING id`,
+        [studentId, numAmount, transactionCode, stkResponse.checkoutRequestId, phoneNumber, req.user.id]
+      );
+
+      await client.query('COMMIT');
+
+      console.log(`✅ Payment initiated with CheckoutID: ${stkResponse.checkoutRequestId}`);
+      console.log(`✅ Payment record created: ${paymentInsert.rows[0].id}\n`);
+
+      res.status(201).json({
+        message: 'M-Pesa payment initiated successfully',
+        checkoutRequestId: stkResponse.checkoutRequestId,
+        merchantRequestId: stkResponse.merchantRequestId,
+        responseCode: stkResponse.responseCode,
+        responseDescription: stkResponse.responseDescription,
+        transactionCode: transactionCode,
+        student: {
+          id: studentId,
+          name: `${studentData.first_name} ${studentData.last_name}`,
+          admissionNumber: accountReference
+        },
+        payment: {
+          amount: numAmount,
+          phoneNumber: phoneNumber,
+          status: 'pending',
+          nextStep: 'Customer will receive STK prompt. Payment will be confirmed when completed.'
+        }
+      });
+    } catch (dbError) {
+      await client.query('ROLLBACK');
+      throw dbError;
+    } finally {
+      client.release();
+    }
   } catch (error) {
-    res.status(500).json({ message: 'Payment initiation failed', error: error.message });
+    console.error(`❌ Payment initiation error: ${error.message}`);
+    res.status(500).json({
+      message: 'Payment initiation failed',
+      error: error.message
+    });
   }
 };
 
