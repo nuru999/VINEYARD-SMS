@@ -66,6 +66,14 @@ class MpesaService {
       throw new Error('M-Pesa shortcode and passkey not configured');
     }
 
+    // ✅ NEW: Warn if callbacks won't work
+    const callbackUrl = process.env.BACKEND_URL;
+    if (!callbackUrl || callbackUrl.includes('localhost') || callbackUrl.includes('127.0.0.1')) {
+      console.warn('⚠️  BACKEND_URL is set to localhost. M-Pesa callbacks will NOT reach this server!');
+      console.warn('   Use ngrok for testing: npx ngrok http 5000');
+      console.warn('   Then set BACKEND_URL=https://your-ngrok-url.ngrok-free.app');
+    }
+
     try {
       const token = await this.getAccessToken();
       const timestamp = this.generateTimestamp();
@@ -177,11 +185,14 @@ class MpesaService {
   }
 
   /**
-   * Generate timestamp (14 digits: YYYYMMDDHHmmss)
+   * Generate timestamp (14 digits: YYYYMMDDHHmmss) in KENYA TIME (EAT, UTC+3)
    */
   generateTimestamp() {
-    const date = new Date();
-    return date.toISOString().replace(/[^0-9]/g, '').slice(0, 14);
+    const now = new Date();
+    // Kenya is UTC+3 (no daylight saving)
+    const offsetMs = 3 * 60 * 60 * 1000;
+    const kenyaTime = new Date(now.getTime() + offsetMs);
+    return kenyaTime.toISOString().replace(/[^0-9]/g, '').slice(0, 14);
   }
 
   /**

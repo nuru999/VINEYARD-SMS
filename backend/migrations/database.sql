@@ -1,3 +1,4 @@
+-- Active: 1776775702722@@Farm-SMS@5432
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 

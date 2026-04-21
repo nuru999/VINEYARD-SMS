@@ -134,6 +134,22 @@ exports.initiateMpesaPayment = async (req, res) => {
 
     const studentData = student.rows[0];
     const accountReference = studentData.admission_number;
+        // ✅ NEW: Prevent duplicate STK push within 5 minutes
+    const existingPending = await db.query(
+      `SELECT id, mpesa_checkout_id, created_at 
+       FROM fee_payments 
+       WHERE student_id = $1 AND status = 'pending' 
+       AND created_at > NOW() - INTERVAL '5 minutes'`,
+      [studentId]
+    );
+
+    if (existingPending.rows.length > 0) {
+      return res.status(409).json({
+        message: 'A payment is already in progress for this student',
+        checkoutRequestId: existingPending.rows[0].mpesa_checkout_id,
+        initiatedAt: existingPending.rows[0].created_at
+      });
+    }
     const transactionDesc = `${studentData.first_name} ${studentData.last_name}`.substring(0, 13);
 
     console.log(`\n💳 Processing M-Pesa payment:`);
