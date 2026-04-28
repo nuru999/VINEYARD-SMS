@@ -66,7 +66,7 @@ async function setupDatabase() {
     console.log('🔄 Step 2: Creating database schema...');
 
     // Read and execute the migration file
-    const migrationPath = path.join(__dirname, '../migrations/database.sql');
+    const migrationPath = path.join(__dirname, 'migrations/database.sql');
     if (!fs.existsSync(migrationPath)) {
       throw new Error(`Migration file not found: ${migrationPath}`);
     }

@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply min-h-screen bg-slate-50 font-sans antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  @apply border border-slate-200 rounded-md bg-white px-3 py-2 text-slate-900 outline-none transition;
+}
+
+button:hover,
+input:focus,
+select:focus,
+textarea:focus {
+  @apply border-slate-300 shadow-sm;
+}

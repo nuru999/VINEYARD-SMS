@@ -51,7 +51,18 @@ A comprehensive School Management System API built for Kenyan schools, supportin
    - JWT secret
    - M-Pesa API keys (for payments)
 
-4. **Database Setup**
+4. **Frontend Setup**
+   ```bash
+   cd ../frontend
+   npm install
+   ```
+   Then copy the example:
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `frontend/.env` if you want to override the backend API URL.
+
+5. **Database Setup**
    ```bash
    # Option 1: Automatic setup (requires PostgreSQL running)
    npm run setup-db
