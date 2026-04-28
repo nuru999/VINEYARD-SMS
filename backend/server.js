@@ -114,37 +114,44 @@ app.use(errorHandler);
 // ============== SERVER STARTUP ==============
 
 const PORT = process.env.PORT || 5000;
+let server;
 
-const server = app.listen(PORT, async () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 API URL: http://localhost:${PORT}/api`);
-  
-  // Test database connection on startup
-  try {
-    const result = await db.query('SELECT NOW() as current_time');
-    console.log(`✅ Database connected: ${result.rows[0].current_time}`);
-  } catch (err) {
-    console.error('❌ Database connection failed:', err.message);
-    console.log('⚠️  Server running but database is unavailable');
-  }
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('💤 Server closed');
-    process.exit(0);
+const startServer = () => {
+  server = app.listen(PORT, async () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 API URL: http://localhost:${PORT}/api`);
+    
+    // Test database connection on startup
+    try {
+      const result = await db.query('SELECT NOW() as current_time');
+      console.log(`✅ Database connected: ${result.rows[0].current_time}`);
+    } catch (err) {
+      console.error('❌ Database connection failed:', err.message);
+      console.log('⚠️  Server running but database is unavailable');
+    }
   });
-});
+};
 
-process.on('SIGINT', () => {
-  console.log('👋 SIGINT received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('💤 Server closed');
-    process.exit(0);
+if (require.main === module) {
+  startServer();
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('👋 SIGTERM received. Shutting down gracefully...');
+    server.close(() => {
+      console.log('💤 Server closed');
+      process.exit(0);
+    });
   });
-});
 
-module.exports = app; // Export for testing
+  process.on('SIGINT', () => {
+    console.log('👋 SIGINT received. Shutting down gracefully...');
+    server.close(() => {
+      console.log('💤 Server closed');
+      process.exit(0);
+    });
+  });
+}
+
+module.exports = app;
