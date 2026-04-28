@@ -1,5 +1,6 @@
 const request = require('supertest');
 const app = require('../server');
+const db = require('../src/config/database');
 
 describe('API smoke tests', () => {
   test('GET /api/health returns service status', async () => {
@@ -25,5 +26,9 @@ describe('API smoke tests', () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toHaveProperty('message', 'Route not found');
+  });
+
+  afterAll(async () => {
+    await db.pool.end();
   });
 });
