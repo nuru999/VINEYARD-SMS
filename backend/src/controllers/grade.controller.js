@@ -1,5 +1,44 @@
 const db = require('../config/database');
 
+exports.getAssessments = async (req, res) => {
+  try {
+    const schoolId = req.user.school_id;
+    const { termId, curriculum, subjectId } = req.query;
+
+    let query = `
+      SELECT a.id, a.name, a.assessment_type, a.curriculum, a.max_score, a.weight_percentage,
+             a.assessment_date, a.term_id, t.name as term_name,
+             s.id as subject_id, s.name as subject_name, s.code as subject_code
+      FROM assessments a
+      JOIN subjects s ON a.subject_id = s.id
+      LEFT JOIN terms t ON a.term_id = t.id
+      WHERE a.school_id = $1
+    `;
+    const params = [schoolId];
+
+    if (termId) {
+      query += ` AND a.term_id = $${params.length + 1}`;
+      params.push(termId);
+    }
+
+    if (curriculum) {
+      query += ` AND a.curriculum = $${params.length + 1}`;
+      params.push(curriculum);
+    }
+
+    if (subjectId) {
+      query += ` AND a.subject_id = $${params.length + 1}`;
+      params.push(subjectId);
+    }
+
+    query += ' ORDER BY a.assessment_date DESC NULLS LAST, a.created_at DESC';
+    const result = await db.query(query, params);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Get grades for a specific assessment
 exports.getAssessmentGrades = async (req, res) => {
   try {

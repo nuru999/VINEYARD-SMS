@@ -23,16 +23,15 @@ exports.getReportCard = async (req, res) => {
     const studentData = student.rows[0];
 
     if (studentData.curriculum === '8-4-4') {
-      return await get844ReportCard(studentId, termId, studentData);
-    } else {
-      return await getCBCReportCard(studentId, termId, studentData);
+      return await get844ReportCard(res, studentId, termId, studentData);
     }
+    return await getCBCReportCard(res, studentId, termId, studentData);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
-async function get844ReportCard(studentId, termId, studentData) {
+async function get844ReportCard(res, studentId, termId, studentData) {
   // Get all assessments for the term
   const assessments = await db.query(
     `SELECT a.id, a.name, a.assessment_type, a.max_score, a.weight_percentage,
@@ -107,7 +106,7 @@ async function get844ReportCard(studentId, termId, studentData) {
   });
 }
 
-async function getCBCReportCard(studentId, termId, studentData) {
+async function getCBCReportCard(res, studentId, termId, studentData) {
   // Get all CBC assessments for the term
   const assessments = await db.query(
     `SELECT a.id, a.name, a.assessment_type,
@@ -176,6 +175,24 @@ async function getCBCReportCard(studentId, termId, studentData) {
   });
 }
 
+exports.getReportTerms = async (req, res) => {
+  try {
+    const schoolId = req.user.school_id;
+    const result = await db.query(
+      `SELECT t.id, t.name, t.is_current, t.start_date, t.end_date,
+              ay.id as academic_year_id, ay.name as academic_year_name
+       FROM terms t
+       JOIN academic_years ay ON t.academic_year_id = ay.id
+       WHERE ay.school_id = $1
+       ORDER BY ay.start_date DESC, t.start_date DESC`,
+      [schoolId]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 exports.getClassReport = async (req, res) => {
   try {
     const { grade, stream, termId } = req.query;
@@ -196,36 +213,43 @@ exports.getClassReport = async (req, res) => {
 
     const students = await db.query(query, params);
 
-    // Get assessments for the term
-    const assessments = await db.query(
-      `SELECT a.id, a.name, s.name as subject_name, s.code as subject_code
-       FROM assessments a
+    // Aggregate 8-4-4 subject averages for this class and term.
+    const gradeRows = await db.query(
+      `SELECT g.student_id, s.code as subject_code, s.name as subject_name,
+              AVG(g.percentage) as avg_percentage
+       FROM grades_844 g
+       JOIN assessments a ON g.assessment_id = a.id
        JOIN subjects s ON a.subject_id = s.id
-       WHERE a.term_id = $1
-       ORDER BY s.name`,
-      [termId]
+       JOIN students st ON g.student_id = st.id
+       WHERE st.school_id = $1
+         AND st.current_grade = $2
+         AND ($3::text IS NULL OR st.stream = $3)
+         AND ($4::uuid IS NULL OR a.term_id = $4)
+       GROUP BY g.student_id, s.code, s.name`,
+      [schoolId, grade, stream || null, termId || null]
     );
 
-    // Build class report
-    const classReport = students.rows.map(student => {
-      const studentGrades = {};
-
-      assessments.rows.forEach(assessment => {
-        // This would need to be implemented based on curriculum
-        // For simplicity, returning placeholder
-        studentGrades[assessment.subject_code] = {
-          subject: assessment.subject_name,
-          grade: 'TBD' // Would calculate based on actual grades
-        };
-      });
-
-      return {
-        studentId: student.id,
-        name: `${student.first_name} ${student.last_name}`,
-        admissionNumber: student.admission_number,
-        grades: studentGrades
+    const gradeMap = {};
+    for (const row of gradeRows.rows) {
+      if (!gradeMap[row.student_id]) {
+        gradeMap[row.student_id] = {};
+      }
+      const average = parseFloat(row.avg_percentage);
+      const mapped = calculate844Grade(average);
+      gradeMap[row.student_id][row.subject_code] = {
+        subject: row.subject_name,
+        percentage: Math.round(average * 100) / 100,
+        grade: mapped.grade,
+        points: mapped.points
       };
-    });
+    }
+
+    const classReport = students.rows.map((student) => ({
+      studentId: student.id,
+      name: `${student.first_name} ${student.last_name}`,
+      admissionNumber: student.admission_number,
+      grades: gradeMap[student.id] || {}
+    }));
 
     res.json({
       grade,

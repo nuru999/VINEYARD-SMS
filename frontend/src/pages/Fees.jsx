@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { getFeePayments, getStudents } from '../services/api';
+import { getFeePayments, getStudents, recordFeePayment } from '../services/api';
 
 export default function Fees() {
   const [payments, setPayments] = useState([]);
@@ -8,6 +8,14 @@ export default function Fees() {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    paymentMethod: 'cash',
+    reference: '',
+    description: ''
+  });
 
   useEffect(() => {
     fetchStudentsAndPayments();
@@ -53,6 +61,40 @@ export default function Fees() {
     }
   };
 
+  const onPaymentFormChange = (event) => {
+    const { name, value } = event.target;
+    setPaymentForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRecordPayment = async (event) => {
+    event.preventDefault();
+    if (!selectedStudentId) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await recordFeePayment({
+        studentId: selectedStudentId,
+        amount: Number(paymentForm.amount),
+        paymentMethod: paymentForm.paymentMethod,
+        reference: paymentForm.reference,
+        description: paymentForm.description
+      });
+      setPaymentForm({
+        amount: '',
+        paymentMethod: 'cash',
+        reference: '',
+        description: ''
+      });
+      setShowForm(false);
+      const response = await getFeePayments(selectedStudentId);
+      setPayments(response.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const totalCollected = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
   const totalPending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0);
 
@@ -64,7 +106,10 @@ export default function Fees() {
             <h3 className="text-xl font-semibold text-slate-900">Fees</h3>
             <p className="text-sm text-slate-500">Record payments and check outstanding balances.</p>
           </div>
-          <button className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800">
+          <button
+            className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+            onClick={() => setShowForm((prev) => !prev)}
+          >
             Record payment
           </button>
         </div>
@@ -88,6 +133,54 @@ export default function Fees() {
             )}
           </select>
         </div>
+
+        {showForm && (
+          <form
+            onSubmit={handleRecordPayment}
+            className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-soft md:grid-cols-2"
+          >
+            <input
+              className="w-full"
+              type="number"
+              min="1"
+              step="0.01"
+              name="amount"
+              placeholder="Amount"
+              value={paymentForm.amount}
+              onChange={onPaymentFormChange}
+              required
+            />
+            <select className="w-full" name="paymentMethod" value={paymentForm.paymentMethod} onChange={onPaymentFormChange}>
+              <option value="cash">Cash</option>
+              <option value="bank">Bank</option>
+              <option value="cheque">Cheque</option>
+              <option value="mpesa">M-Pesa</option>
+            </select>
+            <input
+              className="w-full"
+              name="reference"
+              placeholder="Reference (receipt/code)"
+              value={paymentForm.reference}
+              onChange={onPaymentFormChange}
+            />
+            <input
+              className="w-full"
+              name="description"
+              placeholder="Description (optional)"
+              value={paymentForm.description}
+              onChange={onPaymentFormChange}
+            />
+            <div className="md:col-span-2">
+              <button
+                type="submit"
+                disabled={submitting || !selectedStudentId}
+                className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+              >
+                {submitting ? 'Saving...' : 'Save payment'}
+              </button>
+            </div>
+          </form>
+        )}
 
         <div className="grid gap-6 xl:grid-cols-3">
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-soft">
