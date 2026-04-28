@@ -32,58 +32,122 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-          <h3 className="text-xl font-semibold text-slate-900">School overview</h3>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-3xl bg-white p-5 shadow-soft">
-              <p className="text-sm text-slate-500">Total students</p>
-              <p className="mt-3 text-3xl font-semibold text-slate-900">
-                {loading ? '-' : stats.totalStudents}
-              </p>
+      <div className="grid gap-8">
+        {/* Key Stats */}
+        <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Total Students */}
+          <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600 font-medium">Total Students</p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {loading ? '...' : stats.totalStudents}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-primary-100 flex items-center justify-center text-xl">👥</div>
             </div>
-            <div className="rounded-3xl bg-white p-5 shadow-soft">
-              <p className="text-sm text-slate-500">Active students</p>
-              <p className="mt-3 text-3xl font-semibold text-slate-900">
-                {loading ? '-' : `${stats.activePercentage}%`}
-              </p>
+            <p className="mt-3 text-xs text-slate-500">Across all grades</p>
+          </div>
+
+          {/* Active Students */}
+          <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-green-50 to-green-100/50 p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600 font-medium">Active Students</p>
+                <p className="mt-2 text-3xl font-bold text-green-700">
+                  {loading ? '...' : `${stats.activePercentage}%`}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-green-100 flex items-center justify-center text-xl">✅</div>
             </div>
-            <div className="rounded-3xl bg-white p-5 shadow-soft">
-              <p className="text-sm text-slate-500">Inactive students</p>
-              <p className="mt-3 text-3xl font-semibold text-slate-900">
-                {loading ? '-' : stats.totalStudents - stats.activeStudents}
-              </p>
+            <p className="mt-3 text-xs text-slate-500">{stats.activeStudents} students active</p>
+          </div>
+
+          {/* Inactive Students */}
+          <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-orange-50 to-orange-100/50 p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600 font-medium">Inactive</p>
+                <p className="mt-2 text-3xl font-bold text-orange-700">
+                  {loading ? '...' : stats.totalStudents - stats.activeStudents}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-orange-100 flex items-center justify-center text-xl">⏸️</div>
             </div>
-            <div className="rounded-3xl bg-white p-5 shadow-soft">
-              <p className="text-sm text-slate-500">Last refresh</p>
-              <p className="mt-3 text-xl font-semibold text-slate-900">{loading ? 'Loading...' : 'Just now'}</p>
+            <p className="mt-3 text-xs text-slate-500">Need attention</p>
+          </div>
+
+          {/* Status */}
+          <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-purple-50 to-purple-100/50 p-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-600 font-medium">System Status</p>
+                <p className="mt-2 font-bold text-purple-700">
+                  {loading ? 'Loading' : '✓ Online'}
+                </p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center text-xl">🟢</div>
             </div>
+            <p className="mt-3 text-xs text-slate-500">All systems operational</p>
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
-          <h3 className="text-xl font-semibold text-slate-900">Welcome, {user?.firstName || user?.first_name}</h3>
-          <p className="mt-2 text-sm text-slate-500">{user?.schoolName || 'School Management System'}</p>
-          
-          <div className="mt-6 space-y-3 rounded-2xl bg-slate-50 p-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600">Email:</span>
-              <span className="font-medium text-slate-900">{user?.email}</span>
+        {/* Welcome & Info */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Welcome Card */}
+          <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-8 shadow-soft hover:shadow-lg transition-shadow">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900">Welcome back, {user?.first_name}! 👋</h3>
+                <p className="mt-2 text-slate-600">{user?.schoolName || 'School Management System'}</p>
+              </div>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600">Role:</span>
-              <span className="rounded-full bg-slate-900 px-3 py-1 text-white capitalize">
-                {user?.role?.replace('_', ' ')}
-              </span>
+
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+                <div className="flex items-center gap-2 text-blue-700">
+                  <span className="text-lg">✅</span>
+                  <span className="text-sm font-medium">Backend Connected</span>
+                </div>
+              </div>
+              <div className="rounded-lg bg-green-50 border border-green-200 p-4">
+                <div className="flex items-center gap-2 text-green-700">
+                  <span className="text-lg">✅</span>
+                  <span className="text-sm font-medium">Live Data Syncing</span>
+                </div>
+              </div>
+              <div className="rounded-lg bg-purple-50 border border-purple-200 p-4">
+                <div className="flex items-center gap-2 text-purple-700">
+                  <span className="text-lg">✅</span>
+                  <span className="text-sm font-medium">Auth Working</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <ul className="mt-6 space-y-3 text-sm text-slate-600">
-            <li className="rounded-2xl border border-slate-200 bg-slate-50 p-4">✅ Backend is connected and working</li>
-            <li className="rounded-2xl border border-slate-200 bg-slate-50 p-4">✅ Frontend is pulling live student data</li>
-            <li className="rounded-2xl border border-slate-200 bg-slate-50 p-4">✅ Authentication is working end-to-end</li>
-          </ul>
-        </section>
+          {/* User Info Card */}
+          <div className="rounded-xl border border-slate-200 bg-gradient-soft p-8 shadow-soft hover:shadow-lg transition-shadow">
+            <h4 className="text-lg font-bold text-slate-900 mb-4">Account Info</h4>
+            <div className="space-y-4">
+              <div className="pb-4 border-b border-slate-200">
+                <p className="text-xs uppercase font-semibold text-slate-500">Email</p>
+                <p className="mt-1 font-medium text-slate-900 break-all">{user?.email}</p>
+              </div>
+              <div className="pb-4 border-b border-slate-200">
+                <p className="text-xs uppercase font-semibold text-slate-500">Role</p>
+                <div className="mt-2">
+                  <span className="inline-block rounded-full bg-primary-100 text-primary-700 px-3 py-1 text-xs font-semibold capitalize">
+                    {user?.role?.replace('_', ' ')}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs uppercase font-semibold text-slate-500 mb-2">Last Login</p>
+                <p className="text-sm text-slate-600">Just now</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </Layout>
   );

@@ -132,3 +132,74 @@ exports.setupAdmin = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+// User registration - self-signup
+exports.signup = async (req, res) => {
+  try {
+    const { email, password, first_name, last_name, school_name, role } = req.body;
+
+    // Validate input
+    if (!email || !password || !first_name || !last_name || !school_name) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    // Check if email already exists
+    const existingUser = await db.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create school
+    const schoolResult = await db.query(
+      'INSERT INTO schools (name) VALUES ($1) RETURNING id',
+      [school_name]
+    );
+    const schoolId = schoolResult.rows[0].id;
+
+    // Create user
+    const userResult = await db.query(
+      `INSERT INTO users (school_id, email, password_hash, role, first_name, last_name, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, true) 
+       RETURNING id, email, first_name, last_name`,
+      [schoolId, email.toLowerCase(), hashedPassword, role || 'admin', first_name, last_name]
+    );
+
+    const user = userResult.rows[0];
+
+    // Generate JWT
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        email: user.email, 
+        role: role || 'admin',
+        schoolId: schoolId 
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    res.status(201).json({
+      message: 'Account created successfully',
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: role || 'admin',
+        firstName: user.first_name,
+        lastName: user.last_name,
+        schoolId: schoolId,
+        schoolName: school_name
+      }
+    });
+  } catch (error) {
+    console.error('Signup error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};

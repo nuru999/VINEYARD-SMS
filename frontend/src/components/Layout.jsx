@@ -2,12 +2,12 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
-  { label: 'Dashboard', path: '/' },
-  { label: 'Students', path: '/students' },
-  { label: 'Fees', path: '/fees' },
-  { label: 'Grades', path: '/grades' },
-  { label: 'Reports', path: '/reports' },
-  { label: 'Settings', path: '/settings' }
+  { label: 'Dashboard', path: '/', icon: '📊' },
+  { label: 'Students', path: '/students', icon: '👥' },
+  { label: 'Fees', path: '/fees', icon: '💰' },
+  { label: 'Grades', path: '/grades', icon: '📝' },
+  { label: 'Reports', path: '/reports', icon: '📈' },
+  { label: 'Settings', path: '/settings', icon: '⚙️' }
 ];
 
 export default function Layout({ children }) {
@@ -20,56 +20,79 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="mx-auto flex min-h-screen max-w-7xl gap-6 px-4 py-6 lg:px-8">
-        <aside className="hidden w-72 flex-col rounded-3xl bg-white p-6 shadow-soft lg:flex">
-          <div className="mb-10">
-            <h1 className="text-2xl font-semibold text-slate-900">VINEYARD SMS</h1>
-            <p className="mt-2 text-sm text-slate-500">School management system</p>
+        <aside className="hidden w-72 flex-col rounded-2xl bg-white p-6 shadow-soft lg:flex border border-slate-100">
+          {/* Logo Section */}
+          <div className="mb-10 pb-6 border-b border-slate-100">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center">
+                <span className="text-lg font-bold text-white">📚</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-slate-900">VINEYARD</h1>
+                <p className="text-xs text-slate-500">SMS</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 ml-0">School management system</p>
           </div>
 
+          {/* User Info */}
           {user && (
-            <div className="mb-8 rounded-2xl bg-slate-50 p-4 text-sm">
-              <p className="text-slate-500">Logged in as:</p>
-              <p className="mt-1 font-semibold text-slate-900">
+            <div className="mb-8 rounded-lg bg-gradient-soft border border-slate-200 p-4 text-sm">
+              <p className="text-xs text-slate-600 uppercase font-semibold">Logged in as</p>
+              <p className="mt-2 font-semibold text-slate-900">
                 {user.first_name} {user.last_name}
               </p>
-              <p className="mt-1 text-xs text-slate-500 capitalize">{user.role?.replace('_', ' ')}</p>
+              <p className="mt-1 text-xs text-slate-500 capitalize">
+                <span className="inline-block rounded-full bg-primary-100 text-primary-700 px-2 py-1 mt-2 font-medium">
+                  {user.role?.replace('_', ' ')}
+                </span>
+              </p>
             </div>
           )}
 
-          <nav className="space-y-2">
+          {/* Navigation */}
+          <nav className="flex-1 space-y-1">
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) =>
-                  `block rounded-2xl px-4 py-3 text-sm font-medium transition ${
-                    isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
+                  `block rounded-lg px-4 py-3 text-sm font-medium transition ${
+                    isActive
+                      ? 'bg-gradient-primary text-white shadow-soft'
+                      : 'text-slate-700 hover:bg-slate-100'
                   }`
                 }
                 end={item.path === '/'}
               >
-                {item.label}
+                <span className="flex items-center gap-3">
+                  {item.icon}
+                  {item.label}
+                </span>
               </NavLink>
             ))}
           </nav>
+
+          {/* Logout Button */}
           <button
             onClick={onLogout}
-            className="mt-auto rounded-2xl bg-red-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-600"
+            className="w-full rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-100 border border-red-200 mt-6"
           >
-            Log out
+            Sign out
           </button>
         </aside>
 
-        <main className="flex-1 rounded-3xl bg-white p-6 shadow-soft">
-          <div className="mb-6 flex items-center justify-between gap-4">
+        <main className="flex-1 rounded-2xl bg-white p-8 shadow-soft border border-slate-100">
+          <div className="mb-8 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-semibold text-slate-900">School Management</h2>
-              <p className="text-sm text-slate-500">Manage students, fees, grades and reports.</p>
+              <h2 className="text-3xl font-bold text-slate-900">School Management</h2>
+              <p className="mt-1 text-slate-600">Manage students, fees, grades and reports.</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700">
-              🔴 Live Data
+            <div className="hidden sm:flex items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-4 py-2 text-sm text-primary-700 font-medium">
+              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+              Live Data
             </div>
           </div>
           {children}
