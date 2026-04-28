@@ -38,9 +38,9 @@ async function get844ReportCard(res, studentId, termId, studentData) {
             s.code as subject_code, s.name as subject_name
      FROM assessments a
      JOIN subjects s ON a.subject_id = s.id
-     WHERE a.term_id = $1 AND a.curriculum = '8-4-4'
+     WHERE ($1::uuid IS NULL OR a.term_id = $1) AND a.curriculum = '8-4-4'
      ORDER BY s.name`,
-    [termId]
+    [termId || null]
   );
 
   // Get grades for each assessment
@@ -113,9 +113,9 @@ async function getCBCReportCard(res, studentId, termId, studentData) {
             s.code as subject_code, s.name as subject_name
      FROM assessments a
      JOIN subjects s ON a.subject_id = s.id
-     WHERE a.term_id = $1 AND a.curriculum = 'cbc'
+     WHERE ($1::uuid IS NULL OR a.term_id = $1) AND a.curriculum = 'cbc'
      ORDER BY s.name`,
-    [termId]
+    [termId || null]
   );
 
   // Get CBC grades

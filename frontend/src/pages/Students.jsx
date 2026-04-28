@@ -46,10 +46,7 @@ export default function Students() {
     setSubmitting(true);
     setError('');
     try {
-      await createStudent({
-        ...form,
-        admissionNumber: 'AUTO'
-      });
+      await createStudent(form);
       setShowForm(false);
       setForm({
         firstName: '',

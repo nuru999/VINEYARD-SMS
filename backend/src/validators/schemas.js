@@ -8,7 +8,7 @@ exports.loginSchema = Joi.object({
 exports.createStudentSchema = Joi.object({
   firstName: Joi.string().min(2).max(100).required(),
   lastName: Joi.string().min(2).max(100).required(),
-  admissionNumber: Joi.string().required(),
+  admissionNumber: Joi.string().optional(),
   gender: Joi.string().valid('male', 'female', 'other').required(),
   dateOfBirth: Joi.date().iso().required(),
   curriculum: Joi.string().valid('8-4-4', 'cbc').required(),
