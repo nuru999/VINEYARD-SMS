@@ -13,6 +13,7 @@ export default function Fees() {
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
     paymentMethod: 'cash',
+    status: 'completed',
     reference: '',
     description: ''
   });
@@ -72,16 +73,25 @@ export default function Fees() {
     setSubmitting(true);
     setError('');
     try {
+      const amount = Number(paymentForm.amount);
+      if (!amount || amount <= 0) {
+        setError('Enter a valid amount greater than 0');
+        setSubmitting(false);
+        return;
+      }
+
       await recordFeePayment({
         studentId: selectedStudentId,
-        amount: Number(paymentForm.amount),
+        amount,
         paymentMethod: paymentForm.paymentMethod,
-        reference: paymentForm.reference,
-        description: paymentForm.description
+        status: paymentForm.status,
+        reference: paymentForm.reference.trim(),
+        description: paymentForm.description.trim()
       });
       setPaymentForm({
         amount: '',
         paymentMethod: 'cash',
+        status: 'completed',
         reference: '',
         description: ''
       });
@@ -95,8 +105,12 @@ export default function Fees() {
     }
   };
 
-  const totalCollected = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
-  const totalPending = payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0);
+  const totalCollected = payments
+    .filter((p) => p.status === 'completed')
+    .reduce((sum, p) => sum + Number.parseFloat(p.amount || 0), 0);
+  const totalPending = payments
+    .filter((p) => p.status === 'pending')
+    .reduce((sum, p) => sum + Number.parseFloat(p.amount || 0), 0);
 
   return (
     <Layout>
@@ -175,6 +189,15 @@ export default function Fees() {
               <option value="cheque">Cheque</option>
               <option value="bank">Bank Transfer</option>
             </select>
+            <select
+              name="status"
+              value={paymentForm.status}
+              onChange={onPaymentFormChange}
+              className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+            >
+              <option value="completed">Completed</option>
+              <option value="pending">Pending</option>
+            </select>
             <input
               type="text"
               name="reference"
@@ -245,7 +268,7 @@ export default function Fees() {
                     <td className="px-6 py-4 text-slate-600">{new Date(payment.created_at).toLocaleDateString()}</td>
                     <td className="px-6 py-4 font-medium text-slate-900">KES {Number(payment.amount).toLocaleString()}</td>
                     <td className="px-6 py-4 text-slate-600 capitalize">{payment.payment_method || payment.paymentMethod}</td>
-                    <td className="px-6 py-4 text-slate-600">{payment.reference || '-'}</td>
+                    <td className="px-6 py-4 text-slate-600">{payment.transaction_code || '-'}</td>
                     <td className="px-6 py-4">
                       {payment.status === 'completed' ? (
                         <span className="inline-flex items-center gap-2 rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-semibold">

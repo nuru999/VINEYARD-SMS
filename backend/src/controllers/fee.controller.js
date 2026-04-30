@@ -38,10 +38,13 @@ exports.getFeeStatement = async (req, res) => {
       [studentId]
     );
 
-    // Calculate totals
-    const totalCharged = feeStructure.rows.reduce((sum, fee) => sum + parseFloat(fee.amount), 0);
-    const totalPaid = payments.rows.reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+    // Calculate totals using completed payments only for fee balance engine.
+    const totalCharged = feeStructure.rows.reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0);
+    const totalPaid = payments.rows
+      .filter((payment) => payment.status === 'completed')
+      .reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0);
     const balance = totalCharged - totalPaid;
+    const pendingAmount = Math.max(balance, 0);
 
     res.json({
       studentId,
@@ -51,6 +54,7 @@ exports.getFeeStatement = async (req, res) => {
         totalCharged,
         totalPaid,
         balance,
+        pendingAmount,
         status: balance <= 0 ? 'paid' : 'owing'
       }
     });
@@ -61,7 +65,7 @@ exports.getFeeStatement = async (req, res) => {
 
 exports.recordPayment = async (req, res) => {
   try {
-    const { studentId, amount, paymentMethod, reference, description } = req.body;
+    const { studentId, amount, paymentMethod, reference, description, status } = req.body;
     const schoolId = req.user.school_id;
     const recordedBy = req.user.id;
 
@@ -75,19 +79,39 @@ exports.recordPayment = async (req, res) => {
       return res.status(404).json({ message: 'Student not found' });
     }
 
-    const transactionCode = generateTransactionCode();
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ message: 'Amount must be greater than 0' });
+    }
+
+    const normalizedMethod = String(paymentMethod || '').trim().toLowerCase();
+    const allowedMethods = ['cash', 'mpesa', 'cheque', 'bank'];
+    if (!allowedMethods.includes(normalizedMethod)) {
+      return res.status(400).json({ message: 'Invalid payment method' });
+    }
+
+    const normalizedStatus = String(status || 'completed').trim().toLowerCase();
+    const allowedStatus = ['completed', 'pending'];
+    if (!allowedStatus.includes(normalizedStatus)) {
+      return res.status(400).json({ message: 'Invalid status. Use completed or pending.' });
+    }
+
+    const transactionCode = (reference && String(reference).trim()) || generateTransactionCode();
+    const notes = description ? String(description).trim() : null;
 
     const result = await db.query(
       `INSERT INTO fee_payments
-       (student_id, amount, payment_method, transaction_code, reference_number,
-        description, recorded_by, payment_date)
+       (student_id, amount, payment_method, transaction_code, notes, status, recorded_by, payment_date)
        VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_DATE)
        RETURNING *`,
-      [studentId, amount, paymentMethod, transactionCode, reference, description, recordedBy]
+      [studentId, numericAmount, normalizedMethod, transactionCode, notes, normalizedStatus, recordedBy]
     );
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    if (error.code === '22P02') {
+      return res.status(400).json({ message: 'Invalid value submitted for fee payment', error: error.message });
+    }
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

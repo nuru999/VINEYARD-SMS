@@ -4,6 +4,17 @@ import { getToken, saveToken, clearToken } from '../services/auth';
 
 const AuthContext = createContext(null);
 
+const normalizeUser = (user) => {
+  if (!user) return null;
+  return {
+    ...user,
+    first_name: user.first_name || user.firstName || '',
+    last_name: user.last_name || user.lastName || '',
+    school_name: user.school_name || user.schoolName || '',
+    school_id: user.school_id || user.schoolId || null
+  };
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,7 +29,7 @@ export function AuthProvider({ children }) {
 
       try {
         const response = await getProfile();
-        setUser(response.data);
+        setUser(normalizeUser(response.data));
       } catch (error) {
         clearToken();
         setUser(null);
@@ -33,7 +44,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const response = await api.post('/auth/login', { email, password });
     saveToken(response.data.token);
-    setUser(response.data.user);
+    setUser(normalizeUser(response.data.user));
     return response.data;
   };
 

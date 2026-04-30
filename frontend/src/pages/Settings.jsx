@@ -55,7 +55,7 @@ export default function Settings() {
             <p className="text-sm text-slate-600 mb-6">Current authenticated user information.</p>
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">Admin email</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">User email</label>
                 <input
                   type="email"
                   className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 cursor-not-allowed"

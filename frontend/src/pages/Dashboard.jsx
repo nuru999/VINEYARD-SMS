@@ -98,8 +98,12 @@ export default function Dashboard() {
           <div className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-8 shadow-soft hover:shadow-lg transition-shadow">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-2xl font-bold text-slate-900">Welcome back, {user?.first_name}! 👋</h3>
-                <p className="mt-2 text-slate-600">{user?.schoolName || 'School Management System'}</p>
+                <h3 className="text-2xl font-bold text-slate-900">
+                  Welcome back, {user?.first_name || user?.firstName || 'User'}! 👋
+                </h3>
+                <p className="mt-2 text-slate-600">
+                  {user?.school_name || user?.schoolName || 'School Management System'}
+                </p>
               </div>
             </div>
 
