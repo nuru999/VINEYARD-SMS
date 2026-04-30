@@ -84,6 +84,23 @@ exports.createStudent = async (req, res) => {
       currentGrade, stream, boardingStatus, guardians = []
     } = value;
 
+    // Normalize enum-like values so UI display formats (e.g. "8 4 4")
+    // do not break PostgreSQL enum inserts.
+    const normalizedCurriculumInput = String(curriculum || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '')
+      .replace(/_/g, '-');
+    const normalizedCurriculum =
+      normalizedCurriculumInput === '844' || normalizedCurriculumInput === '8-4-4'
+        ? '8-4-4'
+        : normalizedCurriculumInput === 'cbc'
+          ? 'cbc'
+          : curriculum;
+
+    const normalizedGender = String(gender || '').trim().toLowerCase();
+    const normalizedBoardingStatus = String(boardingStatus || 'day').trim().toLowerCase();
+
     // Generate admission number
     const year = new Date().getFullYear();
     const sequenceResult = await db.query(
@@ -94,6 +111,9 @@ exports.createStudent = async (req, res) => {
 
     // Get school code (assuming it's the first 3 letters of school name)
     const schoolResult = await db.query('SELECT name FROM schools WHERE id = $1', [schoolId]);
+    if (schoolResult.rows.length === 0) {
+      return res.status(400).json({ message: 'School profile not found for this account' });
+    }
     const schoolCode = schoolResult.rows[0].name.substring(0, 3).toUpperCase();
 
     const admissionNumber = generateAdmissionNumber(schoolCode, year, sequence);
@@ -109,8 +129,8 @@ exports.createStudent = async (req, res) => {
           curriculum, current_grade, stream, boarding_status, admission_date)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_DATE)
          RETURNING *`,
-        [schoolId, admissionNumber, firstName, lastName, gender, dateOfBirth,
-         curriculum, currentGrade, stream, boardingStatus]
+        [schoolId, admissionNumber, firstName, lastName, normalizedGender, dateOfBirth,
+         normalizedCurriculum, currentGrade, stream, normalizedBoardingStatus]
       );
 
       const student = studentResult.rows[0];
@@ -134,6 +154,12 @@ exports.createStudent = async (req, res) => {
       client.release();
     }
   } catch (error) {
+    if (error.code === '22P02') {
+      return res.status(400).json({
+        message: 'Invalid value provided for student details. Please check curriculum and gender.',
+        error: error.message
+      });
+    }
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

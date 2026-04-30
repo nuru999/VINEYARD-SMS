@@ -41,12 +41,35 @@ export default function Students() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const normalizeCurriculum = (value) => {
+    const normalized = String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '')
+      .replace(/_/g, '-');
+
+    if (normalized === '844' || normalized === '8-4-4') return '8-4-4';
+    if (normalized === 'cbc') return 'cbc';
+    return value;
+  };
+
   const handleCreateStudent = async (event) => {
     event.preventDefault();
     setSubmitting(true);
     setError('');
     try {
-      await createStudent(form);
+      const payload = {
+        ...form,
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        currentGrade: form.currentGrade.trim(),
+        stream: form.stream.trim(),
+        curriculum: normalizeCurriculum(form.curriculum),
+        gender: String(form.gender || '').trim().toLowerCase(),
+        boardingStatus: String(form.boardingStatus || 'day').trim().toLowerCase()
+      };
+
+      await createStudent(payload);
       setShowForm(false);
       setForm({
         firstName: '',
@@ -60,7 +83,12 @@ export default function Students() {
       });
       await fetchStudents();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create student');
+      const validationErrors = err.response?.data?.errors;
+      if (Array.isArray(validationErrors) && validationErrors.length > 0) {
+        setError(validationErrors.map((item) => item.message).join(', '));
+      } else {
+        setError(err.response?.data?.message || 'Failed to create student');
+      }
     } finally {
       setSubmitting(false);
     }
