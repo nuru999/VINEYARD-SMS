@@ -149,7 +149,12 @@ export default function Fees() {
   };
 
   const totalCollected = Number.parseFloat(feeSummary.totalPaid || 0);
-  const totalPending = Number.parseFloat(feeSummary.pendingAmount || 0);
+  const pendingTransactionsTotal = payments
+    .filter((p) => p.status === 'pending')
+    .reduce((sum, p) => sum + Number.parseFloat(p.amount || 0), 0);
+  const outstandingBalance = Number.parseFloat(feeSummary.pendingAmount || 0);
+  const hasFeeStructure = Number.parseFloat(feeSummary.totalCharged || 0) > 0;
+  const totalPending = hasFeeStructure ? outstandingBalance : pendingTransactionsTotal;
 
   return (
     <Layout>
@@ -196,7 +201,9 @@ export default function Fees() {
           <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-yellow-50 to-yellow-100/50 p-6 hover:shadow-lg transition-shadow">
             <p className="text-sm text-slate-600 font-medium">Pending</p>
             <p className="mt-3 text-3xl font-bold text-yellow-700">KES {totalPending.toLocaleString()}</p>
-            <p className="mt-2 text-xs text-slate-500">Outstanding balance</p>
+            <p className="mt-2 text-xs text-slate-500">
+              {hasFeeStructure ? 'Outstanding balance' : 'Pending transactions total'}
+            </p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 hover:shadow-lg transition-shadow">
             <p className="text-sm text-slate-600 font-medium">Total Payments</p>
