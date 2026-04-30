@@ -1,15 +1,26 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { getFeePayments, getStudents, recordFeePayment } from '../services/api';
+import { getFeePayments, getFeeStatement, getStudents, recordFeePayment } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { feePaymentSchema } from '../validation/schemas';
 
 export default function Fees() {
+  const { user } = useAuth();
   const [payments, setPayments] = useState([]);
   const [students, setStudents] = useState([]);
   const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [feeSummary, setFeeSummary] = useState({
+    totalCharged: 0,
+    totalPaid: 0,
+    balance: 0,
+    pendingAmount: 0
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const canRecordPayment = ['principal', 'bursar', 'super_admin'].includes(user?.role);
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
     paymentMethod: 'cash',
@@ -38,8 +49,17 @@ export default function Fees() {
       const defaultStudentId = allStudents[0].id;
       setSelectedStudentId(defaultStudentId);
 
-      const paymentsResponse = await getFeePayments(defaultStudentId);
+      const [paymentsResponse, statementResponse] = await Promise.all([
+        getFeePayments(defaultStudentId),
+        getFeeStatement(defaultStudentId)
+      ]);
       setPayments(paymentsResponse.data || []);
+      setFeeSummary(statementResponse.data?.summary || {
+        totalCharged: 0,
+        totalPaid: 0,
+        balance: 0,
+        pendingAmount: 0
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch fee payments');
     } finally {
@@ -52,9 +72,19 @@ export default function Fees() {
     setSelectedStudentId(studentId);
     setLoading(true);
     setError('');
+    setSuccess('');
     try {
-      const response = await getFeePayments(studentId);
-      setPayments(response.data || []);
+      const [paymentsResponse, statementResponse] = await Promise.all([
+        getFeePayments(studentId),
+        getFeeStatement(studentId)
+      ]);
+      setPayments(paymentsResponse.data || []);
+      setFeeSummary(statementResponse.data?.summary || {
+        totalCharged: 0,
+        totalPaid: 0,
+        balance: 0,
+        pendingAmount: 0
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch fee payments');
     } finally {
@@ -72,22 +102,26 @@ export default function Fees() {
     if (!selectedStudentId) return;
     setSubmitting(true);
     setError('');
+    setSuccess('');
     try {
-      const amount = Number(paymentForm.amount);
-      if (!amount || amount <= 0) {
-        setError('Enter a valid amount greater than 0');
-        setSubmitting(false);
-        return;
-      }
-
-      await recordFeePayment({
+      const payload = {
         studentId: selectedStudentId,
-        amount,
+        amount: Number(paymentForm.amount),
         paymentMethod: paymentForm.paymentMethod,
         status: paymentForm.status,
         reference: paymentForm.reference.trim(),
         description: paymentForm.description.trim()
-      });
+      };
+
+      const parsed = feePaymentSchema.safeParse(payload);
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message || 'Please correct payment fields');
+        setSubmitting(false);
+        return;
+      }
+
+      await recordFeePayment(payload);
+      setSuccess('Payment recorded successfully.');
       setPaymentForm({
         amount: '',
         paymentMethod: 'cash',
@@ -96,8 +130,17 @@ export default function Fees() {
         description: ''
       });
       setShowForm(false);
-      const response = await getFeePayments(selectedStudentId);
-      setPayments(response.data || []);
+      const [paymentsResponse, statementResponse] = await Promise.all([
+        getFeePayments(selectedStudentId),
+        getFeeStatement(selectedStudentId)
+      ]);
+      setPayments(paymentsResponse.data || []);
+      setFeeSummary(statementResponse.data?.summary || {
+        totalCharged: 0,
+        totalPaid: 0,
+        balance: 0,
+        pendingAmount: 0
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to record payment');
     } finally {
@@ -105,12 +148,8 @@ export default function Fees() {
     }
   };
 
-  const totalCollected = payments
-    .filter((p) => p.status === 'completed')
-    .reduce((sum, p) => sum + Number.parseFloat(p.amount || 0), 0);
-  const totalPending = payments
-    .filter((p) => p.status === 'pending')
-    .reduce((sum, p) => sum + Number.parseFloat(p.amount || 0), 0);
+  const totalCollected = Number.parseFloat(feeSummary.totalPaid || 0);
+  const totalPending = Number.parseFloat(feeSummary.pendingAmount || 0);
 
   return (
     <Layout>
@@ -120,12 +159,14 @@ export default function Fees() {
             <h3 className="text-2xl font-bold text-slate-900">Fee Management 💰</h3>
             <p className="mt-1 text-slate-600">Track and record student fee payments</p>
           </div>
-          <button
-            className="rounded-lg bg-gradient-primary px-6 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-primary-500/20 transition-all"
-            onClick={() => setShowForm((prev) => !prev)}
-          >
-            {showForm ? '✕ Cancel' : '+ Record payment'}
-          </button>
+          {canRecordPayment && (
+            <button
+              className="rounded-lg bg-gradient-primary px-6 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-primary-500/20 transition-all"
+              onClick={() => setShowForm((prev) => !prev)}
+            >
+              {showForm ? '✕ Cancel' : '+ Record payment'}
+            </button>
+          )}
         </div>
 
         {/* Student Selection */}
@@ -148,14 +189,14 @@ export default function Fees() {
         {/* Stats */}
         <div className="grid gap-6 md:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-green-50 to-green-100/50 p-6 hover:shadow-lg transition-shadow">
-            <p className="text-sm text-slate-600 font-medium">Total Collected</p>
+            <p className="text-sm text-slate-600 font-medium">Total Paid</p>
             <p className="mt-3 text-3xl font-bold text-green-700">KES {totalCollected.toLocaleString()}</p>
-            <p className="mt-2 text-xs text-slate-500">{payments.filter(p => p.status === 'completed').length} payments</p>
+            <p className="mt-2 text-xs text-slate-500">Expected: KES {Number.parseFloat(feeSummary.totalCharged || 0).toLocaleString()}</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-yellow-50 to-yellow-100/50 p-6 hover:shadow-lg transition-shadow">
             <p className="text-sm text-slate-600 font-medium">Pending</p>
             <p className="mt-3 text-3xl font-bold text-yellow-700">KES {totalPending.toLocaleString()}</p>
-            <p className="mt-2 text-xs text-slate-500">{payments.filter(p => p.status === 'pending').length} payments</p>
+            <p className="mt-2 text-xs text-slate-500">Outstanding balance</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 hover:shadow-lg transition-shadow">
             <p className="text-sm text-slate-600 font-medium">Total Payments</p>
@@ -164,7 +205,13 @@ export default function Fees() {
           </div>
         </div>
 
-        {showForm && (
+        {!canRecordPayment && (
+          <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800">
+            You can view fee records, but only principal/bursar accounts can record payments.
+          </div>
+        )}
+
+        {showForm && canRecordPayment && (
           <form
             onSubmit={handleRecordPayment}
             className="grid gap-4 rounded-xl border border-slate-200 bg-gradient-soft p-6 md:grid-cols-2"
@@ -237,6 +284,13 @@ export default function Fees() {
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
             <span>⚠️</span>
             <span>{error}</span>
+          </div>
+        )}
+
+        {success && (
+          <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
+            <span>✅</span>
+            <span>{success}</span>
           </div>
         )}
 

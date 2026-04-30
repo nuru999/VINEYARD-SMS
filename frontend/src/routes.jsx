@@ -17,9 +17,13 @@ export default function Router() {
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/students" element={<Students />} />
-        <Route path="/fees" element={<Fees />} />
         <Route path="/grades" element={<Grades />} />
         <Route path="/reports" element={<Reports />} />
+      </Route>
+      <Route element={<ProtectedRoute allowedRoles={['principal', 'bursar', 'super_admin']} />}>
+        <Route path="/fees" element={<Fees />} />
+      </Route>
+      <Route element={<ProtectedRoute allowedRoles={['principal', 'super_admin']} />}>
         <Route path="/settings" element={<Settings />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />

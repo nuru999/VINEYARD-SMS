@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { createStudent, getStudents } from '../services/api';
+import { studentSchema } from '../validation/schemas';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Students() {
+  const { user } = useAuth();
+  const canCreateStudent = ['principal', 'super_admin'].includes(user?.role);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
@@ -57,6 +62,7 @@ export default function Students() {
     event.preventDefault();
     setSubmitting(true);
     setError('');
+    setSuccess('');
     try {
       const payload = {
         ...form,
@@ -69,7 +75,15 @@ export default function Students() {
         boardingStatus: String(form.boardingStatus || 'day').trim().toLowerCase()
       };
 
+      const parsed = studentSchema.safeParse(payload);
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message || 'Please correct the form fields');
+        setSubmitting(false);
+        return;
+      }
+
       await createStudent(payload);
+      setSuccess('Student saved successfully.');
       setShowForm(false);
       setForm({
         firstName: '',
@@ -102,15 +116,23 @@ export default function Students() {
             <h3 className="text-2xl font-bold text-slate-900">Students 👥</h3>
             <p className="mt-1 text-slate-600">Manage student profiles. Total: <span className="font-semibold text-primary-600">{students.length}</span></p>
           </div>
-          <button
-            className="rounded-lg bg-gradient-primary px-6 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-primary-500/20 transition-all"
-            onClick={() => setShowForm((prev) => !prev)}
-          >
-            {showForm ? '✕ Cancel' : '+ Add new student'}
-          </button>
+          {canCreateStudent && (
+            <button
+              className="rounded-lg bg-gradient-primary px-6 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-primary-500/20 transition-all"
+              onClick={() => setShowForm((prev) => !prev)}
+            >
+              {showForm ? '✕ Cancel' : '+ Add new student'}
+            </button>
+          )}
         </div>
 
-        {showForm && (
+        {!canCreateStudent && (
+          <div className="rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800">
+            You can view students, but only principal accounts can add new students.
+          </div>
+        )}
+
+        {showForm && canCreateStudent && (
           <form
             onSubmit={handleCreateStudent}
             className="grid gap-4 rounded-xl border border-slate-200 bg-gradient-soft p-6 md:grid-cols-2"
@@ -156,6 +178,13 @@ export default function Students() {
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
             <span>⚠️</span>
             <span>{error}</span>
+          </div>
+        )}
+
+        {success && (
+          <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
+            <span>✅</span>
+            <span>{success}</span>
           </div>
         )}
 

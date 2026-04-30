@@ -2,12 +2,12 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const navItems = [
-  { label: 'Dashboard', path: '/', icon: '📊' },
-  { label: 'Students', path: '/students', icon: '👥' },
-  { label: 'Fees', path: '/fees', icon: '💰' },
-  { label: 'Grades', path: '/grades', icon: '📝' },
-  { label: 'Reports', path: '/reports', icon: '📈' },
-  { label: 'Settings', path: '/settings', icon: '⚙️' }
+  { label: 'Dashboard', path: '/', icon: '📊', roles: ['principal', 'teacher', 'super_admin', 'bursar'] },
+  { label: 'Students', path: '/students', icon: '👥', roles: ['principal', 'teacher', 'super_admin'] },
+  { label: 'Fees', path: '/fees', icon: '💰', roles: ['principal', 'super_admin', 'bursar'] },
+  { label: 'Grades', path: '/grades', icon: '📝', roles: ['principal', 'teacher', 'super_admin'] },
+  { label: 'Reports', path: '/reports', icon: '📈', roles: ['principal', 'teacher', 'super_admin'] },
+  { label: 'Settings', path: '/settings', icon: '⚙️', roles: ['principal', 'super_admin'] }
 ];
 
 export default function Layout({ children }) {
@@ -18,6 +18,8 @@ export default function Layout({ children }) {
     logout();
     navigate('/login');
   };
+
+  const visibleNavItems = navItems.filter((item) => !user?.role || item.roles.includes(user.role));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -54,7 +56,7 @@ export default function Layout({ children }) {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
