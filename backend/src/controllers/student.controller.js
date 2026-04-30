@@ -107,7 +107,7 @@ exports.createStudent = async (req, res) => {
       `SELECT COUNT(*) + 1 as next_seq FROM students WHERE school_id = $1 AND EXTRACT(YEAR FROM admission_date) = $2`,
       [schoolId, year]
     );
-    const sequence = sequenceResult.rows[0].next_seq;
+    let sequence = Number(sequenceResult.rows[0].next_seq) || 1;
 
     // Get school code (assuming it's the first 3 letters of school name)
     const schoolResult = await db.query('SELECT name FROM schools WHERE id = $1', [schoolId]);
@@ -116,7 +116,19 @@ exports.createStudent = async (req, res) => {
     }
     const schoolCode = schoolResult.rows[0].name.substring(0, 3).toUpperCase();
 
-    const admissionNumber = generateAdmissionNumber(schoolCode, year, sequence);
+    let admissionNumber = generateAdmissionNumber(schoolCode, year, sequence);
+    let admissionExists = await db.query(
+      'SELECT 1 FROM students WHERE admission_number = $1 LIMIT 1',
+      [admissionNumber]
+    );
+    while (admissionExists.rows.length > 0) {
+      sequence += 1;
+      admissionNumber = generateAdmissionNumber(schoolCode, year, sequence);
+      admissionExists = await db.query(
+        'SELECT 1 FROM students WHERE admission_number = $1 LIMIT 1',
+        [admissionNumber]
+      );
+    }
 
     const client = await db.pool.connect();
     try {
