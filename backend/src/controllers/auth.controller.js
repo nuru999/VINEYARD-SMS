@@ -147,6 +147,14 @@ exports.signup = async (req, res) => {
       return res.status(400).json({ message: 'Password must be at least 8 characters' });
     }
 
+    const allowedSignupRoles = ['teacher', 'principal'];
+    const normalizedRole = (role || 'teacher').toLowerCase();
+    if (!allowedSignupRoles.includes(normalizedRole)) {
+      return res.status(400).json({
+        message: 'Invalid role. Allowed roles are teacher or principal.'
+      });
+    }
+
     // Check if email already exists
     const existingUser = await db.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
     if (existingUser.rows.length > 0) {
@@ -168,7 +176,7 @@ exports.signup = async (req, res) => {
       `INSERT INTO users (school_id, email, password_hash, role, first_name, last_name, is_active)
        VALUES ($1, $2, $3, $4, $5, $6, true) 
        RETURNING id, email, first_name, last_name`,
-      [schoolId, email.toLowerCase(), hashedPassword, role || 'admin', first_name, last_name]
+      [schoolId, email.toLowerCase(), hashedPassword, normalizedRole, first_name, last_name]
     );
 
     const user = userResult.rows[0];
@@ -178,7 +186,7 @@ exports.signup = async (req, res) => {
       { 
         userId: user.id, 
         email: user.email, 
-        role: role || 'admin',
+        role: normalizedRole,
         schoolId: schoolId 
       },
       JWT_SECRET,
@@ -191,7 +199,7 @@ exports.signup = async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        role: role || 'admin',
+        role: normalizedRole,
         firstName: user.first_name,
         lastName: user.last_name,
         schoolId: schoolId,

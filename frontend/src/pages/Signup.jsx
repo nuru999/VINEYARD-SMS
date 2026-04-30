@@ -10,7 +10,8 @@ export default function Signup() {
     email: '',
     password: '',
     confirmPassword: '',
-    schoolName: ''
+    schoolName: '',
+    role: 'teacher'
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,6 +29,7 @@ export default function Signup() {
     if (form.password.length < 8) return 'Password must be at least 8 characters';
     if (form.password !== form.confirmPassword) return 'Passwords do not match';
     if (!form.schoolName.trim()) return 'School name is required';
+    if (!['teacher', 'principal'].includes(form.role)) return 'Please select a valid role';
     return null;
   };
 
@@ -49,7 +51,7 @@ export default function Signup() {
         email: form.email,
         password: form.password,
         school_name: form.schoolName,
-        role: 'admin'
+        role: form.role
       });
       navigate('/login');
     } catch (err) {
@@ -119,6 +121,19 @@ export default function Signup() {
                 placeholder="Your School Name"
                 className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Account type</label>
+              <select
+                name="role"
+                value={form.role}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+              >
+                <option value="teacher">Teacher</option>
+                <option value="principal">Head Teacher (Full Access)</option>
+              </select>
             </div>
 
             <div>
