@@ -136,10 +136,10 @@ exports.setupAdmin = async (req, res) => {
 // User registration - self-signup
 exports.signup = async (req, res) => {
   try {
-    const { email, password, first_name, last_name, school_name, role } = req.body;
+    const { email, password, first_name, last_name, role } = req.body;
 
     // Validate input
-    if (!email || !password || !first_name || !last_name || !school_name) {
+    if (!email || !password || !first_name || !last_name) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
@@ -161,17 +161,19 @@ exports.signup = async (req, res) => {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
+    // Get the configured school for this installation.
+    const schoolResult = await db.query('SELECT id, name FROM schools LIMIT 1');
+    if (schoolResult.rows.length === 0) {
+      return res.status(400).json({ message: 'School is not configured. Please complete initial setup first.' });
+    }
+
+    const schoolId = schoolResult.rows[0].id;
+    const schoolName = schoolResult.rows[0].name;
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create school
-    const schoolResult = await db.query(
-      'INSERT INTO schools (name) VALUES ($1) RETURNING id',
-      [school_name]
-    );
-    const schoolId = schoolResult.rows[0].id;
-
-    // Create user
+    // Create user under the single configured school
     const userResult = await db.query(
       `INSERT INTO users (school_id, email, password_hash, role, first_name, last_name, is_active)
        VALUES ($1, $2, $3, $4, $5, $6, true) 
@@ -203,7 +205,7 @@ exports.signup = async (req, res) => {
         firstName: user.first_name,
         lastName: user.last_name,
         schoolId: schoolId,
-        schoolName: school_name
+        schoolName: schoolName
       }
     });
   } catch (error) {

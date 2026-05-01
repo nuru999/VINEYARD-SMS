@@ -11,7 +11,6 @@ export default function Signup() {
     email: '',
     password: '',
     confirmPassword: '',
-    schoolName: '',
     role: 'teacher'
   });
   const [error, setError] = useState('');
@@ -39,7 +38,6 @@ export default function Signup() {
         last_name: form.lastName,
         email: form.email,
         password: form.password,
-        school_name: form.schoolName,
         role: form.role
       });
       navigate('/login');
@@ -100,17 +98,6 @@ export default function Signup() {
               </div>
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">School name</label>
-              <input
-                type="text"
-                name="schoolName"
-                value={form.schoolName}
-                onChange={handleChange}
-                placeholder="Your School Name"
-                className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
-              />
-            </div>
 
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">Account type</label>

@@ -29,7 +29,6 @@ export const signupSchema = z
     email: z.string().email('Enter a valid email address'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string().min(1, 'Confirm your password'),
-    schoolName: z.string().trim().min(1, 'School name is required'),
     role: z.enum(['teacher', 'principal'], { message: 'Select a valid account type' })
   })
   .refine((data) => data.password === data.confirmPassword, {

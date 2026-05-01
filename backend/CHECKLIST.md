@@ -15,7 +15,7 @@
 - [x] Helmet security headers
 
 #### Database & Schema
-- [x] PostgreSQL multi-tenant database
+- [x] PostgreSQL single-school database
 - [x] Complete database schema with indexes
 - [x] UUID primary keys
 - [x] Foreign key relationships
@@ -243,7 +243,7 @@ npm run test-mpesa     # Test M-Pesa configuration
 
 ## 🗄️ Database Tables Created
 
-1. `schools` - Multi-tenant school data
+1. `schools` - Single school profile and configuration
 2. `users` - System users with roles
 3. `students` - Student information
 4. `student_guardians` - Parent/guardian linkage

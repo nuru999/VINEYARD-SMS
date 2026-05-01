@@ -4,7 +4,7 @@ A comprehensive School Management System API built for Kenyan schools, supportin
 
 ## Features
 
-- **Multi-tenant Architecture**: Support for multiple schools
+- **Single School Deployment**: One school instance with role-based access
 - **User Management**: Role-based access (Super Admin, Principal, Teacher, Bursar, etc.)
 - **Student Management**: Complete student lifecycle management
 - **Academic Management**: Support for both 8-4-4 and CBC curricula
@@ -132,7 +132,7 @@ The API will be available at `http://localhost:5000`
 ## Database Schema
 
 The system uses PostgreSQL with the following main tables:
-- `schools` - Multi-tenant school data
+- `schools` - Single school profile and configuration
 - `users` - System users with roles
 - `students` - Student information
 - `subjects` - Academic subjects
