@@ -57,4 +57,46 @@ export const generateReportCard = (studentId, params) =>
 export const getClassReport = (grade, stream, termId) =>
   api.get('/reports/class', { params: { grade, stream, termId } });
 
-export default api;
+// Academic Years
+export const getAcademicYears = () => api.get('/academic/years');
+export const createAcademicYear = (payload) => api.post('/academic/years', payload);
+export const setCurrentAcademicYear = (id) => api.put(`/academic/years/${id}/set-current`);
+export const deleteAcademicYear = (id) => api.delete(`/academic/years/${id}`);
+
+// Terms
+export const getTerms = (params) => api.get('/academic/terms', { params });
+export const createTerm = (payload) => api.post('/academic/terms', payload);
+export const updateTerm = (id, payload) => api.put(`/academic/terms/${id}`, payload);
+export const setCurrentTerm = (id, payload) => api.put(`/academic/terms/${id}/set-current`, payload);
+export const deleteTerm = (id) => api.delete(`/academic/terms/${id}`);
+
+// Subjects
+export const getSubjects = (params) => api.get('/subjects', { params });
+export const createSubject = (payload) => api.post('/subjects', payload);
+export const updateSubject = (id, payload) => api.put(`/subjects/${id}`, payload);
+export const deleteSubject = (id) => api.delete(`/subjects/${id}`);
+
+// CBC Curriculum
+export const getStrands = (params) => api.get('/curriculum/strands', { params });
+export const createStrand = (payload) => api.post('/curriculum/strands', payload);
+export const updateStrand = (id, payload) => api.put(`/curriculum/strands/${id}`, payload);
+export const deleteStrand = (id) => api.delete(`/curriculum/strands/${id}`);
+
+export const getSubStrands = (params) => api.get('/curriculum/sub-strands', { params });
+export const createSubStrand = (payload) => api.post('/curriculum/sub-strands', payload);
+export const updateSubStrand = (id, payload) => api.put(`/curriculum/sub-strands/${id}`, payload);
+export const deleteSubStrand = (id) => api.delete(`/curriculum/sub-strands/${id}`);
+
+// Teacher Assignments
+export const getTeacherAssignments = (params) => api.get('/curriculum/assignments', { params });
+export const createTeacherAssignment = (payload) => api.post('/curriculum/assignments', payload);
+export const updateTeacherAssignment = (id, payload) => api.put(`/curriculum/assignments/${id}`, payload);
+export const deleteTeacherAssignment = (id) => api.delete(`/curriculum/assignments/${id}`);
+
+// Attendance
+export const getAttendanceByDate = (params) => api.get('/attendance/by-date', { params });
+export const getStudentAttendance = (studentId, params) => api.get(`/attendance/student/${studentId}`, { params });
+export const getAttendanceSummary = (params) => api.get('/attendance/summary', { params });
+export const markAttendance = (payload) => api.post('/attendance/mark', payload);
+export const bulkMarkAttendance = (payload) => api.post('/attendance/bulk-mark', payload);
+

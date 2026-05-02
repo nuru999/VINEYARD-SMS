@@ -7,6 +7,8 @@ import Fees from './pages/Fees';
 import Grades from './pages/Grades';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import Admin from './pages/Admin';
+import Attendance from './pages/Attendance';
 import ProtectedRoute from './components/ProtectedRoute';
 
 export default function Router() {
@@ -25,6 +27,10 @@ export default function Router() {
       </Route>
       <Route element={<ProtectedRoute allowedRoles={['principal', 'super_admin']} />}>
         <Route path="/settings" element={<Settings />} />
+        <Route path="/admin" element={<Admin />} />
+      </Route>
+      <Route element={<ProtectedRoute allowedRoles={['principal', 'super_admin', 'teacher']} />}>
+        <Route path="/attendance" element={<Attendance />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

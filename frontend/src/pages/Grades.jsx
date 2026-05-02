@@ -219,6 +219,14 @@ export default function Grades() {
           <p className="mt-1 text-slate-600">View submitted 8-4-4 scores and CBC competency records.</p>
         </div>
 
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          <p className="font-semibold">How this page is used</p>
+          <p className="mt-1">
+            1) Create an assessment (Test/Exam/Assignment), 2) choose it from the list, 3) enter each student's score or competency and save.
+            For 8-4-4, <span className="font-semibold">Contribution to term (%)</span> is how much this assessment contributes to final term averages.
+          </p>
+        </div>
+
         <div className="flex justify-end">
           <button
             className="rounded-lg bg-gradient-primary px-6 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-primary-500/20 transition-all"
@@ -293,11 +301,16 @@ export default function Grades() {
               className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               name="weightPercentage"
               type="number"
-              placeholder="Weight %"
+              placeholder="Contribution to term (%)"
               value={createForm.weightPercentage}
               onChange={onCreateChange}
+              min="0"
+              max="100"
               required
             />
+            <p className="-mt-2 text-xs text-slate-500 md:col-span-2">
+              Example: CAT can be 30%, End-term exam 70%. If you only use one assessment, keep it at 100%.
+            </p>
             <input
               className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
               name="assessmentDate"

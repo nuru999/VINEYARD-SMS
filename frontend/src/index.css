@@ -7,7 +7,36 @@
 }
 
 body {
-  @apply min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 font-sans antialiased;
+  @apply min-h-screen font-sans antialiased text-slate-900;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(14, 165, 233, 0.18), transparent 60%),
+    radial-gradient(1000px 550px at 110% 0%, rgba(168, 85, 247, 0.14), transparent 58%),
+    linear-gradient(135deg, #f8fafc 0%, #eff6ff 40%, #eef2ff 100%);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.15) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: radial-gradient(circle at center, black, transparent 78%);
+  z-index: -1;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+.dark body {
+  @apply text-slate-100;
+  background:
+    radial-gradient(1200px 650px at -5% -10%, rgba(56, 189, 248, 0.2), transparent 58%),
+    radial-gradient(900px 520px at 105% 5%, rgba(147, 51, 234, 0.22), transparent 56%),
+    linear-gradient(135deg, #020617 0%, #0b1120 45%, #111827 100%);
 }
 
 button,
@@ -16,6 +45,29 @@ select,
 textarea {
   @apply border border-slate-200 rounded-lg bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-primary-400 focus:ring-2 focus:ring-primary-100;
 }
+
+.dark button,
+.dark input,
+.dark select,
+.dark textarea {
+  @apply border-slate-700 bg-slate-900 text-slate-100 focus:border-primary-500 focus:ring-primary-900;
+}
+
+/* Global dark-mode contrast overrides for Tailwind utility text colors used across pages */
+.dark .text-slate-900 { color: rgb(241 245 249) !important; }
+.dark .text-slate-800 { color: rgb(226 232 240) !important; }
+.dark .text-slate-700 { color: rgb(203 213 225) !important; }
+.dark .text-slate-600 { color: rgb(180 193 210) !important; }
+.dark .text-slate-500 { color: rgb(148 163 184) !important; }
+.dark .text-slate-400 { color: rgb(129 140 157) !important; }
+
+/* Background and border adjustments so text always has enough contrast */
+.dark .bg-white { background-color: rgba(15, 23, 42, 0.88) !important; }
+.dark .bg-slate-50 { background-color: rgba(15, 23, 42, 0.7) !important; }
+.dark .bg-slate-100 { background-color: rgba(30, 41, 59, 0.7) !important; }
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300 { border-color: rgb(51 65 85) !important; }
 
 button:hover,
 input:focus,

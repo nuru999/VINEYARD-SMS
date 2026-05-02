@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { createStudent, getStudents } from '../services/api';
+import { createStudent, getStudents, updateStudent, deleteStudent } from '../services/api';
 import { studentSchema } from '../validation/schemas';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -15,6 +15,7 @@ export default function Students() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [rowActionLoadingId, setRowActionLoadingId] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     firstName: '',
@@ -111,6 +112,46 @@ export default function Students() {
     }
   };
 
+  const handleMarkTransferred = async (student) => {
+    const confirmed = window.confirm(
+      `Mark ${student.first_name} ${student.last_name} as transferred?`
+    );
+    if (!confirmed) return;
+
+    setRowActionLoadingId(student.id);
+    setError('');
+    setSuccess('');
+    try {
+      await updateStudent(student.id, { status: 'transferred' });
+      setSuccess('Student marked as transferred.');
+      await fetchStudents();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to mark student as transferred');
+    } finally {
+      setRowActionLoadingId('');
+    }
+  };
+
+  const handleDeleteStudent = async (student) => {
+    const confirmed = window.confirm(
+      `Permanently remove ${student.first_name} ${student.last_name}? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setRowActionLoadingId(student.id);
+    setError('');
+    setSuccess('');
+    try {
+      await deleteStudent(student.id);
+      setSuccess('Student removed successfully.');
+      await fetchStudents();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to remove student');
+    } finally {
+      setRowActionLoadingId('');
+    }
+  };
+
   useEffect(() => {
     const normalizedSearch = search.trim().toLowerCase();
     const filtered = students.filter((student) => {
@@ -163,7 +204,7 @@ export default function Students() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          {['all', 'active'].map((status) => (
+          {['all', 'active', 'transferred', 'graduated', 'suspended'].map((status) => (
             <button
               key={status}
               type="button"
@@ -174,7 +215,7 @@ export default function Students() {
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
-              {status === 'all' ? 'All' : status === 'active' ? 'Active' : 'Inactive'}
+              {status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
             </button>
           ))}
         </div>
@@ -261,6 +302,7 @@ export default function Students() {
                   <th className="px-6 py-4 font-semibold text-slate-900">Grade</th>
                   <th className="px-6 py-4 font-semibold text-slate-900">Stream</th>
                   <th className="px-6 py-4 font-semibold text-slate-900">Status</th>
+                  {canCreateStudent && <th className="px-6 py-4 font-semibold text-slate-900">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
@@ -276,13 +318,42 @@ export default function Students() {
                           <span className="h-2 w-2 rounded-full bg-green-600"></span>
                           Active
                         </span>
+                      ) : student.status === 'transferred' ? (
+                        <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 text-blue-700 px-3 py-1 text-xs font-semibold">
+                          <span className="h-2 w-2 rounded-full bg-blue-600"></span>
+                          Transferred
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 text-slate-600 px-3 py-1 text-xs font-semibold">
                           <span className="h-2 w-2 rounded-full bg-slate-400"></span>
-                          Inactive
+                          {student.status || 'Inactive'}
                         </span>
                       )}
                     </td>
+                    {canCreateStudent && (
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          {student.status !== 'transferred' && (
+                            <button
+                              type="button"
+                              onClick={() => handleMarkTransferred(student)}
+                              disabled={rowActionLoadingId === student.id}
+                              className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+                            >
+                              {rowActionLoadingId === student.id ? 'Working...' : 'Transfer out'}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteStudent(student)}
+                            disabled={rowActionLoadingId === student.id}
+                            className="rounded-md border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60"
+                          >
+                            {rowActionLoadingId === student.id ? 'Working...' : 'Remove'}
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

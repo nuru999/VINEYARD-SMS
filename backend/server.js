@@ -11,7 +11,13 @@ const studentRoutes = require('./src/routes/student.routes');
 const gradeRoutes = require('./src/routes/grades.routes');
 const feeRoutes = require('./src/routes/fee.routes');
 const reportRoutes = require('./src/routes/report.routes');
-const webhookRoutes = require('./src/routes/webhook.routes'); // Added import
+const webhookRoutes = require('./src/routes/webhook.routes');
+const academicRoutes = require('./src/routes/academic.routes');
+const subjectRoutes = require('./src/routes/subject.routes');
+const attendanceRoutes = require('./src/routes/attendance.routes');
+const curriculumRoutes = require('./src/routes/curriculum.routes');
+const smsRoutes = require('./src/routes/sms.routes');
+const auditRoutes = require('./src/routes/audit.routes');
 
 // Middleware imports
 const { errorHandler } = require('./src/middleware/error.middleware');
@@ -97,6 +103,12 @@ app.use('/api/students', authenticate, studentRoutes);
 app.use('/api/grades', authenticate, gradeRoutes);
 app.use('/api/fees', authenticate, feeRoutes);
 app.use('/api/reports', authenticate, reportRoutes);
+app.use('/api/academic', authenticate, academicRoutes);
+app.use('/api/subjects', authenticate, subjectRoutes);
+app.use('/api/attendance', authenticate, attendanceRoutes);
+app.use('/api/curriculum', authenticate, curriculumRoutes);
+app.use('/api/sms', authenticate, smsRoutes);
+app.use('/api/audit', authenticate, auditRoutes);
 
 // ============== ERROR HANDLING ==============
 
