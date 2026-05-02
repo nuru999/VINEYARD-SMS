@@ -157,7 +157,67 @@ export default function Reports() {
                   {studentReport.summary?.overallGrade && (
                     <p className="font-semibold">Overall: {studentReport.summary.overallGrade} ({studentReport.summary.overallPercentage}%)</p>
                   )}
+                  {studentReport.summary?.status && (
+                    <p>Status: {studentReport.summary.status}</p>
+                  )}
                 </div>
+              </div>
+            )}
+
+            {studentReport?.subjects?.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft">
+                <h4 className="text-base font-semibold text-slate-900 mb-4">Report details</h4>
+                {studentReport.curriculum === 'cbc' ? (
+                  <div className="space-y-4">
+                    {studentReport.subjects.map((subject) => (
+                      <div key={subject.subjectCode || subject.subject} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                        <h5 className="font-semibold text-slate-900">{subject.subject}</h5>
+                        <p className="text-xs text-slate-500">{subject.assessment} ({subject.type})</p>
+                        {Object.entries(subject.strands || {}).map(([strandName, strandItems]) => (
+                          <div key={strandName} className="mt-3">
+                            <p className="text-sm font-semibold text-slate-800">{strandName}</p>
+                            <ul className="mt-2 space-y-2 text-slate-700">
+                              {strandItems.map((strand) => (
+                                <li key={strand.subStrand} className="rounded-lg bg-white p-3 shadow-sm">
+                                  <p className="font-medium">{strand.subStrand}</p>
+                                  <p className="text-xs text-slate-500">Level: {strand.competencyLevel || 'N/A'}</p>
+                                  {strand.observations && <p className="text-xs text-slate-500 mt-1">{strand.observations}</p>}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold text-slate-900">Subject</th>
+                          <th className="px-4 py-3 font-semibold text-slate-900">Assessment</th>
+                          <th className="px-4 py-3 font-semibold text-slate-900">Score</th>
+                          <th className="px-4 py-3 font-semibold text-slate-900">Percentage</th>
+                          <th className="px-4 py-3 font-semibold text-slate-900">Grade</th>
+                          <th className="px-4 py-3 font-semibold text-slate-900">Points</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {studentReport.subjects.map((subject) => (
+                          <tr key={`${subject.subjectCode}-${subject.assessment}`} className="hover:bg-slate-50">
+                            <td className="px-4 py-3 text-slate-700">{subject.subject}</td>
+                            <td className="px-4 py-3 text-slate-700">{subject.assessment}</td>
+                            <td className="px-4 py-3 font-semibold text-slate-900">{subject.score ?? '-'}</td>
+                            <td className="px-4 py-3 text-slate-700">{subject.percentage ?? '-'}</td>
+                            <td className="px-4 py-3 text-slate-700">{subject.grade ?? '-'}</td>
+                            <td className="px-4 py-3 text-slate-700">{subject.points ?? '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
           </div>

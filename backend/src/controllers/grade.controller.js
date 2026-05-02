@@ -1,5 +1,24 @@
 const db = require('../config/database');
 
+exports.createAssessment = async (req, res) => {
+  try {
+    const schoolId = req.user.school_id;
+    const { name, assessmentType, curriculum, maxScore, weightPercentage, assessmentDate, termId, subjectId } = req.body;
+
+    const result = await db.query(
+      `INSERT INTO assessments 
+       (school_id, name, assessment_type, curriculum, max_score, weight_percentage, assessment_date, term_id, subject_id, teacher_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING *`,
+      [schoolId, name, assessmentType, curriculum, maxScore, weightPercentage, assessmentDate, termId, subjectId, req.user.id]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating assessment', error: error.message });
+  }
+};
+
 exports.getAssessments = async (req, res) => {
   try {
     const schoolId = req.user.school_id;
@@ -10,7 +29,7 @@ exports.getAssessments = async (req, res) => {
              a.assessment_date, a.term_id, t.name as term_name,
              s.id as subject_id, s.name as subject_name, s.code as subject_code
       FROM assessments a
-      JOIN subjects s ON a.subject_id = s.id
+      LEFT JOIN subjects s ON a.subject_id = s.id
       LEFT JOIN terms t ON a.term_id = t.id
       WHERE a.school_id = $1
     `;

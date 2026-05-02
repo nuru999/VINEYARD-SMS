@@ -8,6 +8,9 @@ export default function Students() {
   const { user } = useAuth();
   const canCreateStudent = ['principal', 'super_admin'].includes(user?.role);
   const [students, setStudents] = useState([]);
+  const [filteredStudents, setFilteredStudents] = useState([]);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -108,6 +111,20 @@ export default function Students() {
     }
   };
 
+  useEffect(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    const filtered = students.filter((student) => {
+      const matchesSearch = !normalizedSearch ||
+        [student.first_name, student.last_name, student.admission_number, student.current_grade, student.stream]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedSearch));
+
+      const matchesStatus = statusFilter === 'all' || student.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+    setFilteredStudents(filtered);
+  }, [students, search, statusFilter]);
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -116,14 +133,50 @@ export default function Students() {
             <h3 className="text-2xl font-bold text-slate-900">Students 👥</h3>
             <p className="mt-1 text-slate-600">Manage student profiles. Total: <span className="font-semibold text-primary-600">{students.length}</span></p>
           </div>
-          {canCreateStudent && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative w-full sm:w-80">
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search students..."
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 pr-12 text-slate-900 placeholder:text-slate-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            {canCreateStudent && (
+              <button
+                className="rounded-lg bg-gradient-primary px-6 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-primary-500/20 transition-all"
+                onClick={() => setShowForm((prev) => !prev)}
+              >
+                {showForm ? '✕ Cancel' : '+ Add new student'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          {['all', 'active'].map((status) => (
             <button
-              className="rounded-lg bg-gradient-primary px-6 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-primary-500/20 transition-all"
-              onClick={() => setShowForm((prev) => !prev)}
+              key={status}
+              type="button"
+              onClick={() => setStatusFilter(status)}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                statusFilter === status
+                  ? 'bg-primary-600 text-white shadow-soft'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
             >
-              {showForm ? '✕ Cancel' : '+ Add new student'}
+              {status === 'all' ? 'All' : status === 'active' ? 'Active' : 'Inactive'}
             </button>
-          )}
+          ))}
         </div>
 
         {!canCreateStudent && (
@@ -193,10 +246,10 @@ export default function Students() {
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
             <p className="mt-3">Loading students...</p>
           </div>
-        ) : students.length === 0 ? (
+        ) : filteredStudents.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-slate-500">No students found</p>
-            <p className="text-sm text-slate-400 mt-1">Add your first student to get started</p>
+            <p className="text-slate-500">No students match your search or filter.</p>
+            <p className="text-sm text-slate-400 mt-1">Try adjusting the search term or status filter.</p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft hover:shadow-lg transition-shadow">
@@ -211,7 +264,7 @@ export default function Students() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {students.map((student) => (
+                {filteredStudents.map((student) => (
                   <tr key={student.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-900">{student.first_name} {student.last_name}</td>
                     <td className="px-6 py-4 text-slate-600">{student.admission_number}</td>

@@ -16,10 +16,15 @@ export default function Settings() {
           {/* School Profile */}
           <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-soft hover:shadow-lg transition-shadow">
             <div className="flex items-center gap-3 mb-6">
-              <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center">
-                <span className="text-lg">🏫</span>
+              <img
+                src={user?.school_logo || '/vineyard-school.png'}
+                alt="School logo"
+                className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
+              />
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">School Profile</h3>
+                <p className="text-sm text-slate-500">Logo is loaded from your school profile.</p>
               </div>
-              <h3 className="text-xl font-bold text-slate-900">School Profile</h3>
             </div>
             <p className="text-sm text-slate-600 mb-6">Current school information from your account session.</p>
             <div className="space-y-4">

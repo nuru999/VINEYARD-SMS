@@ -81,7 +81,7 @@ exports.getProfile = async (req, res) => {
   try {
     const result = await db.query(
       `SELECT u.id, u.email, u.role, u.first_name, u.last_name, u.phone, 
-              u.avatar_url, u.created_at, s.name as school_name
+              u.avatar_url, u.created_at, s.name as school_name, s.logo_url as school_logo
        FROM users u
        LEFT JOIN schools s ON u.school_id = s.id
        WHERE u.id = $1`,

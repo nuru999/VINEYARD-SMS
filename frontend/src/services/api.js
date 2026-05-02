@@ -42,6 +42,7 @@ export const initiateSTKPush = (studentId, amount, phoneNumber) =>
 
 // Grades
 export const getAssessments = (params) => api.get('/grades/assessments', { params });
+export const createAssessment = (payload) => api.post('/grades/assessments', payload);
 export const getAssessmentGrades = (assessmentId, curriculum) =>
   api.get(`/grades/assessment/${assessmentId}`, { params: { curriculum } });
 export const submitGrades844 = (assessmentId, grades) =>

@@ -11,6 +11,7 @@ const normalizeUser = (user) => {
     first_name: user.first_name || user.firstName || '',
     last_name: user.last_name || user.lastName || '',
     school_name: user.school_name || user.schoolName || '',
+    school_logo: user.school_logo || user.schoolLogo || '',
     school_id: user.school_id || user.schoolId || null
   };
 };

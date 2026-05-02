@@ -4,11 +4,16 @@ const { generateAdmissionNumber } = require('../utils/helpers');
 
 exports.getStudents = async (req, res) => {
   try {
-    const { grade, curriculum, stream, status = 'active' } = req.query;
+    const { grade, curriculum, stream, status } = req.query;
     const schoolId = req.user.school_id;
 
-    let query = `SELECT * FROM students WHERE school_id = $1 AND status = $2`;
-    const params = [schoolId, status];
+    let query = `SELECT * FROM students WHERE school_id = $1`;
+    const params = [schoolId];
+
+    if (status) {
+      query += ` AND status = $${params.length + 1}`;
+      params.push(status);
+    }
 
     if (grade) {
       query += ` AND current_grade = $${params.length + 1}`;

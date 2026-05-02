@@ -15,6 +15,7 @@ export default function Fees() {
     balance: 0,
     pendingAmount: 0
   });
+  const [feeStructure, setFeeStructure] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -43,6 +44,13 @@ export default function Fees() {
 
       if (allStudents.length === 0) {
         setPayments([]);
+        setFeeStructure([]);
+        setFeeSummary({
+          totalCharged: 0,
+          totalPaid: 0,
+          balance: 0,
+          pendingAmount: 0
+        });
         return;
       }
 
@@ -54,6 +62,7 @@ export default function Fees() {
         getFeeStatement(defaultStudentId)
       ]);
       setPayments(paymentsResponse.data || []);
+      setFeeStructure(statementResponse.data?.feeStructure || []);
       setFeeSummary(statementResponse.data?.summary || {
         totalCharged: 0,
         totalPaid: 0,
@@ -79,6 +88,7 @@ export default function Fees() {
         getFeeStatement(studentId)
       ]);
       setPayments(paymentsResponse.data || []);
+      setFeeStructure(statementResponse.data?.feeStructure || []);
       setFeeSummary(statementResponse.data?.summary || {
         totalCharged: 0,
         totalPaid: 0,
@@ -135,6 +145,7 @@ export default function Fees() {
         getFeeStatement(selectedStudentId)
       ]);
       setPayments(paymentsResponse.data || []);
+      setFeeStructure(statementResponse.data?.feeStructure || []);
       setFeeSummary(statementResponse.data?.summary || {
         totalCharged: 0,
         totalPaid: 0,
@@ -152,6 +163,7 @@ export default function Fees() {
   const pendingTransactionsTotal = payments
     .filter((p) => p.status === 'pending')
     .reduce((sum, p) => sum + Number.parseFloat(p.amount || 0), 0);
+  const selectedStudent = students.find((student) => student.id === selectedStudentId);
   const outstandingBalance = Number.parseFloat(feeSummary.pendingAmount || 0);
   const hasFeeStructure = Number.parseFloat(feeSummary.totalCharged || 0) > 0;
   const totalPending = hasFeeStructure ? outstandingBalance : pendingTransactionsTotal;
@@ -209,6 +221,82 @@ export default function Fees() {
             <p className="text-sm text-slate-600 font-medium">Total Payments</p>
             <p className="mt-3 text-3xl font-bold text-blue-700">{payments.length}</p>
             <p className="mt-2 text-xs text-slate-500">All transactions</p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-soft">
+            <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Selected student</h4>
+            <p className="mt-3 text-lg font-semibold text-slate-900">{selectedStudent ? `${selectedStudent.first_name} ${selectedStudent.last_name}` : 'None selected'}</p>
+            <p className="mt-2 text-sm text-slate-500">Grade: {selectedStudent?.current_grade || '—'}</p>
+            <p className="text-sm text-slate-500">Stream: {selectedStudent?.stream || '—'}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-soft">
+            <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Fee structure</h4>
+            <p className="mt-3 text-3xl font-bold text-slate-900">{feeStructure.length}</p>
+            <p className="mt-2 text-sm text-slate-500">Configured fee items</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-soft">
+            <h4 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Status</h4>
+            <p className="mt-3 text-3xl font-bold text-slate-900 capitalize">{feeSummary.status || 'Awaiting'}</p>
+            <p className="mt-2 text-sm text-slate-500">Current balance status</p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-soft">
+            <h3 className="text-lg font-semibold text-slate-900">Fee Structure</h3>
+            {feeStructure.length > 0 ? (
+              <div className="mt-4 space-y-3">
+                {feeStructure.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-900">{item.category || item.description || 'Fee item'}</p>
+                        <p className="text-xs text-slate-500">{item.details || item.category || 'Fee type'}</p>
+                      </div>
+                      <p className="text-sm font-semibold text-slate-900">KES {Number.parseFloat(item.amount || 0).toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-slate-500">No fee structure set up for this student&apos;s grade.</p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-soft">
+            <h3 className="text-lg font-semibold text-slate-900">Payment History</h3>
+            {payments.length > 0 ? (
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold text-slate-700">Date</th>
+                      <th className="px-4 py-3 font-semibold text-slate-700">Amount</th>
+                      <th className="px-4 py-3 font-semibold text-slate-700">Method</th>
+                      <th className="px-4 py-3 font-semibold text-slate-700">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {payments.map((payment) => (
+                      <tr key={payment.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-3 text-slate-600">{payment.payment_date || payment.created_at || '—'}</td>
+                        <td className="px-4 py-3 font-medium text-slate-900">KES {Number.parseFloat(payment.amount || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-slate-600 capitalize">{payment.payment_method || '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${payment.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {payment.status || 'pending'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-slate-500">No fee payments recorded yet for this student.</p>
+            )}
           </div>
         </div>
 

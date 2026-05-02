@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useState } from 'react';
 
 const navItems = [
   { label: 'Dashboard', path: '/', icon: '📊', roles: ['principal', 'teacher', 'super_admin', 'bursar'] },
@@ -13,6 +14,9 @@ const navItems = [
 export default function Layout({ children }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const logoUrl = user?.school_logo || '/vineyard-school.png';
+  const schoolName = user?.school_name || user?.schoolName || 'VINEYARD';
 
   const onLogout = () => {
     logout();
@@ -24,15 +28,25 @@ export default function Layout({ children }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="mx-auto flex min-h-screen max-w-7xl gap-6 px-4 py-6 lg:px-8">
-        <aside className="hidden w-72 flex-col rounded-2xl bg-white p-6 shadow-soft lg:flex border border-slate-100">
+        <aside className={`fixed inset-y-0 left-0 z-50 w-72 transform bg-white p-6 shadow-soft border border-slate-100 transition-transform lg:static lg:translate-x-0 ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+          {/* Close button for mobile */}
+          <button
+            onClick={() => setIsMenuOpen(false)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 lg:hidden"
+          >
+            ✕
+          </button>
+
           {/* Logo Section */}
           <div className="mb-10 pb-6 border-b border-slate-100">
             <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-lg bg-gradient-primary flex items-center justify-center">
-                <span className="text-lg font-bold text-white">📚</span>
-              </div>
+              <img
+                src={logoUrl}
+                alt="School logo"
+                className="h-10 w-10 rounded-lg object-cover border border-slate-200"
+              />
               <div>
-                <h1 className="text-xl font-bold text-slate-900">VINEYARD</h1>
+                <h1 className="text-xl font-bold text-slate-900">{schoolName}</h1>
                 <p className="text-xs text-slate-500">SMS</p>
               </div>
             </div>
@@ -86,11 +100,37 @@ export default function Layout({ children }) {
           </button>
         </aside>
 
+        {/* Mobile overlay */}
+        {isMenuOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+            onClick={() => setIsMenuOpen(false)}
+          />
+        )}
+
         <main className="flex-1 rounded-2xl bg-white p-8 shadow-soft border border-slate-100">
           <div className="mb-8 flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-3xl font-bold text-slate-900">School Management</h2>
-              <p className="mt-1 text-slate-600">Manage students, fees, grades and reports.</p>
+            <div className="flex items-center gap-4">
+              {/* Hamburger button */}
+              <button
+                onClick={() => setIsMenuOpen(true)}
+                className="lg:hidden rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <div className="flex items-center gap-3">
+                <img
+                  src={logoUrl}
+                  alt="School logo"
+                  className="h-10 w-10 rounded-lg object-cover border border-slate-200"
+                />
+                <div>
+                  <h2 className="text-3xl font-bold text-slate-900">School Management</h2>
+                  <p className="mt-1 text-slate-600">Manage students, fees, grades and reports.</p>
+                </div>
+              </div>
             </div>
             <div className="hidden sm:flex items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-4 py-2 text-sm text-primary-700 font-medium">
               <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>

@@ -5,8 +5,9 @@ import { getStudents } from '../services/api';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({ totalStudents: 0, activeStudents: 0 });
+  const [stats, setStats] = useState({ totalStudents: 0, activeStudents: 0, activePercentage: 0 });
   const [loading, setLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     fetchStats();
@@ -17,12 +18,14 @@ export default function Dashboard() {
     try {
       const response = await getStudents();
       const allStudents = response.data;
-      const activeStudents = allStudents.filter(s => s.status === 'active').length;
+      const activeStudents = allStudents.filter((s) => s.status === 'active').length;
+      const activePercentage = allStudents.length > 0 ? Math.round((activeStudents / allStudents.length) * 100) : 0;
       setStats({
         totalStudents: allStudents.length,
-        activeStudents: activeStudents,
-        activePercentage: allStudents.length > 0 ? Math.round((activeStudents / allStudents.length) * 100) : 0
+        activeStudents,
+        activePercentage
       });
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     } finally {
@@ -92,6 +95,22 @@ export default function Dashboard() {
           </div>
         </section>
 
+        <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-soft hover:shadow-lg transition-shadow sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-slate-500">Last updated</p>
+            <p className="mt-1 text-base font-semibold text-slate-900">
+              {lastUpdated ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Not refreshed yet'}
+            </p>
+          </div>
+          <button
+            onClick={fetchStats}
+            disabled={loading}
+            className="rounded-lg bg-gradient-primary px-5 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-primary-500/20 disabled:opacity-60 transition-all"
+          >
+            {loading ? 'Refreshing...' : 'Refresh stats'}
+          </button>
+        </div>
+
         {/* Welcome & Info */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Welcome Card */}
@@ -126,6 +145,16 @@ export default function Dashboard() {
                   <span className="text-sm font-medium">Auth Working</span>
                 </div>
               </div>
+            </div>
+            <div className="mt-6 rounded-xl bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Active student ratio</p>
+              <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-green-500 to-teal-400 transition-all duration-700"
+                  style={{ width: `${stats.activePercentage}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-slate-600">{stats.activePercentage}% of students are active</p>
             </div>
           </div>
 
