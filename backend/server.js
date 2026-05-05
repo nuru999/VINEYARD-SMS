@@ -29,7 +29,19 @@ const db = require('./src/config/database');
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.disable('x-powered-by');
+app.use(
+  helmet({
+    hsts:
+      process.env.NODE_ENV === 'production'
+        ? {
+            maxAge: 31536000, // 1 year
+            includeSubDomains: true,
+            preload: true,
+          }
+        : undefined,
+  })
+);
 app.use(compression());
 
 // CORS configuration

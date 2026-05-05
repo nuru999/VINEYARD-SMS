@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/database');
+const { sendAccountCreatedEmail } = require('../services/email.service');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '24h';
@@ -194,6 +195,17 @@ exports.signup = async (req, res) => {
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
+
+    // Premium feature: notify teacher/headmaster immediately after account creation.
+    // Best-effort only; signup must succeed even if email cannot be sent.
+    const loginUrl = process.env.FRONTEND_URL || 'http://localhost:5174';
+    await sendAccountCreatedEmail({
+      to: user.email,
+      firstName: user.first_name,
+      role: normalizedRole,
+      schoolName,
+      loginUrl,
+    });
 
     res.status(201).json({
       message: 'Account created successfully',

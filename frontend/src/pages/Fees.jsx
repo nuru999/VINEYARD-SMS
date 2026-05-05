@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
-import { getFeePayments, getFeeStatement, getStudents, recordFeePayment } from '../services/api';
+import {
+  getFeePayments,
+  getFeeStatement,
+  getStudents,
+  recordFeePayment,
+  initiateSTKPush,
+} from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { feePaymentSchema } from '../validation/schemas';
+import { feePaymentSchema, mpesaInitiateSchema } from '../validation/schemas';
 
 export default function Fees() {
   const { user } = useAuth();
@@ -30,8 +36,28 @@ export default function Fees() {
     description: ''
   });
 
+  const pollIntervalRef = useRef(null);
+  const [mpesaForm, setMpesaForm] = useState({
+    amount: '',
+    phoneNumber: ''
+  });
+  const [mpesaInitiating, setMpesaInitiating] = useState(false);
+  const [mpesaCheckoutId, setMpesaCheckoutId] = useState('');
+  const [mpesaStatusMessage, setMpesaStatusMessage] = useState('');
+  const [mpesaError, setMpesaError] = useState('');
+
   useEffect(() => {
     fetchStudentsAndPayments();
+  }, []);
+
+  // Cleanup any MPESA polling interval when the component unmounts.
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
   }, []);
 
   const fetchStudentsAndPayments = async () => {
@@ -74,6 +100,24 @@ export default function Fees() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const refreshFeeData = async (studentId) => {
+    const [paymentsResponse, statementResponse] = await Promise.all([
+      getFeePayments(studentId),
+      getFeeStatement(studentId),
+    ]);
+
+    setPayments(paymentsResponse.data || []);
+    setFeeStructure(statementResponse.data?.feeStructure || []);
+    setFeeSummary(
+      statementResponse.data?.summary || {
+        totalCharged: 0,
+        totalPaid: 0,
+        balance: 0,
+        pendingAmount: 0,
+      }
+    );
   };
 
   const handleStudentChange = async (event) => {
@@ -159,6 +203,109 @@ export default function Fees() {
     }
   };
 
+  const startMpesaPolling = (checkoutRequestId, studentId) => {
+    const startedAt = Date.now();
+    const timeoutMs = 120000; // 2 minutes
+
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const paymentsResponse = await getFeePayments(studentId);
+        const currentPayments = paymentsResponse.data || [];
+        setPayments(currentPayments);
+
+        const matchingPayment = currentPayments.find(
+          (p) => String(p.mpesa_checkout_id) === String(checkoutRequestId)
+        );
+
+        if (matchingPayment && matchingPayment.status && matchingPayment.status !== 'pending') {
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+
+          // Refresh statement totals after payment is finalized.
+          await refreshFeeData(studentId);
+
+          if (matchingPayment.status === 'completed') {
+            setMpesaError('');
+            setMpesaStatusMessage(
+              `Payment confirmed. Receipt: ${matchingPayment.mpesa_receipt_number || 'Saved'}`
+            );
+          } else {
+            if (matchingPayment.status === 'failed') {
+              setMpesaError(
+                `Payment failed. ${matchingPayment.failure_reason ? matchingPayment.failure_reason : ''}`.trim()
+              );
+              setMpesaStatusMessage('');
+            } else {
+              setMpesaStatusMessage(`Payment ${matchingPayment.status}.`);
+            }
+          }
+          return;
+        }
+      } catch (err) {
+        setMpesaError(err?.response?.data?.message || 'Failed to check payment status');
+      }
+
+      if (Date.now() - startedAt > timeoutMs) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+        setMpesaError('Timeout waiting for M-Pesa callback. Please refresh the page.');
+      }
+    }, 5000);
+  };
+
+  const handleInitiateMpesaPayment = async (event) => {
+    event.preventDefault();
+    if (!selectedStudentId) return;
+
+    setMpesaError('');
+    setMpesaStatusMessage('');
+
+    const amountNum = Number(mpesaForm.amount);
+
+    const payload = {
+      studentId: selectedStudentId,
+      amount: amountNum,
+      phoneNumber: mpesaForm.phoneNumber,
+    };
+
+    const parsed = mpesaInitiateSchema.safeParse(payload);
+    if (!parsed.success) {
+      setMpesaError(parsed.error.issues[0]?.message || 'Invalid payment details');
+      return;
+    }
+
+    try {
+      setMpesaInitiating(true);
+
+      const response = await initiateSTKPush(
+        parsed.data.studentId,
+        parsed.data.amount,
+        parsed.data.phoneNumber
+      );
+
+      const checkoutRequestId = response.data?.checkoutRequestId || '';
+      setMpesaCheckoutId(checkoutRequestId);
+      setMpesaStatusMessage('STK prompt sent. Waiting for payment confirmation...');
+
+      // Load latest fee data to show "pending" payment.
+      await refreshFeeData(selectedStudentId);
+
+      if (checkoutRequestId) {
+        startMpesaPolling(checkoutRequestId, selectedStudentId);
+      } else {
+        setMpesaError('M-Pesa did not return checkoutRequestId.');
+      }
+    } catch (err) {
+      setMpesaError(err?.response?.data?.message || err.message || 'Failed to initiate M-Pesa payment');
+    } finally {
+      setMpesaInitiating(false);
+    }
+  };
+
   const totalCollected = Number.parseFloat(feeSummary.totalPaid || 0);
   const pendingTransactionsTotal = payments
     .filter((p) => p.status === 'pending')
@@ -185,6 +332,88 @@ export default function Fees() {
             </button>
           )}
         </div>
+
+        {canRecordPayment && (
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-soft">
+            <h4 className="text-lg font-semibold text-slate-900">Pay via M-Pesa</h4>
+            <p className="mt-1 text-sm text-slate-600">
+              Initiate an STK prompt. When Safaricom confirms, the system records the payment automatically.
+            </p>
+
+            <form
+              onSubmit={handleInitiateMpesaPayment}
+              className="mt-4 grid gap-3 md:grid-cols-2"
+            >
+              <input
+                type="number"
+                name="amount"
+                placeholder="Amount (KES)"
+                value={mpesaForm.amount}
+                onChange={(e) =>
+                  setMpesaForm((prev) => ({ ...prev, amount: e.target.value }))
+                }
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                min="1"
+                required
+                disabled={mpesaInitiating || loading}
+              />
+              <input
+                type="text"
+                name="phoneNumber"
+                placeholder="Phone number (e.g. 07XXXXXXXX or 2547XXXXXXXX)"
+                value={mpesaForm.phoneNumber}
+                onChange={(e) =>
+                  setMpesaForm((prev) => ({ ...prev, phoneNumber: e.target.value }))
+                }
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+                required
+                disabled={mpesaInitiating || loading}
+              />
+
+              <div className="md:col-span-2 flex gap-3 items-center">
+                <button
+                  type="submit"
+                  disabled={mpesaInitiating || loading || !selectedStudentId}
+                  className="flex-1 rounded-lg bg-gradient-primary px-4 py-3 text-sm font-semibold text-white hover:shadow-lg hover:shadow-primary-500/20 disabled:opacity-60 transition-all"
+                >
+                  {mpesaInitiating ? 'Sending STK...' : 'Send STK Prompt'}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={mpesaInitiating || loading}
+                  onClick={() => {
+                    setMpesaForm({ amount: '', phoneNumber: '' });
+                    setMpesaCheckoutId('');
+                    setMpesaStatusMessage('');
+                    setMpesaError('');
+                  }}
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60 transition-all"
+                >
+                  Clear
+                </button>
+              </div>
+            </form>
+
+            {mpesaCheckoutId && (
+              <p className="mt-3 text-xs text-slate-500">
+                CheckoutRequestID: <span className="font-mono">{mpesaCheckoutId}</span>
+              </p>
+            )}
+
+            {mpesaStatusMessage && (
+              <div className="mt-3 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+                {mpesaStatusMessage}
+              </div>
+            )}
+
+            {mpesaError && (
+              <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                {mpesaError}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Student Selection */}
         <div className="max-w-xl">
@@ -276,6 +505,7 @@ export default function Fees() {
                       <th className="px-4 py-3 font-semibold text-slate-700">Amount</th>
                       <th className="px-4 py-3 font-semibold text-slate-700">Method</th>
                       <th className="px-4 py-3 font-semibold text-slate-700">Status</th>
+                      <th className="px-4 py-3 font-semibold text-slate-700">Receipt</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200">
@@ -285,9 +515,24 @@ export default function Fees() {
                         <td className="px-4 py-3 font-medium text-slate-900">KES {Number.parseFloat(payment.amount || 0).toLocaleString()}</td>
                         <td className="px-4 py-3 text-slate-600 capitalize">{payment.payment_method || '—'}</td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${payment.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {payment.status || 'pending'}
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                              payment.status === 'completed'
+                                ? 'bg-green-100 text-green-700'
+                                : payment.status === 'failed'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-yellow-100 text-yellow-700'
+                            }`}
+                          >
+                            {payment.status === 'completed'
+                              ? 'Completed'
+                              : payment.status === 'failed'
+                                ? 'Failed'
+                                : 'Pending'}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-600 font-mono">
+                          {payment.mpesa_receipt_number || '—'}
                         </td>
                       </tr>
                     ))}
@@ -417,12 +662,19 @@ export default function Fees() {
                     <td className="px-6 py-4 text-slate-600">{new Date(payment.created_at).toLocaleDateString()}</td>
                     <td className="px-6 py-4 font-medium text-slate-900">KES {Number(payment.amount).toLocaleString()}</td>
                     <td className="px-6 py-4 text-slate-600 capitalize">{payment.payment_method || payment.paymentMethod}</td>
-                    <td className="px-6 py-4 text-slate-600">{payment.transaction_code || '-'}</td>
+                    <td className="px-6 py-4 text-slate-600">
+                      {payment.mpesa_receipt_number || payment.transaction_code || '-'}
+                    </td>
                     <td className="px-6 py-4">
                       {payment.status === 'completed' ? (
                         <span className="inline-flex items-center gap-2 rounded-full bg-green-100 text-green-700 px-3 py-1 text-xs font-semibold">
                           <span className="h-2 w-2 rounded-full bg-green-600"></span>
                           Completed
+                        </span>
+                      ) : payment.status === 'failed' ? (
+                        <span className="inline-flex items-center gap-2 rounded-full bg-red-100 text-red-700 px-3 py-1 text-xs font-semibold">
+                          <span className="h-2 w-2 rounded-full bg-red-600"></span>
+                          Failed
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-2 rounded-full bg-yellow-100 text-yellow-700 px-3 py-1 text-xs font-semibold">

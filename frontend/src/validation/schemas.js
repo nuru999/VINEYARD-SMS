@@ -22,6 +22,18 @@ export const feePaymentSchema = z.object({
   description: z.string().trim().optional()
 });
 
+export const mpesaInitiateSchema = z.object({
+  studentId: z.string().uuid('Select a valid student'),
+  amount: z.number().positive('Amount must be greater than 0'),
+  // Accepts values like 07xxxxxxxx or 2547xxxxxxxx. Backend will normalize.
+  phoneNumber: z
+    .string()
+    .trim()
+    .min(9, 'Enter a valid phone number')
+    .max(20, 'Phone number is too long')
+    .refine((v) => v.replace(/\D/g, '').length >= 9, 'Enter a valid phone number')
+});
+
 export const signupSchema = z
   .object({
     firstName: z.string().trim().min(1, 'First name is required'),

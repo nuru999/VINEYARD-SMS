@@ -28,17 +28,18 @@ router.post('/mpesa', async (req, res) => {
     console.log(`CheckoutRequestID: ${checkoutRequestId}`);
     console.log(`ResultCode: ${resultCode}`);
 
-    // Find pending payment
+    // Find ONLY the pending payment for this checkout request (idempotency / no double-posting).
     const paymentResult = await db.query(
       `SELECT fp.*, s.first_name, s.last_name, s.admission_number
        FROM fee_payments fp
        JOIN students s ON fp.student_id = s.id
-       WHERE fp.mpesa_checkout_id = $1`,
+       WHERE fp.mpesa_checkout_id = $1
+         AND fp.status = 'pending'`,
       [checkoutRequestId]
     );
 
     if (paymentResult.rows.length === 0) {
-      console.warn(`⚠️  No pending payment found for CheckoutRequestID: ${checkoutRequestId}`);
+      console.warn(`⚠️  No pending payment found for CheckoutRequestID: ${checkoutRequestId} (already processed?)`);
       return res.json({ ResultCode: 0, ResultDesc: 'Callback received' });
     }
 
@@ -53,15 +54,18 @@ router.post('/mpesa', async (req, res) => {
       // ✅ NEW: VERIFY AMOUNT MATCHES (prevent tampering)
       const callbackAmount = transactionDetails?.amount || 0;
       const expectedAmount = parseFloat(payment.amount);
+      const amountDiff = Math.abs(callbackAmount - expectedAmount);
       
-      if (callbackAmount !== expectedAmount) {
+      // Avoid strict floating point comparisons.
+      if (amountDiff > 0.001) {
         console.error(`🚨 AMOUNT MISMATCH! Expected: ${expectedAmount}, Got: ${callbackAmount}`);
         await db.query(
           `UPDATE fee_payments
-           SET status = 'disputed',
+           SET status = 'failed',
                failure_reason = $1,
                completed_at = CURRENT_TIMESTAMP
-           WHERE mpesa_checkout_id = $2`,
+           WHERE mpesa_checkout_id = $2
+             AND status = 'pending'`,
           [`Amount mismatch: expected ${expectedAmount}, got ${callbackAmount}`, checkoutRequestId]
         );
         return res.json({ ResultCode: 0, ResultDesc: 'Amount mismatch logged' });
@@ -74,7 +78,8 @@ router.post('/mpesa', async (req, res) => {
              mpesa_transaction_date = $2,
              phone_number = $3,
              completed_at = CURRENT_TIMESTAMP
-         WHERE mpesa_checkout_id = $4`,
+         WHERE mpesa_checkout_id = $4
+           AND status = 'pending'`,
         [
           transactionDetails?.mpesaReceiptNumber || 'PENDING',
           transactionDetails?.transactionDate || null,
@@ -96,7 +101,8 @@ router.post('/mpesa', async (req, res) => {
          SET status = 'failed',
              failure_reason = $1,
              completed_at = CURRENT_TIMESTAMP
-         WHERE mpesa_checkout_id = $2`,
+         WHERE mpesa_checkout_id = $2
+           AND status = 'pending'`,
         [stkCallback.ResultDesc, checkoutRequestId]
       );
 

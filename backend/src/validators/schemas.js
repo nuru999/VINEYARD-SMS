@@ -5,6 +5,14 @@ exports.loginSchema = Joi.object({
   password: Joi.string().min(6).required()
 });
 
+exports.signupSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().min(8).required(),
+  first_name: Joi.string().min(1).max(100).required(),
+  last_name: Joi.string().min(1).max(100).required(),
+  role: Joi.string().valid('teacher', 'principal').optional(),
+});
+
 exports.createStudentSchema = Joi.object({
   firstName: Joi.string().min(2).max(100).required(),
   lastName: Joi.string().min(2).max(100).required(),
