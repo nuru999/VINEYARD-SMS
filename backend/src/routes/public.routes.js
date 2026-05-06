@@ -5,13 +5,16 @@ const mpesaService = require('../services/mpesa.service');
 const { generateTransactionCode } = require('../utils/helpers');
 
 /**
- * GET /api/public/pay/:admissionNumber
- * Look up student + full fee statement by admission number.
- * No authentication required.
+ * GET /api/public/pay?admissionNumber=VIN/2026/0003
+ * Uses query string to avoid slashes breaking URL routing.
  */
-router.get('/pay/:admissionNumber', async (req, res) => {
+router.get('/pay', async (req, res) => {
   try {
-    const { admissionNumber } = req.params;
+    const { admissionNumber } = req.query;
+
+    if (!admissionNumber) {
+      return res.status(400).json({ message: 'admissionNumber query parameter is required.' });
+    }
 
     const studentResult = await db.query(
       `SELECT id, first_name, last_name, admission_number, current_grade, stream, school_id, status
@@ -26,27 +29,20 @@ router.get('/pay/:admissionNumber', async (req, res) => {
 
     const student = studentResult.rows[0];
 
-    // Fee structure for the student's grade
     const feeStructure = await db.query(
-      `SELECT * FROM fee_structures
-       WHERE school_id = $1 AND grade = $2
-       ORDER BY category`,
+      `SELECT * FROM fee_structures WHERE school_id = $1 AND grade = $2 ORDER BY category`,
       [student.school_id, student.current_grade]
     );
 
-    // All payments for this student
     const payments = await db.query(
       `SELECT id, amount, payment_method, transaction_code, mpesa_receipt_number,
               status, payment_date, created_at, notes
-       FROM fee_payments
-       WHERE student_id = $1
+       FROM fee_payments WHERE student_id = $1
        ORDER BY payment_date DESC, created_at DESC`,
       [student.id]
     );
 
-    const totalCharged = feeStructure.rows.reduce(
-      (sum, fee) => sum + parseFloat(fee.amount || 0), 0
-    );
+    const totalCharged = feeStructure.rows.reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0);
     const totalPaid = payments.rows
       .filter((p) => p.status === 'completed')
       .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
@@ -78,18 +74,13 @@ router.get('/pay/:admissionNumber', async (req, res) => {
 
 /**
  * POST /api/public/pay/initiate
- * Initiate STK Push from the public pay page.
- * Body: { admissionNumber, phoneNumber, amount }
  */
 router.post('/pay/initiate', async (req, res) => {
   try {
     const { admissionNumber, phoneNumber, amount } = req.body;
 
     if (!admissionNumber || !phoneNumber || !amount) {
-      return res.status(400).json({
-        message: 'Missing required fields',
-        required: ['admissionNumber', 'phoneNumber', 'amount'],
-      });
+      return res.status(400).json({ message: 'Missing required fields', required: ['admissionNumber', 'phoneNumber', 'amount'] });
     }
 
     const numAmount = parseFloat(amount);
@@ -98,16 +89,12 @@ router.post('/pay/initiate', async (req, res) => {
     }
 
     if (!mpesaService.isConfigured()) {
-      return res.status(503).json({
-        message: 'M-Pesa is not configured on this server. Please contact the school.',
-      });
+      return res.status(503).json({ message: 'M-Pesa is not configured on this server. Please contact the school.' });
     }
 
-    // Look up student
     const studentResult = await db.query(
       `SELECT id, first_name, last_name, admission_number, school_id
-       FROM students
-       WHERE admission_number = $1 AND status = 'active'`,
+       FROM students WHERE admission_number = $1 AND status = 'active'`,
       [admissionNumber.toUpperCase()]
     );
 
@@ -117,18 +104,15 @@ router.post('/pay/initiate', async (req, res) => {
 
     const student = studentResult.rows[0];
 
-    // Duplicate STK push guard (5 min window)
     const existing = await db.query(
-      `SELECT id, mpesa_checkout_id, created_at
-       FROM fee_payments
-       WHERE student_id = $1 AND status = 'pending'
-         AND created_at > NOW() - INTERVAL '5 minutes'`,
+      `SELECT id, mpesa_checkout_id FROM fee_payments
+       WHERE student_id = $1 AND status = 'pending' AND created_at > NOW() - INTERVAL '5 minutes'`,
       [student.id]
     );
 
     if (existing.rows.length > 0) {
       return res.status(409).json({
-        message: 'A payment is already in progress for this student. Please wait a few minutes.',
+        message: 'A payment is already in progress. Please wait a few minutes.',
         checkoutRequestId: existing.rows[0].mpesa_checkout_id,
       });
     }
@@ -136,38 +120,23 @@ router.post('/pay/initiate', async (req, res) => {
     const accountReference = student.admission_number;
     const transactionDesc = `${student.first_name} ${student.last_name}`.substring(0, 13);
 
-    console.log(`\n💳 [PUBLIC PAY] STK Push for ${student.first_name} ${student.last_name}`);
-    console.log(`   Admission: ${accountReference} | Amount: KES ${numAmount} | Phone: ${phoneNumber}`);
-
     let stkResponse;
     try {
-      stkResponse = await mpesaService.initiateSTKPush(
-        phoneNumber,
-        numAmount,
-        accountReference,
-        transactionDesc
-      );
+      stkResponse = await mpesaService.initiateSTKPush(phoneNumber, numAmount, accountReference, transactionDesc);
     } catch (mpesaError) {
-      console.error(`❌ STK Push error: ${mpesaError.message}`);
-      return res.status(503).json({
-        message: 'M-Pesa payment initiation failed',
-        error: mpesaError.message,
-      });
+      return res.status(503).json({ message: 'M-Pesa payment initiation failed', error: mpesaError.message });
     }
 
     if (!stkResponse.checkoutRequestId) {
       return res.status(503).json({ message: 'M-Pesa did not return a checkout ID.' });
     }
 
-    // Record as pending — recorded_by is NULL for public payments
     const transactionCode = generateTransactionCode();
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
       await client.query(
-        `INSERT INTO fee_payments
-         (student_id, amount, payment_method, transaction_code, mpesa_checkout_id,
-          status, phone_number, payment_date)
+        `INSERT INTO fee_payments (student_id, amount, payment_method, transaction_code, mpesa_checkout_id, status, phone_number, payment_date)
          VALUES ($1, $2, 'mpesa', $3, $4, 'pending', $5, CURRENT_DATE)`,
         [student.id, numAmount, transactionCode, stkResponse.checkoutRequestId, phoneNumber]
       );
@@ -179,27 +148,20 @@ router.post('/pay/initiate', async (req, res) => {
       client.release();
     }
 
-    console.log(`✅ [PUBLIC PAY] Pending payment created. CheckoutID: ${stkResponse.checkoutRequestId}`);
-
     res.status(201).json({
       message: 'STK Push sent. Please check your phone and enter your M-Pesa PIN.',
       checkoutRequestId: stkResponse.checkoutRequestId,
       transactionCode,
-      student: {
-        name: `${student.first_name} ${student.last_name}`,
-        admissionNumber: accountReference,
-      },
+      student: { name: `${student.first_name} ${student.last_name}`, admissionNumber: accountReference },
       amount: numAmount,
     });
   } catch (error) {
-    console.error(`❌ Public pay initiation error: ${error.message}`);
     res.status(500).json({ message: 'Payment initiation failed', error: error.message });
   }
 });
 
 /**
  * GET /api/public/pay/status/:checkoutRequestId
- * Poll payment status from the public page.
  */
 router.get('/pay/status/:checkoutRequestId', async (req, res) => {
   try {
@@ -207,10 +169,8 @@ router.get('/pay/status/:checkoutRequestId', async (req, res) => {
 
     const result = await db.query(
       `SELECT status, mpesa_receipt_number, amount, completed_at, failure_reason
-       FROM fee_payments
-       WHERE mpesa_checkout_id = $1
-       ORDER BY created_at DESC
-       LIMIT 1`,
+       FROM fee_payments WHERE mpesa_checkout_id = $1
+       ORDER BY created_at DESC LIMIT 1`,
       [checkoutRequestId]
     );
 
@@ -227,7 +187,6 @@ router.get('/pay/status/:checkoutRequestId', async (req, res) => {
       failureReason: payment.failure_reason,
     });
   } catch (error) {
-    console.error(`❌ Status check error: ${error.message}`);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

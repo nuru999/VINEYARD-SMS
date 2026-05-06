@@ -38,7 +38,7 @@ export default function PayPage() {
     setLookupLoading(true);
     setLookupError('');
     try {
-      const res = await api.get(`/public/pay/${admissionNumber.trim()}`);
+      const res = await api.get(`/public/pay`, { params: { admissionNumber: admissionNumber.trim() } });
       setData(res.data);
       setPayForm((f) => ({ ...f, amount: String(Math.max(res.data.summary.pendingAmount, 0)) }));
       setStep(STEPS.STATEMENT);

@@ -102,7 +102,7 @@ export const bulkMarkAttendance = (payload) => api.post('/attendance/bulk-mark',
 
 // Public Pay (no auth required)
 export const publicGetFeeStatement = (admissionNumber) =>
-  api.get(`/public/pay/${admissionNumber}`);
+  api.get('/public/pay', { params: { admissionNumber } });
 export const publicInitiatePayment = (payload) =>
   api.post('/public/pay/initiate', payload);
 export const publicGetPaymentStatus = (checkoutRequestId) =>
