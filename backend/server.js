@@ -18,6 +18,7 @@ const attendanceRoutes = require('./src/routes/attendance.routes');
 const curriculumRoutes = require('./src/routes/curriculum.routes');
 const smsRoutes = require('./src/routes/sms.routes');
 const auditRoutes = require('./src/routes/audit.routes');
+const publicRoutes = require('./src/routes/public.routes');
 
 // Middleware imports
 const { errorHandler } = require('./src/middleware/error.middleware');
@@ -109,6 +110,7 @@ app.get('/api/health', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/webhooks', webhookRoutes); // Public - M-Pesa callbacks
+app.use('/api/public', publicRoutes);  // Public - self-service pay page
 
 // Protected routes (require authentication)
 app.use('/api/students', authenticate, studentRoutes);

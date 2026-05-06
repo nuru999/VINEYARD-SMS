@@ -9,13 +9,16 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Admin from './pages/Admin';
 import Attendance from './pages/Attendance';
+import PayPage from './pages/PayPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 export default function Router() {
   return (
     <Routes>
+      {/* Public routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/pay" element={<PayPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/students" element={<Students />} />
