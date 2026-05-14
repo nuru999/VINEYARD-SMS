@@ -2,7 +2,7 @@ import { Route, Switch, Redirect, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Provider } from "./components/provider";
-import { AgentFeedback, RunableBadge } from "@runablehq/website-runtime";
+import { AgentFeedback } from "@runablehq/website-runtime";
 
 // Pages
 import SignIn from "./pages/sign-in";
@@ -82,7 +82,6 @@ function App() {
         <Route component={() => <Redirect to="/" />} />
       </Switch>
       {import.meta.env.DEV && <AgentFeedback />}
-      {<RunableBadge />}
     </Provider>
   );
 }
