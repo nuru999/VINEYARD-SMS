@@ -24,6 +24,7 @@ COPY --from=builder /app/packages/web/dist ./packages/web/dist
 
 # Copy server and its dependencies
 COPY --from=builder /app/packages/web/server.ts ./packages/web/server.ts
+COPY --from=builder /app/packages/web/src ./packages/web/src
 COPY --from=builder /app/packages/web/package.json ./packages/web/package.json
 COPY --from=builder /app/packages/web/node_modules ./packages/web/node_modules
 COPY --from=builder /app/node_modules ./node_modules
