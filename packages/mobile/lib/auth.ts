@@ -6,47 +6,66 @@ const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   "";
 
-const SESSION_KEY = "vineyard_session_cookie";
+const COOKIE_KEY = "vineyard_session_cookie";
+const TOKEN_KEY = "vineyard_session_token";
 
-// In-memory cache so we don't hit SecureStore every request
+// In-memory cache
 let _sessionCookie: string | null = null;
+let _sessionToken: string | null = null;
 
-export async function getStoredCookie(): Promise<string | null> {
-  if (_sessionCookie) return _sessionCookie;
-  try {
-    _sessionCookie = await SecureStore.getItemAsync(SESSION_KEY);
-    return _sessionCookie;
-  } catch {
-    return null;
+export async function getStoredAuth(): Promise<{
+  cookie: string | null;
+  token: string | null;
+}> {
+  if (!_sessionCookie && !_sessionToken) {
+    try {
+      _sessionCookie = await SecureStore.getItemAsync(COOKIE_KEY);
+      _sessionToken = await SecureStore.getItemAsync(TOKEN_KEY);
+    } catch {}
   }
+  return { cookie: _sessionCookie, token: _sessionToken };
 }
 
-async function setStoredCookie(cookie: string) {
+async function setStoredAuth(cookie: string | null, token: string | null) {
   _sessionCookie = cookie;
+  _sessionToken = token;
   try {
-    await SecureStore.setItemAsync(SESSION_KEY, cookie);
+    if (cookie) await SecureStore.setItemAsync(COOKIE_KEY, cookie);
+    if (token) await SecureStore.setItemAsync(TOKEN_KEY, token);
   } catch {}
 }
 
-async function clearStoredCookie() {
+async function clearStoredAuth() {
   _sessionCookie = null;
+  _sessionToken = null;
   try {
-    await SecureStore.deleteItemAsync(SESSION_KEY);
+    await SecureStore.deleteItemAsync(COOKIE_KEY);
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
   } catch {}
 }
 
-export async function apiFetch(path: string, options?: RequestInit): Promise<Response> {
+export async function apiFetch(
+  path: string,
+  options?: RequestInit
+): Promise<Response> {
   const base = BASE_URL.replace(/\/$/, "");
   const url = `${base}${path}`;
-  const cookie = await getStoredCookie();
-  const r = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(cookie ? { Cookie: cookie } : {}),
-      ...(options?.headers || {}),
-    },
-  });
+  const { cookie, token } = await getStoredAuth();
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+
+  // Prefer cookie auth (same as web), fallback to Bearer
+  if (cookie) {
+    headers["Cookie"] = cookie;
+  }
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const r = await fetch(url, { ...options, headers });
   return r;
 }
 
@@ -57,25 +76,33 @@ export async function signIn(email: string, password: string) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
+
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
     throw new Error((err as any).message || "Sign in failed");
   }
 
-  // Extract session cookie from set-cookie header
-  const rawCookie = r.headers.get("set-cookie");
-  if (rawCookie) {
-    // Store just the name=value part (everything before the first ;)
-    const cookieValue = rawCookie.split(";")[0];
-    await setStoredCookie(cookieValue);
-  }
+  const data = await r.json();
 
-  return r.json();
+  // Store the session token from response body (most reliable for RN)
+  const token: string | null = data?.token ?? null;
+
+  // Also try to grab cookie from headers (works in RN native)
+  let cookie: string | null = null;
+  try {
+    const rawCookie = r.headers.get("set-cookie");
+    if (rawCookie) {
+      cookie = rawCookie.split(";")[0]; // "name=value" part only
+    }
+  } catch {}
+
+  await setStoredAuth(cookie, token);
+  return data;
 }
 
 export async function signOut() {
   await apiFetch("/api/auth/sign-out", { method: "POST" }).catch(() => {});
-  await clearStoredCookie();
+  await clearStoredAuth();
 }
 
 export async function getSession() {
