@@ -9,15 +9,12 @@ export default function CommunicationPage() {
   const [form, setForm] = useState({ subject: "", body: "", recipientType: "all", recipientId: "" });
   const [sent, setSent] = useState(false);
 
-  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: () => api("/students") });
-  const { data: classes = [] } = useQuery({ queryKey: ["classes"], queryFn: () => api("/classes") });
-  const { data: msgs = [] } = useQuery({ queryKey: ["messages"], queryFn: () => api("/messages") });
+  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => (await api.students.$get()).json() });
+  const { data: classes = [] } = useQuery({ queryKey: ["classes"], queryFn: async () => (await api.classes.$get()).json() });
+  const { data: msgs = [] } = useQuery({ queryKey: ["messages"], queryFn: async () => (await api.messages.$get()).json() });
 
   const sendMsg = useMutation({
-    mutationFn: () => api("/messages", {
-      method: "POST",
-      body: { ...form, recipientId: form.recipientId ? Number(form.recipientId) : null },
-    }),
+    mutationFn: async () => (await api.messages.$post({ json: { ...form, recipientId: form.recipientId ? Number(form.recipientId) : null } })).json(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["messages"] });
       setSent(true);
@@ -27,7 +24,7 @@ export default function CommunicationPage() {
   });
 
   const deleteMsg = useMutation({
-    mutationFn: (id: number) => api(`/messages/${id}`, { method: "DELETE" }),
+    mutationFn: async (id: number) => (await api.messages[":id"].$delete({ param: { id: String(id) } })).json(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["messages"] }),
   });
 

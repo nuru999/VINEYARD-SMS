@@ -119,33 +119,31 @@ export function Sidebar() {
             {!collapsed[group] && items.map(({ label, icon: Icon, path }) => {
               const active = location === path;
               return (
-                <Link key={path} href={path}>
-                  <a style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "9px 20px",
-                    color: active ? "#FFFFFF" : "rgba(255,255,255,0.65)",
-                    background: active ? "rgba(233,30,140,0.2)" : "transparent",
-                    borderLeft: active ? "3px solid #E91E8C" : "3px solid transparent",
-                    textDecoration: "none", fontSize: 13,
-                    fontWeight: active ? 600 : 400,
-                    transition: "all 0.15s",
-                    fontFamily: "'Poppins', sans-serif",
+                <Link key={path} href={path} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "9px 20px",
+                  color: active ? "#FFFFFF" : "rgba(255,255,255,0.65)",
+                  background: active ? "rgba(233,30,140,0.2)" : "transparent",
+                  borderLeft: active ? "3px solid #E91E8C" : "3px solid transparent",
+                  textDecoration: "none", fontSize: 13,
+                  fontWeight: active ? 600 : 400,
+                  transition: "all 0.15s",
+                  fontFamily: "'Poppins', sans-serif",
+                }}
+                  onMouseEnter={e => {
+                    if (!active) {
+                      (e.currentTarget as HTMLElement).style.color = "#FFFFFF";
+                      (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
+                    }
                   }}
-                    onMouseEnter={e => {
-                      if (!active) {
-                        (e.currentTarget as HTMLElement).style.color = "#FFFFFF";
-                        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
-                      }
-                    }}
-                    onMouseLeave={e => {
-                      if (!active) {
-                        (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)";
-                        (e.currentTarget as HTMLElement).style.background = "transparent";
-                      }
-                    }}>
-                    <Icon size={15} />
-                    {label}
-                  </a>
+                  onMouseLeave={e => {
+                    if (!active) {
+                      (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)";
+                      (e.currentTarget as HTMLElement).style.background = "transparent";
+                    }
+                  }}>
+                  <Icon size={15} />
+                  {label}
                 </Link>
               );
             })}

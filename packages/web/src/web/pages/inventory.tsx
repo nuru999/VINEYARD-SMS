@@ -15,17 +15,20 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ name: "", category: "Furniture", quantity: "1", condition: "good", location: "", purchaseDate: "", notes: "" });
 
-  const { data: items = [] } = useQuery({ queryKey: ["inventory"], queryFn: () => api("/inventory") });
+  const { data: items = [] } = useQuery({ queryKey: ["inventory"], queryFn: async () => (await api.inventory.$get()).json() });
 
   const saveItem = useMutation({
-    mutationFn: () => editItem
-      ? api(`/inventory/${editItem.id}`, { method: "PUT", body: { ...form, quantity: Number(form.quantity) } })
-      : api("/inventory", { method: "POST", body: { ...form, quantity: Number(form.quantity) } }),
+    mutationFn: async () => {
+      if (editItem) {
+        return (await api.inventory[":id"].$put({ param: { id: String(editItem.id) }, json: { ...form, quantity: Number(form.quantity) } })).json();
+      }
+      return (await api.inventory.$post({ json: { ...form, quantity: Number(form.quantity) } })).json();
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["inventory"] }); setShowModal(false); setEditItem(null); setForm({ name: "", category: "Furniture", quantity: "1", condition: "good", location: "", purchaseDate: "", notes: "" }); },
   });
 
   const deleteItem = useMutation({
-    mutationFn: (id: number) => api(`/inventory/${id}`, { method: "DELETE" }),
+    mutationFn: async (id: number) => (await api.inventory[":id"].$delete({ param: { id: String(id) } })).json(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["inventory"] }),
   });
 

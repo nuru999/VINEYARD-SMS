@@ -16,30 +16,30 @@ export default function TimetablePage() {
   const [editing, setEditing] = useState<{ day: string; period: number } | null>(null);
   const [form, setForm] = useState({ subject: "", teacherId: "" });
 
-  const { data: classes = [] } = useQuery({ queryKey: ["classes"], queryFn: () => api("/classes") });
-  const { data: staff = [] } = useQuery({ queryKey: ["staff"], queryFn: () => api("/staff") });
+  const { data: classes = [] } = useQuery({ queryKey: ["classes"], queryFn: async () => (await api.classes.$get()).json() });
+  const { data: staff = [] } = useQuery({ queryKey: ["staff"], queryFn: async () => (await api.staff.$get()).json() });
   const { data: slots = [] } = useQuery({
     queryKey: ["timetable", selectedClass],
-    queryFn: () => api(`/timetable${selectedClass ? `?classId=${selectedClass}` : ""}`),
+    queryFn: async () => (await api.timetable.$get({ query: selectedClass ? { classId: String(selectedClass) } : {} })).json(),
     enabled: !!selectedClass,
   });
 
   const saveSlot = useMutation({
     mutationFn: async () => {
       if (!editing || !selectedClass) return;
-      const existing = slots.find((s: any) => s.day === editing.day && s.period === editing.period);
+      const existing = (slots as any[]).find((s: any) => s.day === editing.day && s.period === editing.period);
       const payload = {
         classId: selectedClass, day: editing.day, period: editing.period,
         subject: form.subject, teacherId: form.teacherId ? Number(form.teacherId) : null,
       };
-      if (existing) return api(`/timetable/${existing.id}`, { method: "PUT", body: payload });
-      return api("/timetable", { method: "POST", body: payload });
+      if (existing) return (await api.timetable[":id"].$put({ param: { id: String(existing.id) }, json: payload })).json();
+      return (await api.timetable.$post({ json: payload })).json();
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["timetable"] }); setEditing(null); },
   });
 
   const deleteSlot = useMutation({
-    mutationFn: (id: number) => api(`/timetable/${id}`, { method: "DELETE" }),
+    mutationFn: async (id: number) => (await api.timetable[":id"].$delete({ param: { id: String(id) } })).json(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["timetable"] }),
   });
 
