@@ -82,8 +82,10 @@ export default function FeesPage() {
     },
   });
 
-  const totalCollected = paymentsData?.payments?.reduce((s: number, p: any) => s + (p.paidAmount || 0), 0) || 0;
-  const totalBalance = paymentsData?.payments?.reduce((s: number, p: any) => s + (p.balance || 0), 0) || 0;
+  const payments: any[] = Array.isArray(paymentsData) ? paymentsData : (paymentsData as any)?.payments ?? [];
+  const structures: any[] = Array.isArray(structuresData) ? structuresData : (structuresData as any)?.feeStructures ?? [];
+  const totalCollected = payments.reduce((s: number, p: any) => s + (p.paidAmount || 0), 0);
+  const totalBalance = payments.reduce((s: number, p: any) => s + (p.balance || 0), 0);
   const defaulterCount = defaultersData?.count || 0;
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
@@ -103,7 +105,7 @@ export default function FeesPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
         <StatCard label="Total Collected" value={`KES ${totalCollected.toLocaleString()}`} icon={<DollarSign size={20} />} />
         <StatCard label="Outstanding" value={`KES ${totalBalance.toLocaleString()}`} icon={<AlertCircle size={20} />} color="#E3B341" />
-        <StatCard label="Transactions" value={paymentsData?.payments?.length || 0} icon={<TrendingDown size={20} />} color="#58A6FF" />
+        <StatCard label="Transactions" value={payments?.length || 0} icon={<TrendingDown size={20} />} color="#58A6FF" />
         <StatCard label="Defaulters" value={defaulterCount} icon={<AlertTriangle size={20} />} color="#F85149" />
       </div>
 
@@ -220,9 +222,9 @@ export default function FeesPage() {
             <tbody>
               {isLoading ? (
                 <tr><td colSpan={8} style={{ padding: "24px", textAlign: "center", color: "var(--text-secondary)" }}>Loading...</td></tr>
-              ) : paymentsData?.payments?.length === 0 ? (
+              ) : payments?.length === 0 ? (
                 <tr><td colSpan={8} style={{ padding: "40px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>No payments recorded yet</td></tr>
-              ) : paymentsData?.payments?.map((p: any) => (
+              ) : payments?.map((p: any) => (
                 <tr key={p.id} style={{ borderBottom: "1px solid rgba(48,54,61,0.5)" }}
                   onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
@@ -246,9 +248,9 @@ export default function FeesPage() {
       {/* TAB: Fee Structures */}
       {tab === "structures" && (
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {structuresData?.feeStructures?.length === 0 ? (
+          {structures?.length === 0 ? (
             <Card style={{ fontSize: 13, color: "var(--text-secondary)" }}>No fee structures yet. Click "Fee Structure" above to add one.</Card>
-          ) : structuresData?.feeStructures?.map((fs: any) => (
+          ) : structures?.map((fs: any) => (
             <Card key={fs.id} style={{ minWidth: 200, flex: "1 1 200px" }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>{fs.name}</div>
               <div style={{ fontSize: 22, fontWeight: 700, color: "var(--accent)", marginBottom: 6 }}>KES {fs.amount?.toLocaleString()}</div>
@@ -285,7 +287,7 @@ export default function FeesPage() {
           <Select label="Student" value={pf.studentId} onChange={e => setPf({ ...pf, studentId: e.target.value })}
             options={(studentsData?.students || []).map((s: any) => ({ value: String(s.id), label: `${s.name} (${s.admissionNo})` }))} />
           <Select label="Fee Type" value={pf.feeStructureId} onChange={e => setPf({ ...pf, feeStructureId: e.target.value })}
-            options={(structuresData?.feeStructures || []).map((fs: any) => ({ value: String(fs.id), label: `${fs.name} - KES ${fs.amount}` }))} />
+            options={(structures || []).map((fs: any) => ({ value: String(fs.id), label: `${fs.name} - KES ${fs.amount}` }))} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Input label="Total Amount (KES)" type="number" value={pf.amount} onChange={e => setPf({ ...pf, amount: e.target.value })} required />
             <Input label="Amount Paid (KES)" type="number" value={pf.paidAmount} onChange={e => setPf({ ...pf, paidAmount: e.target.value })} required />

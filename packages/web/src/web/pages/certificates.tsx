@@ -102,12 +102,12 @@ export default function CertificatesPage() {
           <tbody>
             {isLoading ? (
               <tr><td colSpan={5} style={{ padding: "24px", textAlign: "center", color: "var(--text-secondary)" }}>Loading...</td></tr>
-            ) : data?.certificates?.length === 0 ? (
+            ) : (Array.isArray(data) ? data : []).length === 0 ? (
               <tr><td colSpan={5} style={{ padding: "40px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>
                 <Award size={32} style={{ margin: "0 auto 8px", opacity: 0.3, display: "block" }} />
                 No certificates issued yet
               </td></tr>
-            ) : data?.certificates?.map((cert: any) => (
+            ) : (Array.isArray(data) ? data : []).map((cert: any) => (
               <tr key={cert.id} style={{ borderBottom: "1px solid rgba(48,54,61,0.5)" }}
                 onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>

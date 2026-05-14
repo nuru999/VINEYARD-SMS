@@ -27,6 +27,9 @@ export default function PayrollPage() {
     queryFn: async () => { const r = await (await api.staff.$get()).json(); return (r as any).staff ?? r; },
   });
 
+  const payrollList: any[] = Array.isArray(payrollData) ? payrollData : (payrollData as any)?.payroll ?? [];
+  const staffList: any[] = Array.isArray(staffData) ? staffData : (staffData as any)?.staff ?? [];
+
   const save = useMutation({
     mutationFn: async (f: any) => (await api.payroll.$post({ json: { ...f, staffId: parseInt(f.staffId), basicSalary: parseFloat(f.basicSalary), allowances: parseFloat(f.allowances || "0"), deductions: parseFloat(f.deductions || "0"), year: parseInt(f.year) } })).json(),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); setModal(false); setForm(empty); },
@@ -42,11 +45,11 @@ export default function PayrollPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["payroll"] }),
   });
 
-  const totalNet = payrollData?.payroll?.reduce((s: number, p: any) => s + (p.netSalary || 0), 0) || 0;
-  const paidCount = payrollData?.payroll?.filter((p: any) => p.status === "paid").length || 0;
-  const pendingCount = payrollData?.payroll?.filter((p: any) => p.status === "pending").length || 0;
+  const totalNet = payrollList?.reduce((s: number, p: any) => s + (p.netSalary || 0), 0) || 0;
+  const paidCount = payrollList?.filter((p: any) => p.status === "paid").length || 0;
+  const pendingCount = payrollList?.filter((p: any) => p.status === "pending").length || 0;
 
-  const getStaffName = (id: number) => staffData?.staff?.find((s: any) => s.id === id)?.name || `Staff #${id}`;
+  const getStaffName = (id: number) => staffList?.find((s: any) => s.id === id)?.name || `Staff #${id}`;
 
   return (
     <Layout title="Payroll" action={<Button onClick={() => setModal(true)}><Plus size={15} /> Generate Payroll</Button>}>
@@ -68,9 +71,9 @@ export default function PayrollPage() {
           <tbody>
             {isLoading ? (
               <tr><td colSpan={8} style={{ padding: "24px", textAlign: "center", color: "var(--text-secondary)" }}>Loading...</td></tr>
-            ) : payrollData?.payroll?.length === 0 ? (
+            ) : payrollList?.length === 0 ? (
               <tr><td colSpan={8} style={{ padding: "40px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>No payroll records yet</td></tr>
-            ) : payrollData?.payroll?.map((p: any) => (
+            ) : payrollList?.map((p: any) => (
               <tr key={p.id} style={{ borderBottom: "1px solid rgba(48,54,61,0.5)" }}
                 onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
@@ -98,9 +101,9 @@ export default function PayrollPage() {
       <Modal open={modal} onClose={() => setModal(false)} title="Generate Payroll" width={520}>
         <form onSubmit={e => { e.preventDefault(); save.mutate(form); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <Select label="Staff Member" value={form.staffId} onChange={e => {
-            const s = staffData?.staff?.find((m: any) => m.id === parseInt(e.target.value));
+            const s = staffList?.find((m: any) => m.id === parseInt(e.target.value));
             setForm({ ...form, staffId: e.target.value, basicSalary: s?.salary ? String(s.salary) : form.basicSalary });
-          }} options={(staffData?.staff || []).map((s: any) => ({ value: String(s.id), label: s.name }))} />
+          }} options={(staffList || []).map((s: any) => ({ value: String(s.id), label: s.name }))} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Select label="Month" value={form.month} onChange={e => setForm({ ...form, month: e.target.value })}
               options={months.map(m => ({ value: m, label: m }))} />
