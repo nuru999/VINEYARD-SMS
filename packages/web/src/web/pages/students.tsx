@@ -44,7 +44,7 @@ export default function StudentsPage() {
   const openEdit = (s: any) => { setEditing(s); setForm({ ...s, classId: String(s.classId || "") }); setModal(true); };
   const openNew = () => { setEditing(null); setForm(emptyStudent); setModal(true); };
 
-  const students = data?.students?.filter((s: any) =>
+  const students = ((data as any)?.students ?? (Array.isArray(data) ? data : []))?.filter((s: any) =>
     s.name?.toLowerCase().includes(search.toLowerCase()) ||
     s.admissionNo?.toLowerCase().includes(search.toLowerCase())
   ) || [];

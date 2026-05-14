@@ -39,7 +39,7 @@ export default function StaffPage() {
   const openEdit = (s: any) => { setEditing(s); setForm({ ...s, salary: String(s.salary || "") }); setModal(true); };
   const openNew = () => { setEditing(null); setForm(empty); setModal(true); };
 
-  const members = data?.staff?.filter((s: any) =>
+  const members = ((data as any)?.staff ?? (Array.isArray(data) ? data : []))?.filter((s: any) =>
     s.name?.toLowerCase().includes(search.toLowerCase()) ||
     s.designation?.toLowerCase().includes(search.toLowerCase())
   ) || [];

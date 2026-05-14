@@ -46,6 +46,9 @@ export default function ExamsPage() {
     queryFn: async () => { const r = await (await api.subjects.$get()).json(); return (r as any).subjects ?? r; },
   });
 
+  const exams: any[] = Array.isArray(examsData) ? examsData : (examsData as any)?.exams ?? [];
+  const results: any[] = Array.isArray(resultsData) ? resultsData : (resultsData as any)?.results ?? [];
+
   const saveExam = useMutation({
     mutationFn: async (f: any) => {
       const payload = { ...f, classId: parseInt(f.classId), year: parseInt(f.year) };
@@ -88,11 +91,11 @@ export default function ExamsPage() {
       {activeTab === "exams" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
           {isLoading ? <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>Loading...</div> :
-           examsData?.exams?.length === 0 ? (
+           exams?.length === 0 ? (
              <Card style={{ textAlign: "center", padding: "32px", color: "var(--text-secondary)", fontSize: 13, gridColumn: "1/-1" }}>
                <ClipboardList size={32} style={{ margin: "0 auto 8px", opacity: 0.3, display: "block" }} />No exams yet
              </Card>
-           ) : examsData?.exams?.map((exam: any) => (
+           ) : exams?.map((exam: any) => (
             <Card key={exam.id}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
                 <div>
@@ -121,9 +124,9 @@ export default function ExamsPage() {
               </tr>
             </thead>
             <tbody>
-              {resultsData?.results?.length === 0 ? (
+              {results?.length === 0 ? (
                 <tr><td colSpan={7} style={{ padding: "40px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>No results entered yet</td></tr>
-              ) : resultsData?.results?.map((r: any) => (
+              ) : results?.map((r: any) => (
                 <tr key={r.id} style={{ borderBottom: "1px solid rgba(48,54,61,0.5)" }}>
                   <td style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-secondary)" }}>#{r.examId}</td>
                   <td style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-secondary)" }}>#{r.studentId}</td>
@@ -162,7 +165,7 @@ export default function ExamsPage() {
       <Modal open={resultModal} onClose={() => setResultModal(false)} title="Enter Result">
         <form onSubmit={e => { e.preventDefault(); saveResult.mutate(rf); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <Select label="Exam" value={rf.examId} onChange={e => setRf({ ...rf, examId: e.target.value })}
-            options={(examsData?.exams || []).map((ex: any) => ({ value: String(ex.id), label: ex.name }))} />
+            options={(exams || []).map((ex: any) => ({ value: String(ex.id), label: ex.name }))} />
           <Select label="Student" value={rf.studentId} onChange={e => setRf({ ...rf, studentId: e.target.value })}
             options={(studentsData?.students || []).map((s: any) => ({ value: String(s.id), label: `${s.name} (${s.admissionNo})` }))} />
           <Select label="Subject" value={rf.subjectId} onChange={e => setRf({ ...rf, subjectId: e.target.value })}

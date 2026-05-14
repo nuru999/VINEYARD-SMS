@@ -236,14 +236,14 @@ export default function DashboardPage() {
           <SectionHeader title="Recent Students" link="/students" />
           {students.isLoading ? (
             <div style={{ color: "#94A3B8", fontSize: 13 }}>Loading...</div>
-          ) : !students.data?.students?.length ? (
+          ) : !(students.data as any)?.length ? (
             <div style={{ textAlign: "center", padding: "20px 0", color: "#94A3B8", fontSize: 13 }}>
               <AlertCircle size={28} style={{ marginBottom: 6, opacity: 0.3 }} />
               <div>No students yet</div>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {students.data.students.slice(0, 6).map((student: any) => (
+              {(students.data as any).slice(0, 6).map((student: any) => (
                 <div key={student.id} style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   padding: "8px 12px", borderRadius: 8, background: "#F8FAFC",
@@ -280,14 +280,14 @@ export default function DashboardPage() {
           <SectionHeader title="Recent Payments" link="/fees" />
           {recentPayments.isLoading ? (
             <div style={{ color: "#94A3B8", fontSize: 13 }}>Loading...</div>
-          ) : !recentPayments.data?.payments?.length ? (
+          ) : !(Array.isArray(recentPayments.data) ? recentPayments.data : (recentPayments.data as any)?.payments ?? []).length ? (
             <div style={{ textAlign: "center", padding: "20px 0", color: "#94A3B8", fontSize: 13 }}>
               <AlertCircle size={28} style={{ marginBottom: 6, opacity: 0.3 }} />
               <div>No payments yet</div>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {recentPayments.data.payments.slice(-6).reverse().map((p: any) => (
+              {(Array.isArray(recentPayments.data) ? recentPayments.data : (recentPayments.data as any)?.payments ?? []).slice(-6).reverse().map((p: any) => (
                 <div key={p.id} style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   padding: "8px 12px", borderRadius: 8, background: "#F8FAFC",

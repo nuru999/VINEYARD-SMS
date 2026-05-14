@@ -125,7 +125,7 @@ export default function AttendancePage() {
       </div>
 
       {/* Attendance Log */}
-      {attendanceData?.attendance?.length > 0 && (
+      {(Array.isArray(attendanceData) ? attendanceData : (attendanceData as any)?.attendance ?? []).length > 0 && (
         <div style={{ marginTop: 24 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 12 }}>RECENT ATTENDANCE LOG</h3>
           <div style={{ background: "var(--bg-secondary)", borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden" }}>
@@ -138,7 +138,7 @@ export default function AttendancePage() {
                 </tr>
               </thead>
               <tbody>
-                {attendanceData.attendance.slice(-10).reverse().map((a: any) => (
+                {(Array.isArray(attendanceData) ? attendanceData : (attendanceData as any)?.attendance ?? []).slice(-10).reverse().map((a: any) => (
                   <tr key={a.id} style={{ borderBottom: "1px solid rgba(48,54,61,0.5)" }}>
                     <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--text-secondary)" }}>#{a.studentId}</td>
                     <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--text-secondary)" }}>{a.date}</td>
