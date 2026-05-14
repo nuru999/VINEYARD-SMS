@@ -15,29 +15,33 @@ export default function TransportPage() {
   const [routeForm, setRouteForm] = useState({ name: "", vehicle: "", driver: "", driverPhone: "", fee: "" });
   const [assignForm, setAssignForm] = useState({ studentId: "", routeId: "", term: "Term 1", year: new Date().getFullYear() });
 
-  const { data: routes = [] } = useQuery({ queryKey: ["transport-routes"], queryFn: () => api("/transport/routes") });
-  const { data: assignments = [] } = useQuery({ queryKey: ["transport-assignments"], queryFn: () => api("/transport/assignments") });
-  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: () => api("/students") });
+  const { data: routes = [] } = useQuery({ queryKey: ["transport-routes"], queryFn: async () => (await api.transport.routes.$get()).json() });
+  const { data: assignments = [] } = useQuery({ queryKey: ["transport-assignments"], queryFn: async () => (await api.transport.assignments.$get()).json() });
+  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => (await api.students.$get()).json() });
 
   const saveRoute = useMutation({
-    mutationFn: () => editRoute
-      ? api(`/transport/routes/${editRoute.id}`, { method: "PUT", body: { ...routeForm, fee: Number(routeForm.fee) } })
-      : api("/transport/routes", { method: "POST", body: { ...routeForm, fee: Number(routeForm.fee) } }),
+    mutationFn: async () => {
+      const body = { ...routeForm, fee: Number(routeForm.fee) };
+      if (editRoute) {
+        return (await api.transport.routes[":id"].$put({ param: { id: String(editRoute.id) }, json: body })).json();
+      }
+      return (await api.transport.routes.$post({ json: body })).json();
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["transport-routes"] }); setShowRouteModal(false); setEditRoute(null); setRouteForm({ name: "", vehicle: "", driver: "", driverPhone: "", fee: "" }); },
   });
 
   const deleteRoute = useMutation({
-    mutationFn: (id: number) => api(`/transport/routes/${id}`, { method: "DELETE" }),
+    mutationFn: async (id: number) => (await api.transport.routes[":id"].$delete({ param: { id: String(id) } })).json(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["transport-routes"] }),
   });
 
   const saveAssign = useMutation({
-    mutationFn: () => api("/transport/assignments", { method: "POST", body: { ...assignForm, studentId: Number(assignForm.studentId), routeId: Number(assignForm.routeId), year: Number(assignForm.year) } }),
+    mutationFn: async () => (await api.transport.assignments.$post({ json: { ...assignForm, studentId: Number(assignForm.studentId), routeId: Number(assignForm.routeId), year: Number(assignForm.year) } })).json(),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["transport-assignments"] }); setShowAssignModal(false); setAssignForm({ studentId: "", routeId: "", term: "Term 1", year: new Date().getFullYear() }); },
   });
 
   const deleteAssign = useMutation({
-    mutationFn: (id: number) => api(`/transport/assignments/${id}`, { method: "DELETE" }),
+    mutationFn: async (id: number) => (await api.transport.assignments[":id"].$delete({ param: { id: String(id) } })).json(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["transport-assignments"] }),
   });
 

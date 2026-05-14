@@ -15,29 +15,32 @@ export default function LibraryPage() {
   const [borrowForm, setBorrowForm] = useState({ bookId: "", studentId: "", borrowDate: new Date().toISOString().split("T")[0], dueDate: "" });
   const [search, setSearch] = useState("");
 
-  const { data: books = [] } = useQuery({ queryKey: ["library-books"], queryFn: () => api("/library/books") });
-  const { data: borrows = [] } = useQuery({ queryKey: ["library-borrows"], queryFn: () => api("/library/borrows") });
-  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: () => api("/students") });
+  const { data: books = [] } = useQuery({ queryKey: ["library-books"], queryFn: async () => (await api.library.books.$get()).json() });
+  const { data: borrows = [] } = useQuery({ queryKey: ["library-borrows"], queryFn: async () => (await api.library.borrows.$get()).json() });
+  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => (await api.students.$get()).json() });
 
   const saveBook = useMutation({
-    mutationFn: () => editBook
-      ? api(`/library/books/${editBook.id}`, { method: "PUT", body: { ...bookForm, copies: Number(bookForm.copies) } })
-      : api("/library/books", { method: "POST", body: { ...bookForm, copies: Number(bookForm.copies), available: Number(bookForm.copies) } }),
+    mutationFn: async () => {
+      if (editBook) {
+        return (await api.library.books[":id"].$put({ param: { id: String(editBook.id) }, json: { ...bookForm, copies: Number(bookForm.copies) } })).json();
+      }
+      return (await api.library.books.$post({ json: { ...bookForm, copies: Number(bookForm.copies), available: Number(bookForm.copies) } })).json();
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["library-books"] }); setShowBookModal(false); setEditBook(null); setBookForm({ title: "", author: "", isbn: "", category: "Textbook", copies: "1" }); },
   });
 
   const deleteBook = useMutation({
-    mutationFn: (id: number) => api(`/library/books/${id}`, { method: "DELETE" }),
+    mutationFn: async (id: number) => (await api.library.books[":id"].$delete({ param: { id: String(id) } })).json(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["library-books"] }),
   });
 
   const saveBorrow = useMutation({
-    mutationFn: () => api("/library/borrows", { method: "POST", body: { ...borrowForm, bookId: Number(borrowForm.bookId), studentId: Number(borrowForm.studentId) } }),
+    mutationFn: async () => (await api.library.borrows.$post({ json: { ...borrowForm, bookId: Number(borrowForm.bookId), studentId: Number(borrowForm.studentId) } })).json(),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["library-books", "library-borrows"] }); setShowBorrowModal(false); setBorrowForm({ bookId: "", studentId: "", borrowDate: new Date().toISOString().split("T")[0], dueDate: "" }); },
   });
 
   const returnBook = useMutation({
-    mutationFn: (id: number) => api(`/library/borrows/${id}/return`, { method: "PUT" }),
+    mutationFn: async (id: number) => (await api.library.borrows[":id"].return.$put({ param: { id: String(id) } })).json(),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["library-books", "library-borrows"] }),
   });
 
