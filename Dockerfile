@@ -9,7 +9,7 @@ COPY package.json bun.lock* ./
 COPY packages/web/ ./packages/web/
 
 # Install ALL dependencies (workspace-aware)
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Build frontend (production mode - no dev plugins)
 RUN cd packages/web && bun run build
