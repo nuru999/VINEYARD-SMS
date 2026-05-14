@@ -1,24 +1,54 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq, gt, sql } from "drizzle-orm";
+import { eq, gt, and, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
+
+function getCurrentTerm(): { term: string; year: number } {
+  const now = new Date();
+  const month = now.getMonth() + 1; // 1-12
+  const year = now.getFullYear();
+  // Kenya school terms: Term 1 Jan–Apr, Term 2 May–Jul, Term 3 Sep–Nov
+  if (month >= 1 && month <= 4) return { term: "Term 1", year };
+  if (month >= 5 && month <= 7) return { term: "Term 2", year };
+  return { term: "Term 3", year };
+}
 
 export const dashboardRoutes = new Hono()
   .get("/stats", requireAuth, async (c) => {
+    const today = new Date().toISOString().slice(0, 10);
+
     const [studentCount] = await db.select({ count: sql<number>`count(*)` }).from(schema.students).where(eq(schema.students.status, "active"));
     const [staffCount] = await db.select({ count: sql<number>`count(*)` }).from(schema.staff).where(eq(schema.staff.status, "active"));
     const [classCount] = await db.select({ count: sql<number>`count(*)` }).from(schema.classes);
-    // Defaulters count — students with balance > 0
-    const defaulterPayments = await db.select({ studentId: schema.feePayments.studentId }).from(schema.feePayments).where(gt(schema.feePayments.balance, 0));
-    const defaulterCount = new Set(defaulterPayments.map(p => p.studentId)).size;
 
+    // Fee stats
     const payments = await db.select({ amount: schema.feePayments.paidAmount }).from(schema.feePayments);
     const totalRevenue = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    // Transactions
     const income = await db.select({ amount: schema.transactions.amount }).from(schema.transactions).where(eq(schema.transactions.type, "income"));
     const expenses = await db.select({ amount: schema.transactions.amount }).from(schema.transactions).where(eq(schema.transactions.type, "expense"));
     const totalIncome = income.reduce((sum, t) => sum + (t.amount || 0), 0);
     const totalExpenses = expenses.reduce((sum, t) => sum + (t.amount || 0), 0);
+
+    // Defaulters
+    const defaulterPayments = await db.select({ studentId: schema.feePayments.studentId }).from(schema.feePayments).where(gt(schema.feePayments.balance, 0));
+    const defaulterCount = new Set(defaulterPayments.map(p => p.studentId)).size;
+
+    // Outstanding balance
+    const balances = await db.select({ balance: schema.feePayments.balance }).from(schema.feePayments).where(gt(schema.feePayments.balance, 0));
+    const totalOutstanding = balances.reduce((sum, p) => sum + (p.balance || 0), 0);
+
+    // Today's attendance
+    const todayAttendance = await db.select().from(schema.attendance).where(eq(schema.attendance.date, today));
+    const presentToday = todayAttendance.filter(a => a.status === "present").length;
+    const absentToday = todayAttendance.filter(a => a.status === "absent").length;
+    const lateToday = todayAttendance.filter(a => a.status === "late").length;
+    const attendanceMarked = todayAttendance.length > 0;
+
+    // Current term
+    const { term, year } = getCurrentTerm();
 
     return c.json({
       stats: {
@@ -30,6 +60,13 @@ export const dashboardRoutes = new Hono()
         totalExpenses,
         netBalance: totalIncome - totalExpenses,
         defaulterCount,
+        totalOutstanding,
+        presentToday,
+        absentToday,
+        lateToday,
+        attendanceMarked,
+        currentTerm: term,
+        currentYear: year,
       }
     }, 200);
   });
