@@ -18,6 +18,8 @@ import transportRoutes from "./routes/transport";
 import libraryRoutes from "./routes/library";
 import inventoryRoutes from "./routes/inventory";
 
+import reportCardsRoutes from "./routes/reportcards";
+
 const app = new Hono()
   .use(cors({ origin: "*" }))
   .on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))
@@ -43,7 +45,8 @@ const app = new Hono()
   .route("/messages", messagesRoutes)
   .route("/transport", transportRoutes)
   .route("/library", libraryRoutes)
-  .route("/inventory", inventoryRoutes);
+  .route("/inventory", inventoryRoutes)
+  .route("/report-cards", reportCardsRoutes);
 
 export type AppType = typeof app;
 export default app;

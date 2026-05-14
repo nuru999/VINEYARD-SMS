@@ -15,6 +15,7 @@ import FeesPage from "./pages/fees";
 import ExamsPage from "./pages/exams";
 import PayrollPage from "./pages/payroll";
 import CertificatesPage from "./pages/certificates";
+import ReportCardsPage from "./pages/reportcards";
 import AccountsPage from "./pages/accounts";
 import ReportsPage from "./pages/reports";
 import TimetablePage from "./pages/timetable";
@@ -72,6 +73,7 @@ function App() {
         <Route path="/exams" component={() => <ProtectedRoute component={ExamsPage} />} />
         <Route path="/payroll" component={() => <ProtectedRoute component={PayrollPage} />} />
         <Route path="/certificates" component={() => <ProtectedRoute component={CertificatesPage} />} />
+        <Route path="/report-cards" component={() => <ProtectedRoute component={ReportCardsPage} />} />
         <Route path="/accounts" component={() => <ProtectedRoute component={AccountsPage} />} />
         <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} />} />
         <Route path="/timetable" component={() => <ProtectedRoute component={TimetablePage} />} />
