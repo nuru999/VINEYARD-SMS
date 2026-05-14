@@ -12,14 +12,34 @@ export const payrollRoutes = new Hono()
   .post("/", requireAuth, async (c) => {
     const body = await c.req.json();
     const net = (body.basicSalary || 0) + (body.allowances || 0) - (body.deductions || 0);
-    const [record] = await db.insert(schema.payroll).values({ ...body, netSalary: net }).returning();
+    const [record] = await db.insert(schema.payroll).values({
+      staffId: body.staffId,
+      month: body.month,
+      year: body.year,
+      basicSalary: body.basicSalary,
+      allowances: body.allowances ?? 0,
+      deductions: body.deductions ?? 0,
+      netSalary: net,
+      paidDate: body.paidDate ?? null,
+      status: body.status ?? "pending",
+    }).returning();
     return c.json({ payroll: record }, 201);
   })
   .put("/:id", requireAuth, async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
     const net = (body.basicSalary || 0) + (body.allowances || 0) - (body.deductions || 0);
-    const [record] = await db.update(schema.payroll).set({ ...body, netSalary: net }).where(eq(schema.payroll.id, id)).returning();
+    const [record] = await db.update(schema.payroll).set({
+      staffId: body.staffId,
+      month: body.month,
+      year: body.year,
+      basicSalary: body.basicSalary,
+      allowances: body.allowances ?? 0,
+      deductions: body.deductions ?? 0,
+      netSalary: net,
+      paidDate: body.paidDate ?? null,
+      status: body.status ?? "pending",
+    }).where(eq(schema.payroll.id, id)).returning();
     return c.json({ payroll: record }, 200);
   })
   .delete("/:id", requireAuth, async (c) => {
