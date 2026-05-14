@@ -64,17 +64,31 @@ function createWindow() {
           <div style="color:#8b949e;font-size:13px;line-height:1.6;margin-bottom:24px">
             Vineyard School requires an internet connection to load your data securely. Please connect to WiFi or a mobile hotspot and relaunch the app.
           </div>
-          <button onclick="location.reload()" style="background:#E91E8C;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">
-            Retry
+          <button onclick="window.__retryConnect()" style="background:#E91E8C;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">
+            Retry Connection
           </button>
+          <script>
+            window.__retryConnect = function() {
+              document.querySelector('button').textContent = 'Checking...';
+              document.querySelector('button').disabled = true;
+              fetch('https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/', {method:'HEAD',cache:'no-store'})
+                .then(() => location.href = 'https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/')
+                .catch(() => { document.querySelector('button').textContent = 'Retry Connection'; document.querySelector('button').disabled = false; });
+            }
+          </script>
         </div></html>
       `);
     }
   });
 
-  win.webContents.on("did-fail-load", (_e, code) => {
-    if (code !== -3) { // -3 = aborted (normal)
-      win?.loadURL(REMOTE_URL);
+  // Auto-retry: if the remote URL fails to load, check again after 5s
+  win.webContents.on("did-fail-load", (_e, code, _desc, url) => {
+    if (code !== -3 && url?.startsWith("https://")) {
+      setTimeout(() => {
+        checkOnline().then((online) => {
+          if (online) win?.loadURL(REMOTE_URL);
+        });
+      }, 5000);
     }
   });
 
