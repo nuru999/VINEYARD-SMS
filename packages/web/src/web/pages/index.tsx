@@ -1,8 +1,50 @@
 import { useQuery } from "@tanstack/react-query";
-import { Users, UserCheck, BookOpen, DollarSign, TrendingUp, TrendingDown, Activity, AlertCircle } from "lucide-react";
+import { Users, UserCheck, BookOpen, DollarSign, TrendingUp, TrendingDown, Activity, AlertCircle, AlertTriangle } from "lucide-react";
+import { Link } from "wouter";
 import { Layout } from "../components/layout";
 import { StatCard } from "../components/ui/card";
 import { api } from "../lib/api";
+
+function DefaultersList() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["fee-defaulters"],
+    queryFn: async () => {
+      const r = await fetch("/api/fee-payments/defaulters", { credentials: "include" });
+      return r.json();
+    },
+  });
+
+  if (isLoading) return <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>Loading...</div>;
+  if (!data?.defaulters?.length) return (
+    <div style={{ textAlign: "center", padding: "20px 0", color: "var(--text-secondary)", fontSize: 13 }}>
+      <AlertCircle size={28} style={{ marginBottom: 6, opacity: 0.3 }} />
+      <div>No defaulters</div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {data.defaulters.slice(0, 5).map((d: any) => (
+        <div key={d.student?.id} style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "8px 12px", borderRadius: 8, background: "rgba(248,81,73,0.05)",
+          border: "1px solid rgba(248,81,73,0.15)",
+        }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>{d.student?.name || "Unknown"}</div>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{d.class?.name || ""} · {d.student?.parentPhone || "No phone"}</div>
+          </div>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#F85149" }}>KES {d.totalOwed?.toLocaleString()}</span>
+        </div>
+      ))}
+      {data.defaulters.length > 5 && (
+        <div style={{ fontSize: 12, color: "var(--text-secondary)", textAlign: "center", paddingTop: 4 }}>
+          +{data.defaulters.length - 5} more
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const stats = useQuery({
@@ -38,12 +80,13 @@ export default function DashboardPage() {
             <StatCard label="Total Revenue" value={`KES ${(s?.totalRevenue ?? 0).toLocaleString()}`} icon={<DollarSign size={20} />} />
             <StatCard label="Income" value={`KES ${(s?.totalIncome ?? 0).toLocaleString()}`} icon={<TrendingUp size={20} />} color="#3FB950" />
             <StatCard label="Expenses" value={`KES ${(s?.totalExpenses ?? 0).toLocaleString()}`} icon={<TrendingDown size={20} />} color="#F85149" />
+            <StatCard label="Fee Defaulters" value={s?.defaulterCount ?? 0} icon={<AlertTriangle size={20} />} color="#F85149" />
           </>
         )}
       </div>
 
       {/* Content Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
         {/* Recent Students */}
         <div style={{ background: "var(--bg-secondary)", borderRadius: 12, border: "1px solid var(--border)", padding: 20 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -76,6 +119,15 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Fee Defaulters */}
+        <div style={{ background: "var(--bg-secondary)", borderRadius: 12, border: "1px solid var(--border)", padding: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>Fee Defaulters</h3>
+            <Link href="/fees" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none" }}>View all →</Link>
+          </div>
+          <DefaultersList />
         </div>
 
         {/* Recent Payments */}

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq } from "drizzle-orm";
+import { eq, gt } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 
 export const feeStructuresRoutes = new Hono()
@@ -27,6 +27,28 @@ export const feeStructuresRoutes = new Hono()
   });
 
 export const feePaymentsRoutes = new Hono()
+  .get("/defaulters", requireAuth, async (c) => {
+    // All students with any outstanding balance
+    const payments = await db.select().from(schema.feePayments).where(gt(schema.feePayments.balance, 0));
+    const students = await db.select().from(schema.students);
+    const classes = await db.select().from(schema.classes);
+
+    // Group by student, sum outstanding
+    const map: Record<number, { student: any; class: any; totalOwed: number; totalPaid: number; entries: any[] }> = {};
+    for (const p of payments) {
+      if (!map[p.studentId]) {
+        const student = students.find(s => s.id === p.studentId);
+        const cls = classes.find(c => c.id === student?.classId);
+        map[p.studentId] = { student, class: cls, totalOwed: 0, totalPaid: 0, entries: [] };
+      }
+      map[p.studentId].totalOwed += p.balance || 0;
+      map[p.studentId].totalPaid += p.paidAmount || 0;
+      map[p.studentId].entries.push(p);
+    }
+
+    const defaulters = Object.values(map).sort((a, b) => b.totalOwed - a.totalOwed);
+    return c.json({ defaulters, count: defaulters.length }, 200);
+  })
   .get("/", requireAuth, async (c) => {
     const data = await db.select().from(schema.feePayments);
     return c.json({ payments: data }, 200);
