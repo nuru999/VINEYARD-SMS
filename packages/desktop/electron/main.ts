@@ -22,6 +22,7 @@ function createWindow() {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
       nodeIntegration: false,
+      webSecurity: false,
     },
   });
 
@@ -30,6 +31,11 @@ function createWindow() {
   } else {
     win.loadURL(PROD_URL);
   }
+
+  win.webContents.on("did-fail-load", (_e, code, desc) => {
+    console.error("Failed to load:", code, desc);
+    win?.loadURL(PROD_URL);
+  });
 }
 
 // --- IPC Handlers ---
