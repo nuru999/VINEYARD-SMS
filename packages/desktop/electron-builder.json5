@@ -13,13 +13,6 @@
     "dist-electron",
     "assets"
   ],
-  "extraResources": [
-    {
-      "from": "../web/dist",
-      "to": "web-dist",
-      "filter": ["**/*"]
-    }
-  ],
   "mac": {
     "target": ["dmg"],
     "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
