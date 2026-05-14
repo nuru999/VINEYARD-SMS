@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["bun"]
+
+[phases.build]
+cmds = ["cd packages/web && bun install && bun run build"]
+
+[start]
+cmd = "cd packages/web && bun server.ts"
