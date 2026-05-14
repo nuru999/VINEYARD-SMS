@@ -16,7 +16,7 @@ export default function TimetablePage() {
   const [editing, setEditing] = useState<{ day: string; period: number } | null>(null);
   const [form, setForm] = useState({ subject: "", teacherId: "" });
 
-  const { data: classes = [] } = useQuery({ queryKey: ["classes"], queryFn: async () => { const r = await (await api.classes.$get()).json(); return (r as any).classes ?? r; } });
+  const { data: classes = [], isLoading } = useQuery({ queryKey: ["classes"], queryFn: async () => { const r = await (await api.classes.$get()).json(); return (r as any).classes ?? r; } });
   const { data: staff = [] } = useQuery({ queryKey: ["staff"], queryFn: async () => { const r = await (await api.staff.$get()).json(); return (r as any).staff ?? r; } });
   const { data: slots = [] } = useQuery({
     queryKey: ["timetable", selectedClass],
@@ -68,6 +68,8 @@ export default function TimetablePage() {
     </table></body></html>`);
     win.document.close(); win.print();
   };
+
+  if (isLoading) return <Layout title="Timetable"><div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 300, color: "#64748B", fontSize: 16 }}>Loading timetable...</div></Layout>;
 
   return (
     <Layout title="Timetable">
