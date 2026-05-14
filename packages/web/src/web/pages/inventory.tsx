@@ -15,7 +15,7 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ name: "", category: "Furniture", quantity: "1", condition: "good", location: "", purchaseDate: "", notes: "" });
 
-  const { data: items = [] } = useQuery({ queryKey: ["inventory"], queryFn: async () => (await api.inventory.$get()).json() });
+  const { data: items = [], isLoading } = useQuery({ queryKey: ["inventory"], queryFn: async () => (await api.inventory.$get()).json() });
 
   const saveItem = useMutation({
     mutationFn: async () => {
@@ -45,6 +45,8 @@ export default function InventoryPage() {
 
   const totalItems = items.reduce((s: number, i: any) => s + (i.quantity || 0), 0);
   const needsAttention = items.filter((i: any) => i.condition === "poor" || i.condition === "damaged").length;
+
+  if (isLoading) return <Layout title="Inventory & Assets"><div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 300, color: "#64748B", fontSize: 16 }}>Loading inventory...</div></Layout>;
 
   return (
     <Layout title="Inventory & Assets">

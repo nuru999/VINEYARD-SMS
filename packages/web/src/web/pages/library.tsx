@@ -15,7 +15,7 @@ export default function LibraryPage() {
   const [borrowForm, setBorrowForm] = useState({ bookId: "", studentId: "", borrowDate: new Date().toISOString().split("T")[0], dueDate: "" });
   const [search, setSearch] = useState("");
 
-  const { data: books = [] } = useQuery({ queryKey: ["library-books"], queryFn: async () => (await api.library.books.$get()).json() });
+  const { data: books = [], isLoading: booksLoading } = useQuery({ queryKey: ["library-books"], queryFn: async () => (await api.library.books.$get()).json() });
   const { data: borrows = [] } = useQuery({ queryKey: ["library-borrows"], queryFn: async () => (await api.library.borrows.$get()).json() });
   const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => { const r = await (await api.students.$get()).json(); return (r as any).students ?? r; } });
 
@@ -50,6 +50,8 @@ export default function LibraryPage() {
   );
 
   const overdue = borrows.filter((b: any) => b.status === "borrowed" && b.dueDate < new Date().toISOString().split("T")[0]);
+
+  if (booksLoading) return <Layout title="Library"><div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 300, color: "#64748B", fontSize: 16 }}>Loading library...</div></Layout>;
 
   return (
     <Layout title="Library">

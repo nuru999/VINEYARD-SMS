@@ -15,7 +15,7 @@ export default function TransportPage() {
   const [routeForm, setRouteForm] = useState({ name: "", vehicle: "", driver: "", driverPhone: "", fee: "" });
   const [assignForm, setAssignForm] = useState({ studentId: "", routeId: "", term: "Term 1", year: new Date().getFullYear() });
 
-  const { data: routes = [] } = useQuery({ queryKey: ["transport-routes"], queryFn: async () => (await api.transport.routes.$get()).json() });
+  const { data: routes = [], isLoading } = useQuery({ queryKey: ["transport-routes"], queryFn: async () => (await api.transport.routes.$get()).json() });
   const { data: assignments = [] } = useQuery({ queryKey: ["transport-assignments"], queryFn: async () => (await api.transport.assignments.$get()).json() });
   const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => { const r = await (await api.students.$get()).json(); return (r as any).students ?? r; } });
 
@@ -50,6 +50,8 @@ export default function TransportPage() {
     setRouteForm({ name: r.name, vehicle: r.vehicle || "", driver: r.driver || "", driverPhone: r.driverPhone || "", fee: r.fee?.toString() || "" });
     setShowRouteModal(true);
   };
+
+  if (isLoading) return <Layout title="Transport"><div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 300, color: "#64748B", fontSize: 16 }}>Loading transport...</div></Layout>;
 
   return (
     <Layout title="Transport">
