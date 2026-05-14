@@ -9,8 +9,8 @@ export default function CommunicationPage() {
   const [form, setForm] = useState({ subject: "", body: "", recipientType: "all", recipientId: "" });
   const [sent, setSent] = useState(false);
 
-  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => (await api.students.$get()).json() });
-  const { data: classes = [] } = useQuery({ queryKey: ["classes"], queryFn: async () => (await api.classes.$get()).json() });
+  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => { const r = await (await api.students.$get()).json(); return (r as any).students ?? r; } });
+  const { data: classes = [] } = useQuery({ queryKey: ["classes"], queryFn: async () => { const r = await (await api.classes.$get()).json(); return (r as any).classes ?? r; } });
   const { data: msgs = [] } = useQuery({ queryKey: ["messages"], queryFn: async () => (await api.messages.$get()).json() });
 
   const sendMsg = useMutation({

@@ -113,7 +113,7 @@ export default function DashboardPage() {
   });
   const students = useQuery({
     queryKey: ["students"],
-    queryFn: async () => (await api.students.$get()).json(),
+    queryFn: async () => { const r = await (await api.students.$get()).json(); return (r as any).students ?? r; },
   });
   const recentPayments = useQuery({
     queryKey: ["fee-payments"],
