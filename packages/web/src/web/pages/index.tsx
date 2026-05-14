@@ -27,8 +27,8 @@ function Stat({ label, value, icon, color = "#E91E8C", sub }: {
         background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center",
         color,
       }}>{icon}</div>
-      <div>
-        <div style={{ fontSize: 22, fontWeight: 800, color: "#1E293B", lineHeight: 1.1 }}>{value}</div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: String(value).length > 12 ? 14 : String(value).length > 8 ? 17 : 22, fontWeight: 800, color: "#1E293B", lineHeight: 1.2, wordBreak: "break-word" }}>{value}</div>
         <div style={{ fontSize: 12, color: "#64748B", marginTop: 3 }}>{label}</div>
         {sub && <div style={{ fontSize: 11, color, marginTop: 2, fontWeight: 600 }}>{sub}</div>}
       </div>
@@ -213,7 +213,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Key Stats Grid ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 14, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 24 }}>
         <Stat label="Total Students" value={loading ? "—" : s?.totalStudents} icon={<Users size={20} />} color="#E91E8C" />
         <Stat label="Active Staff" value={loading ? "—" : s?.totalStaff} icon={<UserCheck size={20} />} color="#3B82F6" />
         <Stat label="Classes" value={loading ? "—" : s?.totalClasses} icon={<BookOpen size={20} />} color="#F59E0B" />
