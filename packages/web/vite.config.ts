@@ -1,24 +1,25 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwind from "@tailwindcss/vite";
 import path from "path";
 
-const root = path.resolve(__dirname, "../..");
-
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, root, "");
-  Object.assign(process.env, env);
-
   const isDev = mode === "development";
 
   const plugins: any[] = [react(), tailwind()];
 
   if (isDev) {
-    // Only load dev plugins in dev mode
-    const { default: honoDevPlugin } = require("./vite/plugins/hono-dev-plugin");
-    const { default: runableAnalyticsPlugin } = require("./vite/plugins/runable-analytics-plugin");
-    plugins.unshift(honoDevPlugin());
-    plugins.push(runableAnalyticsPlugin());
+    // Dynamically import dev-only plugins to avoid issues in production build
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { default: honoDevPlugin } = require("./vite/plugins/hono-dev-plugin");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { default: runableAnalyticsPlugin } = require("./vite/plugins/runable-analytics-plugin");
+      plugins.unshift(honoDevPlugin());
+      plugins.push(runableAnalyticsPlugin());
+    } catch {
+      // Dev plugins not available, skip
+    }
   }
 
   return {
