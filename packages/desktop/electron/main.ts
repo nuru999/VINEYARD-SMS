@@ -6,14 +6,14 @@ import https from "node:https";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const REMOTE_URL = "https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site";
+const REMOTE_URL = "https://templateweb-production-7d1c1up.railway.app";
 
 let win: BrowserWindow | null;
 
 function checkOnline(): Promise<boolean> {
   return new Promise((resolve) => {
     const req = https.request(
-      { hostname: "tev9r78fiuvrwtmm0bicj-preview-4200.runable.site", path: "/api/health", method: "HEAD", timeout: 4000 },
+      { hostname: "templateweb-production-7d1c1up.railway.app", path: "/api/health", method: "HEAD", timeout: 4000 },
       () => resolve(true)
     );
     req.on("error", () => resolve(false));
@@ -71,8 +71,8 @@ function createWindow() {
             window.__retryConnect = function() {
               document.querySelector('button').textContent = 'Checking...';
               document.querySelector('button').disabled = true;
-              fetch('https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/', {method:'HEAD',cache:'no-store'})
-                .then(() => location.href = 'https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/')
+              fetch('https://templateweb-production-7d1c1up.railway.app/', {method:'HEAD',cache:'no-store'})
+                .then(() => location.href = 'https://templateweb-production-7d1c1up.railway.app/')
                 .catch(() => { document.querySelector('button').textContent = 'Retry Connection'; document.querySelector('button').disabled = false; });
             }
           </script>
