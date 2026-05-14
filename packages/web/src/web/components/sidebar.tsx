@@ -24,6 +24,7 @@ const navGroups = [
       { label: "Attendance", icon: CalendarCheck, path: "/attendance" },
       { label: "Exams & Results", icon: ClipboardList, path: "/exams" },
       { label: "Timetable", icon: Calendar, path: "/timetable" },
+      { label: "Report Cards", icon: FileText, path: "/report-cards" },
       { label: "Certificates", icon: Award, path: "/certificates" },
     ],
   },
