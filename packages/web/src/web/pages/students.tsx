@@ -7,11 +7,13 @@ import { Badge } from "../components/ui/badge";
 import { Modal } from "../components/ui/modal";
 import { Input, Select } from "../components/ui/input";
 import { api } from "../lib/api";
+import { useRole } from "../lib/use-role";
 
 const emptyStudent = { name: "", admissionNo: "", dob: "", gender: "", classId: "", parentName: "", parentPhone: "", address: "", admissionDate: new Date().toISOString().slice(0, 10), status: "active" };
 
 export default function StudentsPage() {
   const qc = useQueryClient();
+  const { isAdmin } = useRole();
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -50,7 +52,7 @@ export default function StudentsPage() {
   ) || [];
 
   return (
-    <Layout title="Students" action={<Button onClick={openNew}><Plus size={15} /> Add Student</Button>}>
+    <Layout title="Students" action={isAdmin ? <Button onClick={openNew}><Plus size={15} /> Add Student</Button> : undefined}>
       {/* Search */}
       <div style={{ marginBottom: 16, position: "relative", maxWidth: 320 }}>
         <Search size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }} />
@@ -63,7 +65,7 @@ export default function StudentsPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              {["Adm No", "Name", "Gender", "Parent", "Phone", "Status", "Actions"].map(h => (
+              {["Adm No", "Name", "Gender", "Parent", "Phone", "Status", ...(isAdmin ? ["Actions"] : [])].map(h => (
                 <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>
               ))}
             </tr>
@@ -71,12 +73,12 @@ export default function StudentsPage() {
           <tbody>
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}><td colSpan={7} style={{ padding: "12px 16px" }}>
+                <tr key={i}><td colSpan={isAdmin ? 7 : 6} style={{ padding: "12px 16px" }}>
                   <div style={{ height: 16, background: "var(--border)", borderRadius: 4, animation: "pulse 1.5s infinite" }} />
                 </td></tr>
               ))
             ) : students.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: "40px 16px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>No students found</td></tr>
+              <tr><td colSpan={isAdmin ? 7 : 6} style={{ padding: "40px 16px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>No students found</td></tr>
             ) : students.map((s: any) => (
               <tr key={s.id} style={{ borderBottom: "1px solid rgba(48,54,61,0.5)" }}
                 onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.02)")}
@@ -87,22 +89,24 @@ export default function StudentsPage() {
                 <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary)" }}>{s.parentName || "—"}</td>
                 <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary)" }}>{s.parentPhone || "—"}</td>
                 <td style={{ padding: "12px 16px" }}><Badge status={s.status} /></td>
-                <td style={{ padding: "12px 16px" }}>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(s)}><Pencil size={13} /></Button>
-                    <Button variant="danger" size="sm" onClick={() => { if (confirm("Delete student?")) remove.mutate(s.id); }}>
-                      <Trash2 size={13} />
-                    </Button>
-                  </div>
-                </td>
+                {isAdmin && (
+                  <td style={{ padding: "12px 16px" }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <Button variant="ghost" size="sm" onClick={() => openEdit(s)}><Pencil size={13} /></Button>
+                      <Button variant="danger" size="sm" onClick={() => { if (confirm("Delete student?")) remove.mutate(s.id); }}>
+                        <Trash2 size={13} />
+                      </Button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {/* Modal */}
-      <Modal open={modal} onClose={() => setModal(false)} title={editing ? "Edit Student" : "Add Student"} width={560}>
+      {/* Modal — admin only */}
+      <Modal open={isAdmin && modal} onClose={() => setModal(false)} title={editing ? "Edit Student" : "Add Student"} width={560}>
         <form onSubmit={e => { e.preventDefault(); save.mutate(form); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Input label="Full Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />

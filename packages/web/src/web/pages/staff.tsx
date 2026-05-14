@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import { Layout } from "../components/layout";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -8,7 +8,7 @@ import { Modal } from "../components/ui/modal";
 import { Input, Select } from "../components/ui/input";
 import { api } from "../lib/api";
 
-const empty = { name: "", email: "", phone: "", designation: "Teacher", department: "", qualification: "", joiningDate: new Date().toISOString().slice(0, 10), salary: "", status: "active" };
+const empty = { name: "", email: "", phone: "", designation: "Teacher", department: "", qualification: "", joiningDate: new Date().toISOString().slice(0, 10), salary: "", status: "active", loginPassword: "" };
 
 export default function StaffPage() {
   const qc = useQueryClient();
@@ -16,6 +16,8 @@ export default function StaffPage() {
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState<any>(empty);
+  const [showPw, setShowPw] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["staff"],
@@ -24,11 +26,30 @@ export default function StaffPage() {
 
   const save = useMutation({
     mutationFn: async (f: any) => {
-      const payload = { ...f, salary: f.salary ? parseFloat(f.salary) : 0 };
-      if (editing) return (await api.staff[":id"].$put({ param: { id: String(editing.id) }, json: payload })).json();
-      return (await api.staff.$post({ json: payload })).json();
+      const { loginPassword, ...staffPayload } = f;
+      const payload = { ...staffPayload, salary: f.salary ? parseFloat(f.salary) : 0 };
+      let staffResult: any;
+      if (editing) {
+        staffResult = await (await api.staff[":id"].$put({ param: { id: String(editing.id) }, json: payload })).json();
+      } else {
+        staffResult = await (await api.staff.$post({ json: payload })).json();
+        // If email + password provided and it's a Teacher, create login account
+        if (f.email && loginPassword && f.designation === "Teacher") {
+          const r = await fetch("/api/me/users", {
+            method: "POST", credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: f.name, email: f.email, password: loginPassword, role: "teacher" }),
+          });
+          if (!r.ok) {
+            const err = await r.json();
+            throw new Error(err.message || "Staff added but login account failed");
+          }
+        }
+      }
+      return staffResult;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["staff"] }); setModal(false); setEditing(null); setForm(empty); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["staff"] }); setModal(false); setEditing(null); setForm(empty); setSaveError(""); },
+    onError: (e: any) => setSaveError(e.message),
   });
 
   const remove = useMutation({
@@ -36,8 +57,8 @@ export default function StaffPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["staff"] }),
   });
 
-  const openEdit = (s: any) => { setEditing(s); setForm({ ...s, salary: String(s.salary || "") }); setModal(true); };
-  const openNew = () => { setEditing(null); setForm(empty); setModal(true); };
+  const openEdit = (s: any) => { setEditing(s); setForm({ ...s, salary: String(s.salary || ""), loginPassword: "" }); setModal(true); setSaveError(""); };
+  const openNew = () => { setEditing(null); setForm(empty); setModal(true); setSaveError(""); };
 
   const members = ((data as any)?.staff ?? (Array.isArray(data) ? data : []))?.filter((s: any) =>
     s.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -107,6 +128,34 @@ export default function StaffPage() {
             <Select label="Status" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
               options={[{ value: "active", label: "Active" }, { value: "inactive", label: "Inactive" }]} />
           </div>
+
+          {/* Login account — only for new Teachers with email */}
+          {!editing && form.designation === "Teacher" && (
+            <div style={{ background: "rgba(233,30,140,0.06)", border: "1px solid rgba(233,30,140,0.2)", borderRadius: 10, padding: "14px 16px" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#E91E8C", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                🔑 Teacher Login Account (optional)
+              </div>
+              <div style={{ fontSize: 12, color: "#64748B", marginBottom: 10 }}>
+                Set a password so this teacher can log in. Leave blank to add staff without login access.
+              </div>
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showPw ? "text" : "password"}
+                  placeholder="Set login password"
+                  value={form.loginPassword}
+                  onChange={e => setForm({ ...form, loginPassword: e.target.value })}
+                  style={{ width: "100%", padding: "9px 40px 9px 12px", background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 13, fontFamily: "Poppins", outline: "none", boxSizing: "border-box" }}
+                />
+                <button type="button" onClick={() => setShowPw(p => !p)}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#64748B" }}>
+                  {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {saveError && <div style={{ fontSize: 12, color: "#F85149", background: "rgba(248,81,73,0.1)", padding: "8px 12px", borderRadius: 8 }}>{saveError}</div>}
+
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
             <Button variant="secondary" type="button" onClick={() => setModal(false)}>Cancel</Button>
             <Button type="submit" loading={save.isPending}>{editing ? "Save Changes" : "Add Staff"}</Button>
