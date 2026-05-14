@@ -6,14 +6,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const isDev = process.env.NODE_ENV !== "production";
 const WEB_DEV_URL = process.env.WEBSITE_URL ?? "http://localhost:3000";
+const PROD_URL = "https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/";
 const WEB_DIST = path.join(__dirname, "../web-dist");
 
 let win: BrowserWindow | null;
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1400,
+    height: 900,
+    minWidth: 1024,
+    minHeight: 700,
+    title: "Vineyard School",
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
@@ -24,7 +28,7 @@ function createWindow() {
   if (isDev) {
     win.loadURL(WEB_DEV_URL);
   } else {
-    win.loadFile(path.join(WEB_DIST, "index.html"));
+    win.loadURL(PROD_URL);
   }
 }
 
