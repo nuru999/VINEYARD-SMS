@@ -1,156 +1,170 @@
 # Vineyard Primary School — Management System
 
-A full-stack School Management System (SMS) for **Vineyard Primary School**, built with React (web), Expo (mobile), Hono (API), and SQLite.
+A full-stack school management platform built for **Vineyard Primary School, Kenya**.  
+Live: [https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/](https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/)
 
 ---
 
-## Quick Start (Web)
+## Features
+
+| Module | What it does |
+|--------|-------------|
+| **Dashboard** | KPI overview — students, fees collected, attendance, payroll |
+| **Students** | Enrol, edit, archive students; class assignment |
+| **Staff** | Staff records, contact details (admin-only) |
+| **Classes & Subjects** | Create classes, assign subjects per class |
+| **Attendance** | Daily mark-in by class; weekly summary |
+| **Exams & Results** | Create exams, record scores per student per subject |
+| **Timetable** | Weekly schedule builder by class |
+| **Report Cards** | Auto-generated from exam data; printable |
+| **Certificates** | Issue achievement/completion certificates |
+| **Fees & Payments** | Fee structure per class; record payments; outstanding balance |
+| **Payroll** | Generate monthly payroll for staff |
+| **Accounts** | Income & expense ledger |
+| **Reports** | Aggregate analytics across all modules |
+| **Communication** | Compose notices to parents / staff |
+| **Transport** | Route & vehicle management |
+| **Library** | Book inventory tracking |
+| **Inventory** | School assets management |
+| **User Management** | Add/remove admin & teacher login accounts (max 2 admins) |
+
+---
+
+## Tech Stack
+
+- **Frontend**: React 19 + Vite + Wouter (SPA routing)
+- **Backend**: Hono API (Bun runtime)
+- **Auth**: better-auth (email/password, session-based)
+- **Database**: Turso (libSQL / SQLite edge)
+- **Styling**: Inline styles (no CSS framework dependency)
+- **Deployment**: Runable platform (Node/Bun serverless)
+
+---
+
+## Role System
+
+| Role | Access |
+|------|--------|
+| `admin` | All modules including Staff, Fees, Payroll, Accounts, Reports, User Management |
+| `teacher` | All student-facing modules: Students, Classes, Attendance, Exams, Timetable, Report Cards, Certificates, Communication, Transport, Library, Inventory |
+
+- Maximum **2 admin accounts** enforced at signup
+- Role stored in `user_profiles` table; checked server-side on every protected API call
+
+---
+
+## Local Development
+
+### Prerequisites
+- [Bun](https://bun.sh) ≥ 1.1
+- A [Turso](https://turso.tech) database (free tier works)
+
+### Setup
 
 ```bash
+git clone https://github.com/nuru999/VINEYARD-SMS.git
+cd VINEYARD-SMS
+
+# Install dependencies
 bun install
-bun run dev          # starts web + API on port 4200
-```
 
-Default admin login:
-- **Email:** `admin@vineyard.school`
-- **Password:** `admin123`
+# Copy env template
+cp .env.example .env
+# Fill in your Turso DATABASE_URL and DATABASE_AUTH_TOKEN
 
----
-
-## Architecture
-
-```
-vineyard-school/
-├── packages/
-│   ├── web/          ← React frontend + Hono API (port 4200)
-│   │   ├── src/
-│   │   │   ├── server/       ← Hono API routes + DB
-│   │   │   │   ├── routes/   ← all API endpoints
-│   │   │   │   └── db/       ← SQLite via Drizzle ORM
-│   │   │   └── web/          ← React pages + components
-│   │   │       ├── pages/    ← one file per module
-│   │   │       ├── components/  ← shared (Layout, Sidebar, etc.)
-│   │   │       └── lib/      ← api client, auth client
-│   └── mobile/       ← Expo React Native app
-└── package.json
-```
-
-**Stack:** Bun · TypeScript · React · Wouter · TanStack Query · Hono · Drizzle ORM · SQLite · Better Auth · Expo
-
----
-
-## Modules
-
-| Module | Status | Notes |
-|---|---|---|
-| Dashboard | ✅ | Live stats, defaulters, recent payments |
-| Students | ✅ | CRUD, admission no, class assignment |
-| Staff | ✅ | CRUD, role, salary, subject |
-| Classes | ✅ | CRUD, teacher assignment, streams |
-| Attendance | ✅ | Daily tracking per student per class |
-| Exams & Results | ✅ | Exam creation, result entry, grades |
-| Timetable | ✅ | Per-class slot management |
-| Report Cards | ✅ | Auto-generated from exam results |
-| Certificates | ✅ | Completion/achievement certificates |
-| Fees & Payments | ✅ | Fee structures, payment recording, defaulters |
-| Payroll | ✅ | Staff salary processing |
-| Accounts | ✅ | Income/expense ledger |
-| Financial Reports | ✅ | Summary charts and exports |
-| Communication | ✅ | Announcements + messages |
-| Transport | ✅ | Routes and vehicle management |
-| Library | ✅ | Book catalog and borrowing |
-| Inventory | ✅ | School assets and stock |
-
----
-
-## API Routes
-
-All routes require a valid session cookie (set by `/api/auth` via Better Auth).
-
-| Prefix | Resource |
-|---|---|
-| `/api/students` | Student CRUD |
-| `/api/staff` | Staff CRUD |
-| `/api/classes` | Class CRUD |
-| `/api/attendance` | Attendance records |
-| `/api/exams` | Exam records |
-| `/api/results` | Exam results |
-| `/api/subjects` | Subject list |
-| `/api/fee-structures` | Fee structure definitions |
-| `/api/fee-payments` | Fee payment records + defaulters |
-| `/api/payroll` | Payroll entries |
-| `/api/accounts` | Account transactions |
-| `/api/certificates` | Certificate records |
-| `/api/timetable` | Timetable slots |
-| `/api/transport` | Transport routes |
-| `/api/library` | Library catalog |
-| `/api/inventory` | Inventory items |
-| `/api/communication` | Messages/announcements |
-| `/api/reports` | Financial report summaries |
-| `/api/dashboard/stats` | Aggregated dashboard stats |
-| `/api/auth/*` | Auth (Better Auth handles all sign-in/out/session) |
-
----
-
-## Database
-
-SQLite file: `packages/web/school.db`
-
-Migrations via Drizzle Kit:
-```bash
+# Run database migrations
 cd packages/web
-bun drizzle-kit push
+bun src/api/database/migrate.ts
+
+# Start dev server (port 4200)
+bun dev
+```
+
+### Environment Variables
+
+```
+DATABASE_URL=libsql://your-db.turso.io
+DATABASE_AUTH_TOKEN=your-token-here
+BETTER_AUTH_SECRET=any-long-random-string
+BASE_URL=http://localhost:4200
 ```
 
 ---
 
-## Environment Variables
+## First-Time Setup (Production)
 
-Create `packages/web/.env`:
+1. Deploy to your hosting platform
+2. Set the environment variables above
+3. Run migrations once: `bun src/api/database/migrate.ts`
+4. Create the first admin account via the sign-up API:
+   ```bash
+   curl -X POST https://your-domain.com/api/auth/sign-up/email \
+     -H "Content-Type: application/json" \
+     -d '{"name":"School Admin","email":"admin@yourschool.com","password":"YourSecurePassword"}'
+   ```
+5. Manually set that user as admin in the database:
+   ```sql
+   INSERT INTO user_profiles (user_id, role) VALUES ('<userId-from-above>', 'admin');
+   ```
+6. Sign in at `/sign-in`
+
+---
+
+## Project Structure
+
 ```
-DATABASE_URL=file:school.db
-BETTER_AUTH_SECRET=your-secret-here
+packages/
+  web/
+    src/
+      api/
+        database/       # Schema, migrations, DB client
+        middleware/      # Auth, requireAdmin middleware
+        routes/          # All API route handlers
+        auth.ts          # better-auth configuration
+        index.ts         # Hono app entry
+      web/
+        components/      # Sidebar, shared UI
+        lib/             # Auth client
+        pages/           # All 18 page components
+        app.tsx          # Router + ProtectedRoute/AdminRoute
+        main.tsx         # React entry
 ```
 
 ---
 
-## Mobile App
+## Database Schema (key tables)
 
-The Expo mobile app mirrors the web app's core features.
-
-```bash
-cd packages/mobile
-bun start          # Expo dev server
-```
-
-To build APK/IPA → use the **Publish** button in the Runable platform dashboard.
-
----
-
-## Design System
-
-| Token | Value | Use |
-|---|---|---|
-| `--accent` | `#E91E8C` | Buttons, links, highlights |
-| `--teal` / `--sidebar-bg` | `#1B4D4D` | Sidebar, headings |
-| `--bg-primary` | `#FFFFFF` | Page background |
-| `--bg-secondary` | `#F8FAFC` | Card background |
-| Font (headings) | Dancing Script | Vineyard branding |
-| Font (body) | Poppins | All UI text |
+- `user` / `session` / `account` / `verification` — better-auth managed
+- `user_profiles` — `user_id`, `role` (admin|teacher)
+- `students` — full student records
+- `staff` — staff records
+- `classes` — class definitions
+- `subjects` — subjects per class
+- `attendance` / `attendance_records` — daily attendance
+- `exams` / `exam_results` — exam scores
+- `timetable_entries` — weekly schedule
+- `fee_structures` / `fee_payments` — fees
+- `payroll_records` — payroll
+- `transactions` — accounts ledger
+- `messages` — communication
+- `transport_routes` / `vehicles` — transport
+- `books` — library
+- `inventory_items` — inventory
+- `certificates` — issued certificates
 
 ---
 
-## Deployment
+## Handover Notes (for school IT supervisor)
 
-The app is a single Bun server serving both the React SPA and the Hono API.
-
-```bash
-bun run build    # builds React → dist/
-bun run start    # serves dist/ + API
-```
-
-> The **Publish** button in the Runable web dashboard handles domain, SSL, and deployment automatically.
+- **Login URL**: `/sign-in`  
+- **Admin credentials**: Contact the person who set up the system — passwords are not stored in plain text  
+- **Backups**: Turso provides automatic cloud backups; export via Turso dashboard  
+- **Adding teachers**: Go to **User Management** → **Add User** → select role "Teacher"  
+- **Max admins**: System enforces maximum 2 admin accounts  
+- **Support**: Raise issues on [GitHub](https://github.com/nuru999/VINEYARD-SMS/issues)
 
 ---
 
-*Built with the Runable platform · May 2025*
+## License
+
+Private — Vineyard Primary School, Kenya. All rights reserved.
