@@ -17,6 +17,11 @@ import PayrollPage from "./pages/payroll";
 import CertificatesPage from "./pages/certificates";
 import AccountsPage from "./pages/accounts";
 import ReportsPage from "./pages/reports";
+import TimetablePage from "./pages/timetable";
+import CommunicationPage from "./pages/communication";
+import TransportPage from "./pages/transport";
+import LibraryPage from "./pages/library";
+import InventoryPage from "./pages/inventory";
 
 function useAuth() {
   const { data, isLoading } = useQuery({
@@ -69,6 +74,11 @@ function App() {
         <Route path="/certificates" component={() => <ProtectedRoute component={CertificatesPage} />} />
         <Route path="/accounts" component={() => <ProtectedRoute component={AccountsPage} />} />
         <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} />} />
+        <Route path="/timetable" component={() => <ProtectedRoute component={TimetablePage} />} />
+        <Route path="/communication" component={() => <ProtectedRoute component={CommunicationPage} />} />
+        <Route path="/transport" component={() => <ProtectedRoute component={TransportPage} />} />
+        <Route path="/library" component={() => <ProtectedRoute component={LibraryPage} />} />
+        <Route path="/inventory" component={() => <ProtectedRoute component={InventoryPage} />} />
         <Route component={() => <Redirect to="/" />} />
       </Switch>
       {import.meta.env.DEV && <AgentFeedback />}

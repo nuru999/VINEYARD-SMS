@@ -177,3 +177,83 @@ export const transactions = sqliteTable("transactions", {
   createdBy: integer("staff_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// ─── TIMETABLE ───────────────────────────────────────────────────────────────
+export const timetableSlots = sqliteTable("timetable_slots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  classId: integer("class_id").notNull(),
+  day: text("day").notNull(), // Monday|Tuesday|Wednesday|Thursday|Friday
+  period: integer("period").notNull(), // 1-8
+  subject: text("subject").notNull(),
+  teacherId: integer("teacher_id"),
+  startTime: text("start_time"),
+  endTime: text("end_time"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// ─── MESSAGES ────────────────────────────────────────────────────────────────
+export const messages = sqliteTable("messages", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  subject: text("subject").notNull(),
+  body: text("body").notNull(),
+  recipientType: text("recipient_type").notNull(), // all | class | individual
+  recipientId: integer("recipient_id"), // class_id or student_id if individual
+  sentBy: integer("staff_id"),
+  sentAt: integer("sent_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// ─── TRANSPORT ───────────────────────────────────────────────────────────────
+export const transportRoutes = sqliteTable("transport_routes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  vehicle: text("vehicle"),
+  driver: text("driver"),
+  driverPhone: text("driver_phone"),
+  fee: real("fee").default(0),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+export const transportAssignments = sqliteTable("transport_assignments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  studentId: integer("student_id").notNull(),
+  routeId: integer("route_id").notNull(),
+  term: text("term").notNull(),
+  year: integer("year").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// ─── LIBRARY ─────────────────────────────────────────────────────────────────
+export const libraryBooks = sqliteTable("library_books", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  author: text("author"),
+  isbn: text("isbn"),
+  category: text("category"),
+  copies: integer("copies").notNull().default(1),
+  available: integer("available").notNull().default(1),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+export const libraryBorrows = sqliteTable("library_borrows", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  bookId: integer("book_id").notNull(),
+  studentId: integer("student_id").notNull(),
+  borrowDate: text("borrow_date").notNull(),
+  dueDate: text("due_date").notNull(),
+  returnDate: text("return_date"),
+  status: text("status").notNull().default("borrowed"), // borrowed | returned | overdue
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
+
+// ─── INVENTORY ───────────────────────────────────────────────────────────────
+export const inventoryItems = sqliteTable("inventory_items", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  condition: text("condition").notNull().default("good"), // good | fair | poor | damaged
+  location: text("location"),
+  purchaseDate: text("purchase_date"),
+  notes: text("notes"),
+  createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});
