@@ -19,7 +19,7 @@ export default function PayrollPage() {
 
   const { data: payrollData, isLoading } = useQuery({
     queryKey: ["payroll"],
-    queryFn: async () => (await api.payroll.$get()).json(),
+    queryFn: async () => { const r = await (await api.payroll.$get()).json(); return (r as any).payroll ?? r; },
   });
 
   const { data: staffData } = useQuery({

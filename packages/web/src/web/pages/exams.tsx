@@ -23,12 +23,12 @@ export default function ExamsPage() {
 
   const { data: examsData, isLoading } = useQuery({
     queryKey: ["exams"],
-    queryFn: async () => (await api.exams.$get()).json(),
+    queryFn: async () => { const r = await (await api.exams.$get()).json(); return (r as any).exams ?? r; },
   });
 
   const { data: resultsData } = useQuery({
     queryKey: ["results"],
-    queryFn: async () => (await api.results.$get()).json(),
+    queryFn: async () => { const r = await (await api.results.$get()).json(); return (r as any).results ?? r; },
   });
 
   const { data: classesData } = useQuery({
@@ -43,7 +43,7 @@ export default function ExamsPage() {
 
   const { data: subjectsData } = useQuery({
     queryKey: ["subjects"],
-    queryFn: async () => (await api.subjects.$get()).json(),
+    queryFn: async () => { const r = await (await api.subjects.$get()).json(); return (r as any).subjects ?? r; },
   });
 
   const saveExam = useMutation({
@@ -166,7 +166,7 @@ export default function ExamsPage() {
           <Select label="Student" value={rf.studentId} onChange={e => setRf({ ...rf, studentId: e.target.value })}
             options={(studentsData?.students || []).map((s: any) => ({ value: String(s.id), label: `${s.name} (${s.admissionNo})` }))} />
           <Select label="Subject" value={rf.subjectId} onChange={e => setRf({ ...rf, subjectId: e.target.value })}
-            options={(subjectsData?.subjects || []).map((s: any) => ({ value: String(s.id), label: s.name }))} />
+            options={(Array.isArray(subjectsData) ? subjectsData : (subjectsData as any)?.subjects || []).map((s: any) => ({ value: String(s.id), label: s.name }))} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Input label="Marks" type="number" value={rf.marks} onChange={e => setRf({ ...rf, marks: e.target.value })} required />
             <Input label="Max Marks" type="number" value={rf.maxMarks} onChange={e => setRf({ ...rf, maxMarks: e.target.value })} />

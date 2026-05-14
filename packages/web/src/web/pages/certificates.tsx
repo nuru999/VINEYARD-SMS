@@ -18,7 +18,7 @@ export default function CertificatesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["certificates"],
-    queryFn: async () => (await api.certificates.$get()).json(),
+    queryFn: async () => { const r = await (await api.certificates.$get()).json(); return (r as any).certificates ?? r; },
   });
 
   const { data: studentsData } = useQuery({

@@ -28,7 +28,7 @@ export default function AttendancePage() {
 
   const { data: attendanceData } = useQuery({
     queryKey: ["attendance"],
-    queryFn: async () => (await api.attendance.$get()).json(),
+    queryFn: async () => { const r = await (await api.attendance.$get()).json(); return (r as any).attendance ?? r; },
   });
 
   const filtered = studentsData?.students?.filter((s: any) =>
