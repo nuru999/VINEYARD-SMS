@@ -36,6 +36,10 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   const { user, isLoading } = useAuth();
   const [, navigate] = useLocation();
 
+  useEffect(() => {
+    if (!isLoading && !user) navigate("/sign-in");
+  }, [isLoading, user]);
+
   if (isLoading) {
     return (
       <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0D1117" }}>
@@ -43,10 +47,6 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
       </div>
     );
   }
-
-  useEffect(() => {
-    if (!isLoading && !user) navigate("/sign-in");
-  }, [isLoading, user]);
 
   if (!user) return null;
 
