@@ -33,12 +33,12 @@ export default function ExamsPage() {
 
   const { data: classesData } = useQuery({
     queryKey: ["classes"],
-    queryFn: async () => (await api.classes.$get()).json(),
+    queryFn: async () => { const r = await (await api.classes.$get()).json(); return (r as any).classes ?? r; },
   });
 
   const { data: studentsData } = useQuery({
     queryKey: ["students"],
-    queryFn: async () => (await api.students.$get()).json(),
+    queryFn: async () => { const r = await (await api.students.$get()).json(); return (r as any).students ?? r; },
   });
 
   const { data: subjectsData } = useQuery({
