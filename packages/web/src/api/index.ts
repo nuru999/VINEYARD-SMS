@@ -12,6 +12,11 @@ import { payrollRoutes } from "./routes/payroll";
 import { certificatesRoutes } from "./routes/certificates";
 import { accountsRoutes } from "./routes/accounts";
 import { dashboardRoutes } from "./routes/dashboard";
+import timetableRoutes from "./routes/timetable";
+import messagesRoutes from "./routes/messages";
+import transportRoutes from "./routes/transport";
+import libraryRoutes from "./routes/library";
+import inventoryRoutes from "./routes/inventory";
 
 const app = new Hono()
   .use(cors({ origin: "*" }))
@@ -33,7 +38,12 @@ const app = new Hono()
   .route("/payroll", payrollRoutes)
   .route("/certificates", certificatesRoutes)
   .route("/accounts", accountsRoutes)
-  .route("/dashboard", dashboardRoutes);
+  .route("/dashboard", dashboardRoutes)
+  .route("/timetable", timetableRoutes)
+  .route("/messages", messagesRoutes)
+  .route("/transport", transportRoutes)
+  .route("/library", libraryRoutes)
+  .route("/inventory", inventoryRoutes);
 
 export type AppType = typeof app;
 export default app;
