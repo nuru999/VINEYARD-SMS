@@ -1,8 +1,11 @@
 [phases.setup]
-nixPkgs = ["bun"]
+nixPkgs = ["nodejs_20", "nodePackages.npm"]
+
+[phases.install]
+cmds = ["npm install -g bun", "cd packages/web && bun install"]
 
 [phases.build]
-cmds = ["cd packages/web && bun install && bun run build"]
+cmds = ["cd packages/web && bun run build"]
 
 [start]
 cmd = "cd packages/web && bun server.ts"
