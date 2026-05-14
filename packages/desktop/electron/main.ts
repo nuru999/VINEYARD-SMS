@@ -2,45 +2,86 @@ import { app, BrowserWindow, ipcMain, dialog, Notification } from "electron";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "node:fs/promises";
+import https from "node:https";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const isDev = process.env.NODE_ENV !== "production";
-const WEB_DEV_URL = process.env.WEBSITE_URL ?? "http://localhost:3000";
-const PROD_URL = "https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/";
-const WEB_DIST = path.join(__dirname, "../web-dist");
+const REMOTE_URL = "https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site";
 
 let win: BrowserWindow | null;
+
+function checkOnline(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = https.request(
+      { hostname: "tev9r78fiuvrwtmm0bicj-preview-4200.runable.site", path: "/api/health", method: "HEAD", timeout: 4000 },
+      () => resolve(true)
+    );
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => { req.destroy(); resolve(false); });
+    req.end();
+  });
+}
 
 function createWindow() {
   win = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 1024,
+    minWidth: 1100,
     minHeight: 700,
     title: "Vineyard School",
+    icon: path.join(__dirname, "../assets/icon.png"),
+    backgroundColor: "#0D1117",
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
       nodeIntegration: false,
       webSecurity: false,
+      partition: "persist:vineyard",
     },
   });
 
-  win.loadURL(PROD_URL);
+  // Show loading screen first
+  win.loadURL(`data:text/html,
+    <html style="background:#0D1117;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif">
+    <div style="text-align:center">
+      <div style="width:80px;height:80px;border-radius:20px;background:#1B4D4D;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:36px;font-weight:900;color:#E91E8C">V</div>
+      <div style="color:#fff;font-size:20px;font-weight:700">Vineyard School</div>
+      <div style="color:#8b949e;font-size:13px;margin-top:8px">Loading...</div>
+    </div></html>
+  `);
 
-  // Open DevTools so we can see errors
-  win.webContents.openDevTools();
-
-  win.webContents.on("did-fail-load", (_e, code, desc) => {
-    console.error("Failed to load:", code, desc);
-    // retry once
-    setTimeout(() => win?.loadURL(PROD_URL), 3000);
+  checkOnline().then((online) => {
+    if (online) {
+      win?.loadURL(REMOTE_URL);
+    } else {
+      // Show offline page
+      win?.loadURL(`data:text/html,
+        <html style="background:#0D1117;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif">
+        <div style="text-align:center;max-width:400px;padding:24px">
+          <div style="width:80px;height:80px;border-radius:20px;background:#1B4D4D;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:36px;font-weight:900;color:#E91E8C">V</div>
+          <div style="color:#fff;font-size:22px;font-weight:700;margin-bottom:8px">Vineyard School</div>
+          <div style="color:#F87171;font-size:14px;margin-bottom:20px">No internet connection</div>
+          <div style="color:#8b949e;font-size:13px;line-height:1.6;margin-bottom:24px">
+            Vineyard School requires an internet connection to load your data securely. Please connect to WiFi or a mobile hotspot and relaunch the app.
+          </div>
+          <button onclick="location.reload()" style="background:#E91E8C;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">
+            Retry
+          </button>
+        </div></html>
+      `);
+    }
   });
+
+  win.webContents.on("did-fail-load", (_e, code) => {
+    if (code !== -3) { // -3 = aborted (normal)
+      win?.loadURL(REMOTE_URL);
+    }
+  });
+
+  win.on("closed", () => { win = null; });
 }
 
 // --- IPC Handlers ---
-
-// Dialog
 ipcMain.handle("dialog:open", async (_, opts) => {
   const result = await dialog.showOpenDialog(opts);
   return result.canceled ? [] : result.filePaths;
@@ -51,7 +92,6 @@ ipcMain.handle("dialog:save", async (_, opts) => {
   return result.canceled ? null : result.filePath;
 });
 
-// File system
 ipcMain.handle("fs:read", async (_, filePath: string) => {
   return fs.readFile(filePath, "utf-8");
 });
@@ -60,24 +100,18 @@ ipcMain.handle("fs:write", async (_, filePath: string, data: string) => {
   await fs.writeFile(filePath, data, "utf-8");
 });
 
-// Notifications
 ipcMain.handle("notification:show", (_, title: string, body: string) => {
   new Notification({ title, body }).show();
 });
 
-// Window controls
 ipcMain.handle("window:minimize", () => win?.minimize());
 ipcMain.handle("window:maximize", () => {
-  if (win?.isMaximized()) {
-    win.unmaximize();
-  } else {
-    win?.maximize();
-  }
+  if (win?.isMaximized()) win.unmaximize();
+  else win?.maximize();
 });
 ipcMain.handle("window:close", () => win?.close());
 
 // --- App lifecycle ---
-
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
@@ -86,9 +120,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
 app.whenReady().then(createWindow);
