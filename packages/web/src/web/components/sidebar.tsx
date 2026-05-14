@@ -64,29 +64,39 @@ export function Sidebar() {
     <aside style={{
       width: "240px",
       minHeight: "100vh",
-      background: "var(--bg-primary)",
-      borderRight: "1px solid var(--border)",
+      background: "var(--sidebar-bg)",
+      borderRight: "none",
       display: "flex",
       flexDirection: "column",
       position: "fixed",
       left: 0, top: 0, bottom: 0,
       zIndex: 50,
       overflowY: "auto",
+      boxShadow: "2px 0 16px rgba(0,0,0,0.12)",
     }}>
+      {/* Pink accent strip at top */}
+      <div style={{ height: 4, background: "linear-gradient(90deg, #E91E8C, #ff6ecb, #E91E8C)", flexShrink: 0 }} />
+
       {/* Logo / School Brand */}
-      <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid var(--border)" }}>
+      <div style={{ padding: "18px 20px 16px", borderBottom: "1px solid var(--sidebar-border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
             width: 38, height: 38, borderRadius: 10,
-            background: "linear-gradient(135deg, #E91E8C, #1B4D4D)",
+            background: "rgba(233,30,140,0.2)",
+            border: "1px solid rgba(233,30,140,0.4)",
             display: "flex", alignItems: "center", justifyContent: "center",
             flexShrink: 0,
           }}>
-            <GraduationCap size={20} color="#fff" />
+            <GraduationCap size={20} color="#E91E8C" />
           </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: "#F0F6FC", lineHeight: 1.2 }}>Vineyard Primary</div>
-            <div style={{ fontWeight: 400, fontSize: 10, color: "#E91E8C" }}>Fruitful Development</div>
+            <div style={{
+              fontFamily: "'Dancing Script', cursive",
+              fontWeight: 700, fontSize: 16, color: "#FFFFFF", lineHeight: 1.2,
+            }}>Vineyard Primary</div>
+            <div style={{ fontWeight: 600, fontSize: 9, color: "#E91E8C", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              Fruitful Development
+            </div>
           </div>
         </div>
       </div>
@@ -96,9 +106,13 @@ export function Sidebar() {
         {navGroups.map(({ group, items }) => (
           <div key={group} style={{ marginBottom: 4 }}>
             <button onClick={() => toggleGroup(group)}
-              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
                 padding: "5px 20px", background: "none", border: "none", cursor: "pointer",
-                color: "#8B949E", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 700,
+                textTransform: "uppercase", letterSpacing: "0.08em",
+                fontFamily: "'Poppins', sans-serif",
+              }}>
               {group}
               {collapsed[group] ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
             </button>
@@ -109,14 +123,26 @@ export function Sidebar() {
                   <a style={{
                     display: "flex", alignItems: "center", gap: 10,
                     padding: "9px 20px",
-                    color: active ? "#F0F6FC" : "#8B949E",
-                    background: active ? "rgba(233,30,140,0.12)" : "transparent",
+                    color: active ? "#FFFFFF" : "rgba(255,255,255,0.65)",
+                    background: active ? "rgba(233,30,140,0.2)" : "transparent",
                     borderLeft: active ? "3px solid #E91E8C" : "3px solid transparent",
-                    textDecoration: "none", fontSize: 13, fontWeight: active ? 600 : 400,
+                    textDecoration: "none", fontSize: 13,
+                    fontWeight: active ? 600 : 400,
                     transition: "all 0.15s",
+                    fontFamily: "'Poppins', sans-serif",
                   }}
-                    onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = "#F0F6FC"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; } }}
-                    onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = "#8B949E"; (e.currentTarget as HTMLElement).style.background = "transparent"; } }}>
+                    onMouseEnter={e => {
+                      if (!active) {
+                        (e.currentTarget as HTMLElement).style.color = "#FFFFFF";
+                        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!active) {
+                        (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)";
+                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }
+                    }}>
                     <Icon size={15} />
                     {label}
                   </a>
@@ -128,17 +154,34 @@ export function Sidebar() {
       </nav>
 
       {/* User / Sign Out */}
-      <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)" }}>
+      <div style={{ padding: "16px 20px", borderTop: "1px solid var(--sidebar-border)" }}>
         {session?.user && (
           <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#F0F6FC", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.user.name}</div>
-            <div style={{ fontSize: 11, color: "#8B949E", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.user.email}</div>
+            <div style={{
+              fontSize: 13, fontWeight: 600, color: "#FFFFFF",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{session.user.name}</div>
+            <div style={{
+              fontSize: 11, color: "rgba(255,255,255,0.5)",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{session.user.email}</div>
           </div>
         )}
         <button onClick={handleSignOut}
-          style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
-            background: "rgba(248,81,73,0.08)", border: "1px solid rgba(248,81,73,0.2)", borderRadius: 8,
-            color: "#F85149", cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
+          style={{
+            width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+            background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8,
+            color: "rgba(255,255,255,0.75)", cursor: "pointer", fontSize: 13, fontWeight: 500,
+            fontFamily: "'Poppins', sans-serif", transition: "all 0.15s",
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(233,30,140,0.2)";
+            (e.currentTarget as HTMLElement).style.color = "#f9a8d4";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)";
+            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)";
+          }}>
           <LogOut size={14} /> Sign Out
         </button>
       </div>

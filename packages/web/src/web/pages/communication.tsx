@@ -31,7 +31,6 @@ export default function CommunicationPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["messages"] }),
   });
 
-  // Build WhatsApp link from message body
   const buildWhatsApp = () => {
     const text = encodeURIComponent(`*${form.subject}*\n\n${form.body}\n\n— Vineyard Primary School`);
     return `https://wa.me/?text=${text}`;
@@ -50,11 +49,16 @@ export default function CommunicationPage() {
   return (
     <Layout title="Parent Communication">
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 24, background: "#161B22", padding: 4, borderRadius: 10, width: "fit-content" }}>
+      <div style={{ display: "flex", gap: 4, marginBottom: 24, background: "#F1F5F9", padding: 4, borderRadius: 10, width: "fit-content" }}>
         {(["compose", "history"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            style={{ padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 500, textTransform: "capitalize",
-              background: tab === t ? "#E91E8C" : "transparent", color: tab === t ? "#fff" : "#8B949E" }}>
+            style={{
+              padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14,
+              fontWeight: 500, textTransform: "capitalize", fontFamily: "'Poppins', sans-serif",
+              background: tab === t ? "#E91E8C" : "transparent",
+              color: tab === t ? "#fff" : "#64748B",
+              transition: "all 0.15s",
+            }}>
             {t === "compose" ? "📝 Compose" : "📋 History"}
           </button>
         ))}
@@ -62,9 +66,9 @@ export default function CommunicationPage() {
 
       {tab === "compose" && (
         <div style={{ maxWidth: 640 }}>
-          <div style={{ background: "#161B22", border: "1px solid #30363D", borderRadius: 12, padding: 24 }}>
+          <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 14, padding: 28, boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
             {sent && (
-              <div style={{ background: "rgba(74,222,128,0.1)", border: "1px solid #4ADE80", borderRadius: 8, padding: "10px 16px", marginBottom: 16, color: "#4ADE80", fontSize: 14 }}>
+              <div style={{ background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 8, padding: "10px 16px", marginBottom: 16, color: "#16A34A", fontSize: 14, fontWeight: 500 }}>
                 ✓ Message saved! Use WhatsApp or SMS to send.
               </div>
             )}
@@ -107,12 +111,16 @@ export default function CommunicationPage() {
               <label style={labelStyle}>Message</label>
               <textarea value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
                 placeholder="Type your message here..." rows={5}
-                style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+                style={{ ...inputStyle, resize: "vertical", fontFamily: "'Poppins', sans-serif" }} />
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button onClick={() => sendMsg.mutate()} disabled={!form.subject || !form.body}
-                style={{ padding: "10px 20px", background: "#E91E8C", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 14 }}>
+                style={{
+                  padding: "10px 20px", background: "linear-gradient(135deg, #E91E8C, #c0166d)", border: "none",
+                  borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 14,
+                  fontFamily: "'Poppins', sans-serif", boxShadow: "0 2px 8px rgba(233,30,140,0.3)",
+                }}>
                 💾 Save Message
               </button>
               {form.subject && form.body && (
@@ -124,8 +132,8 @@ export default function CommunicationPage() {
             </div>
           </div>
 
-          <div style={{ marginTop: 16, padding: 16, background: "rgba(27,77,77,0.2)", border: "1px solid #1B4D4D", borderRadius: 10, fontSize: 13, color: "#8B949E" }}>
-            <strong style={{ color: "#F0F6FC" }}>Tip:</strong> Save the message first, then use the WhatsApp button to open WhatsApp Web with the message pre-filled. You can then send it to parent groups.
+          <div style={{ marginTop: 16, padding: 16, background: "#F0F9FF", border: "1px solid #BAE6FD", borderRadius: 10, fontSize: 13, color: "#0369A1" }}>
+            <strong>Tip:</strong> Save the message first, then use the WhatsApp button to open WhatsApp Web with the message pre-filled. You can then send it to parent groups.
           </div>
         </div>
       )}
@@ -133,29 +141,29 @@ export default function CommunicationPage() {
       {tab === "history" && (
         <div>
           {msgs.length === 0 ? (
-            <div style={{ textAlign: "center", padding: 60, color: "#8B949E" }}>No messages sent yet</div>
+            <div style={{ textAlign: "center", padding: 60, color: "#94A3B8", fontSize: 15 }}>No messages sent yet</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {msgs.map((msg: any) => (
-                <div key={msg.id} style={{ background: "#161B22", border: "1px solid #30363D", borderRadius: 12, padding: 20 }}>
+                <div key={msg.id} style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                     <div>
-                      <div style={{ fontWeight: 600, color: "#F0F6FC", marginBottom: 4 }}>{msg.subject}</div>
-                      <div style={{ fontSize: 12, color: "#8B949E" }}>
-                        To: <span style={{ color: "#E91E8C" }}>{recipientLabel(msg)}</span> &nbsp;·&nbsp;
+                      <div style={{ fontWeight: 600, color: "#1E293B", marginBottom: 4 }}>{msg.subject}</div>
+                      <div style={{ fontSize: 12, color: "#94A3B8" }}>
+                        To: <span style={{ color: "#E91E8C", fontWeight: 600 }}>{recipientLabel(msg)}</span> &nbsp;·&nbsp;
                         {msg.sentAt ? new Date(msg.sentAt).toLocaleDateString("en-KE") : ""}
                       </div>
                     </div>
                     <button onClick={() => deleteMsg.mutate(msg.id)}
-                      style={{ background: "none", border: "none", color: "#F85149", cursor: "pointer", fontSize: 12 }}>
+                      style={{ background: "none", border: "none", color: "#EF4444", cursor: "pointer", fontSize: 12 }}>
                       Delete
                     </button>
                   </div>
-                  <div style={{ fontSize: 13, color: "#8B949E", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{msg.body}</div>
+                  <div style={{ fontSize: 13, color: "#64748B", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{msg.body}</div>
                   <div style={{ marginTop: 12 }}>
                     <a href={`https://wa.me/?text=${encodeURIComponent(`*${msg.subject}*\n\n${msg.body}\n\n— Vineyard Primary School`)}`}
                       target="_blank" rel="noreferrer"
-                      style={{ fontSize: 12, color: "#25D366", textDecoration: "none" }}>
+                      style={{ fontSize: 12, color: "#25D366", textDecoration: "none", fontWeight: 600 }}>
                       📱 Resend via WhatsApp
                     </a>
                   </div>
@@ -169,6 +177,6 @@ export default function CommunicationPage() {
   );
 }
 
-const labelStyle: React.CSSProperties = { display: "block", marginBottom: 6, fontSize: 13, color: "#8B949E" };
-const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 12px", background: "#0D1117", border: "1px solid #30363D", borderRadius: 8, color: "#F0F6FC", fontSize: 14 };
+const labelStyle: React.CSSProperties = { display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600, color: "#374151" };
+const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 12px", background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14, outline: "none" };
 const selectStyle: React.CSSProperties = { ...inputStyle };

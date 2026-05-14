@@ -56,11 +56,11 @@ export default function LibraryPage() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 4, marginBottom: 24, background: "#161B22", padding: 4, borderRadius: 10, width: "fit-content" }}>
+      <div style={{ display: "flex", gap: 4, marginBottom: 24, background: "#FFFFFF", padding: 4, borderRadius: 10, width: "fit-content" }}>
         {(["books", "borrows"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             style={{ padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 500,
-              background: tab === t ? "#E91E8C" : "transparent", color: tab === t ? "#fff" : "#8B949E" }}>
+              background: tab === t ? "#E91E8C" : "transparent", color: tab === t ? "#fff" : "#64748B" }}>
             {t === "books" ? "📚 Books" : `📋 Borrows${borrows.filter((b:any)=>b.status==="borrowed").length ? ` (${borrows.filter((b:any)=>b.status==="borrowed").length})` : ""}`}
           </button>
         ))}
@@ -70,14 +70,14 @@ export default function LibraryPage() {
         <>
           <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search books..."
-              style={{ flex: 1, minWidth: 200, padding: "8px 14px", background: "#161B22", border: "1px solid #30363D", borderRadius: 8, color: "#F0F6FC", fontSize: 14 }} />
+              style={{ flex: 1, minWidth: 200, padding: "8px 14px", background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }} />
             <button onClick={() => { setEditBook(null); setBookForm({ title: "", author: "", isbn: "", category: "Textbook", copies: "1" }); setShowBookModal(true); }}
               style={{ padding: "8px 18px", background: "#E91E8C", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600 }}>+ Add Book</button>
             <button onClick={() => setShowBorrowModal(true)}
               style={{ padding: "8px 18px", background: "#1B4D4D", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600 }}>📤 Issue Book</button>
           </div>
 
-          <div style={{ background: "#161B22", border: "1px solid #30363D", borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#1B4D4D" }}>
@@ -88,8 +88,8 @@ export default function LibraryPage() {
               </thead>
               <tbody>
                 {filteredBooks.map((b: any) => (
-                  <tr key={b.id} style={{ borderTop: "1px solid #30363D" }}>
-                    <td style={td}><span style={{ fontWeight: 600, color: "#F0F6FC" }}>{b.title}</span></td>
+                  <tr key={b.id} style={{ borderTop: "1px solid #E2E8F0" }}>
+                    <td style={td}><span style={{ fontWeight: 600, color: "#1E293B" }}>{b.title}</span></td>
                     <td style={td}>{b.author || "—"}</td>
                     <td style={td}><span style={{ padding: "3px 10px", background: "rgba(233,30,140,0.15)", color: "#E91E8C", borderRadius: 20, fontSize: 12 }}>{b.category}</span></td>
                     <td style={td}>{b.copies}</td>
@@ -98,13 +98,13 @@ export default function LibraryPage() {
                     </td>
                     <td style={td}>
                       <button onClick={() => { setEditBook(b); setBookForm({ title: b.title, author: b.author || "", isbn: b.isbn || "", category: b.category || "Textbook", copies: b.copies?.toString() }); setShowBookModal(true); }}
-                        style={{ fontSize: 12, color: "#8B949E", background: "none", border: "none", cursor: "pointer", marginRight: 8 }}>Edit</button>
+                        style={{ fontSize: 12, color: "#64748B", background: "none", border: "none", cursor: "pointer", marginRight: 8 }}>Edit</button>
                       <button onClick={() => deleteBook.mutate(b.id)}
                         style={{ fontSize: 12, color: "#F85149", background: "none", border: "none", cursor: "pointer" }}>Delete</button>
                     </td>
                   </tr>
                 ))}
-                {filteredBooks.length === 0 && <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: "#8B949E" }}>No books found</td></tr>}
+                {filteredBooks.length === 0 && <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: "#64748B" }}>No books found</td></tr>}
               </tbody>
             </table>
           </div>
@@ -112,7 +112,7 @@ export default function LibraryPage() {
       )}
 
       {tab === "borrows" && (
-        <div style={{ background: "#161B22", border: "1px solid #30363D", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#1B4D4D" }}>
@@ -127,7 +127,7 @@ export default function LibraryPage() {
                 const student = students.find((x: any) => x.id === b.studentId);
                 const isOverdue = b.status === "borrowed" && b.dueDate < new Date().toISOString().split("T")[0];
                 return (
-                  <tr key={b.id} style={{ borderTop: "1px solid #30363D" }}>
+                  <tr key={b.id} style={{ borderTop: "1px solid #E2E8F0" }}>
                     <td style={td}>{book?.title || b.bookId}</td>
                     <td style={td}>{student ? `${student.firstName} ${student.lastName}` : b.studentId}</td>
                     <td style={td}>{b.borrowDate}</td>
@@ -149,7 +149,7 @@ export default function LibraryPage() {
                   </tr>
                 );
               })}
-              {borrows.length === 0 && <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", color: "#8B949E" }}>No borrow records</td></tr>}
+              {borrows.length === 0 && <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", color: "#64748B" }}>No borrow records</td></tr>}
             </tbody>
           </table>
         </div>
@@ -158,34 +158,34 @@ export default function LibraryPage() {
       {/* Book Modal */}
       {showBookModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-          <div style={{ background: "#161B22", border: "1px solid #30363D", borderRadius: 12, padding: 28, width: 400 }}>
-            <h3 style={{ margin: "0 0 20px", color: "#F0F6FC" }}>{editBook ? "Edit Book" : "Add Book"}</h3>
+          <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, padding: 28, width: 400 }}>
+            <h3 style={{ margin: "0 0 20px", color: "#1E293B" }}>{editBook ? "Edit Book" : "Add Book"}</h3>
             {[["Title *", "title", ""], ["Author", "author", ""], ["ISBN", "isbn", ""]].map(([label, key, ph]) => (
               <div key={key} style={{ marginBottom: 12 }}>
-                <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#8B949E" }}>{label}</label>
+                <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#64748B" }}>{label}</label>
                 <input value={(bookForm as any)[key]} onChange={e => setBookForm(f => ({ ...f, [key]: e.target.value }))} placeholder={ph}
-                  style={{ width: "100%", padding: "8px 12px", background: "#0D1117", border: "1px solid #30363D", borderRadius: 8, color: "#F0F6FC", fontSize: 14 }} />
+                  style={{ width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }} />
               </div>
             ))}
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
               <div style={{ flex: 2 }}>
-                <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#8B949E" }}>Category</label>
+                <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#64748B" }}>Category</label>
                 <select value={bookForm.category} onChange={e => setBookForm(f => ({ ...f, category: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", background: "#0D1117", border: "1px solid #30363D", borderRadius: 8, color: "#F0F6FC", fontSize: 14 }}>
+                  style={{ width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }}>
                   {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                 </select>
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#8B949E" }}>Copies</label>
+                <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#64748B" }}>Copies</label>
                 <input type="number" min="1" value={bookForm.copies} onChange={e => setBookForm(f => ({ ...f, copies: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", background: "#0D1117", border: "1px solid #30363D", borderRadius: 8, color: "#F0F6FC", fontSize: 14 }} />
+                  style={{ width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }} />
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
               <button onClick={() => saveBook.mutate()} disabled={!bookForm.title}
                 style={{ flex: 1, padding: "10px", background: "#E91E8C", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600 }}>Save</button>
               <button onClick={() => { setShowBookModal(false); setEditBook(null); }}
-                style={{ flex: 1, padding: "10px", background: "#21262D", border: "1px solid #30363D", borderRadius: 8, color: "#F0F6FC", cursor: "pointer" }}>Cancel</button>
+                style={{ flex: 1, padding: "10px", background: "#F1F5F9", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", cursor: "pointer" }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -194,41 +194,41 @@ export default function LibraryPage() {
       {/* Borrow Modal */}
       {showBorrowModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-          <div style={{ background: "#161B22", border: "1px solid #30363D", borderRadius: 12, padding: 28, width: 380 }}>
-            <h3 style={{ margin: "0 0 20px", color: "#F0F6FC" }}>Issue Book</h3>
+          <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, padding: 28, width: 380 }}>
+            <h3 style={{ margin: "0 0 20px", color: "#1E293B" }}>Issue Book</h3>
             <div style={{ marginBottom: 12 }}>
-              <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#8B949E" }}>Book</label>
+              <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#64748B" }}>Book</label>
               <select value={borrowForm.bookId} onChange={e => setBorrowForm(f => ({ ...f, bookId: e.target.value }))}
-                style={{ width: "100%", padding: "8px 12px", background: "#0D1117", border: "1px solid #30363D", borderRadius: 8, color: "#F0F6FC", fontSize: 14 }}>
+                style={{ width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }}>
                 <option value="">Select book</option>
                 {books.filter((b: any) => (b.available || 0) > 0).map((b: any) => <option key={b.id} value={b.id}>{b.title} ({b.available} left)</option>)}
               </select>
             </div>
             <div style={{ marginBottom: 12 }}>
-              <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#8B949E" }}>Student</label>
+              <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#64748B" }}>Student</label>
               <select value={borrowForm.studentId} onChange={e => setBorrowForm(f => ({ ...f, studentId: e.target.value }))}
-                style={{ width: "100%", padding: "8px 12px", background: "#0D1117", border: "1px solid #30363D", borderRadius: 8, color: "#F0F6FC", fontSize: 14 }}>
+                style={{ width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }}>
                 <option value="">Select student</option>
                 {students.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
               </select>
             </div>
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
               <div style={{ flex: 1 }}>
-                <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#8B949E" }}>Borrow Date</label>
+                <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#64748B" }}>Borrow Date</label>
                 <input type="date" value={borrowForm.borrowDate} onChange={e => setBorrowForm(f => ({ ...f, borrowDate: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", background: "#0D1117", border: "1px solid #30363D", borderRadius: 8, color: "#F0F6FC", fontSize: 14 }} />
+                  style={{ width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }} />
               </div>
               <div style={{ flex: 1 }}>
-                <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#8B949E" }}>Due Date</label>
+                <label style={{ display: "block", marginBottom: 5, fontSize: 13, color: "#64748B" }}>Due Date</label>
                 <input type="date" value={borrowForm.dueDate} onChange={e => setBorrowForm(f => ({ ...f, dueDate: e.target.value }))}
-                  style={{ width: "100%", padding: "8px 12px", background: "#0D1117", border: "1px solid #30363D", borderRadius: 8, color: "#F0F6FC", fontSize: 14 }} />
+                  style={{ width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }} />
               </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button onClick={() => saveBorrow.mutate()} disabled={!borrowForm.bookId || !borrowForm.studentId || !borrowForm.dueDate}
                 style={{ flex: 1, padding: "10px", background: "#E91E8C", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600 }}>Issue</button>
               <button onClick={() => setShowBorrowModal(false)}
-                style={{ flex: 1, padding: "10px", background: "#21262D", border: "1px solid #30363D", borderRadius: 8, color: "#F0F6FC", cursor: "pointer" }}>Cancel</button>
+                style={{ flex: 1, padding: "10px", background: "#F1F5F9", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", cursor: "pointer" }}>Cancel</button>
             </div>
           </div>
         </div>
@@ -237,4 +237,4 @@ export default function LibraryPage() {
   );
 }
 
-const td: React.CSSProperties = { padding: "12px 16px", fontSize: 14, color: "#8B949E" };
+const td: React.CSSProperties = { padding: "12px 16px", fontSize: 14, color: "#64748B" };

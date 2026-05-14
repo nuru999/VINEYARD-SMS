@@ -79,7 +79,7 @@ export default function ExamsPage() {
         {tabs.map(t => (
           <button key={t} onClick={() => setActiveTab(t)}
             style={{ padding: "7px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "Poppins", fontSize: 13, fontWeight: 600, textTransform: "capitalize", transition: "all 0.15s",
-              background: activeTab === t ? "var(--accent)" : "transparent", color: activeTab === t ? "#0D1117" : "var(--text-secondary)" }}>
+              background: activeTab === t ? "var(--accent)" : "transparent", color: activeTab === t ? "#F8FAFC" : "var(--text-secondary)" }}>
             {t}
           </button>
         ))}

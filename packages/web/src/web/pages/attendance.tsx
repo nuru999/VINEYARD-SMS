@@ -110,7 +110,7 @@ export default function AttendancePage() {
                             ? status === "present" ? { background: "rgba(63,185,80,0.2)", borderColor: "#3FB950", color: "#3FB950" }
                               : status === "absent" ? { background: "rgba(248,81,73,0.2)", borderColor: "#F85149", color: "#F85149" }
                               : status === "late" ? { background: "rgba(227,179,65,0.2)", borderColor: "#E3B341", color: "#E3B341" }
-                              : { background: "rgba(139,148,158,0.2)", borderColor: "#8B949E", color: "#8B949E" }
+                              : { background: "rgba(139,148,158,0.2)", borderColor: "#64748B", color: "#64748B" }
                             : { background: "transparent", borderColor: "var(--border)", color: "var(--text-secondary)" })
                         }}>
                         {status}
