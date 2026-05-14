@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Layout from "../components/layout";
+import { Layout } from "../components/layout";
 import { api } from "../lib/api";
 
 const TERMS = ["Term 1", "Term 2", "Term 3"];

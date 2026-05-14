@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Layout from "../components/layout";
+import { Layout } from "../components/layout";
 import { api } from "../lib/api";
 
 const CATEGORIES = ["Furniture", "Electronics", "Sports", "Stationery", "Kitchen", "Cleaning", "Books", "Laboratory", "Other"];
