@@ -25,7 +25,7 @@ export default function FeesPage() {
 
   const { data: paymentsData, isLoading } = useQuery({
     queryKey: ["fee-payments"],
-    queryFn: async () => (await api["fee-payments"].$get()).json(),
+    queryFn: async () => { const r = await (await api["fee-payments"].$get()).json(); return (r as any).payments ?? r; },
   });
 
   const { data: defaultersData, isLoading: defaultersLoading } = useQuery({
@@ -38,17 +38,17 @@ export default function FeesPage() {
 
   const { data: structuresData } = useQuery({
     queryKey: ["fee-structures"],
-    queryFn: async () => (await api["fee-structures"].$get()).json(),
+    queryFn: async () => { const r = await (await api["fee-structures"].$get()).json(); return (r as any).feeStructures ?? r; },
   });
 
   const { data: studentsData } = useQuery({
     queryKey: ["students"],
-    queryFn: async () => (await api.students.$get()).json(),
+    queryFn: async () => { const r = await (await api.students.$get()).json(); return (r as any).students ?? r; },
   });
 
   const { data: classesData } = useQuery({
     queryKey: ["classes"],
-    queryFn: async () => (await api.classes.$get()).json(),
+    queryFn: async () => { const r = await (await api.classes.$get()).json(); return (r as any).classes ?? r; },
   });
 
   const saveStructure = useMutation({

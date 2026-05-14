@@ -17,7 +17,7 @@ export default function TransportPage() {
 
   const { data: routes = [] } = useQuery({ queryKey: ["transport-routes"], queryFn: async () => (await api.transport.routes.$get()).json() });
   const { data: assignments = [] } = useQuery({ queryKey: ["transport-assignments"], queryFn: async () => (await api.transport.assignments.$get()).json() });
-  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => (await api.students.$get()).json() });
+  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => { const r = await (await api.students.$get()).json(); return (r as any).students ?? r; } });
 
   const saveRoute = useMutation({
     mutationFn: async () => {

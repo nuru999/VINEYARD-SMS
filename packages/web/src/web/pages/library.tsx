@@ -17,7 +17,7 @@ export default function LibraryPage() {
 
   const { data: books = [] } = useQuery({ queryKey: ["library-books"], queryFn: async () => (await api.library.books.$get()).json() });
   const { data: borrows = [] } = useQuery({ queryKey: ["library-borrows"], queryFn: async () => (await api.library.borrows.$get()).json() });
-  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => (await api.students.$get()).json() });
+  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => { const r = await (await api.students.$get()).json(); return (r as any).students ?? r; } });
 
   const saveBook = useMutation({
     mutationFn: async () => {
