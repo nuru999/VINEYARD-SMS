@@ -1,15 +1,18 @@
 {
   "name": "@template/desktop",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "main": "dist-electron/main.js",
+  "description": "Vineyard School Management System",
+  "author": "Vineyard School",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "dist": "vite build && electron-builder",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {},
   "devDependencies": {
     "electron": "^30.0.1",
     "electron-builder": "^24.13.3",
