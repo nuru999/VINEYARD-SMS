@@ -26,15 +26,15 @@ function createWindow() {
     },
   });
 
-  if (isDev) {
-    win.loadURL(WEB_DEV_URL);
-  } else {
-    win.loadURL(PROD_URL);
-  }
+  win.loadURL(PROD_URL);
+
+  // Open DevTools so we can see errors
+  win.webContents.openDevTools();
 
   win.webContents.on("did-fail-load", (_e, code, desc) => {
     console.error("Failed to load:", code, desc);
-    win?.loadURL(PROD_URL);
+    // retry once
+    setTimeout(() => win?.loadURL(PROD_URL), 3000);
   });
 }
 
