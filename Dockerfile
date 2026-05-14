@@ -1,4 +1,4 @@
-FROM oven/bun:1.1 AS builder
+FROM oven/bun:1.3 AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN bun install --frozen-lockfile
 RUN cd packages/web && bun run build
 
 # ── Production image ──
-FROM oven/bun:1.1-slim
+FROM oven/bun:1.3-slim
 
 WORKDIR /app
 
