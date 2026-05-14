@@ -48,8 +48,8 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 
   if (isLoading) {
     return (
-      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#0D1117" }}>
-        <div style={{ width: 32, height: 32, border: "3px solid #30363D", borderTop: "3px solid #4ADE80", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}>
+        <div style={{ width: 32, height: 32, border: "3px solid #E2E8F0", borderTop: "3px solid #E91E8C", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
       </div>
     );
   }

@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Eye, EyeOff } from "lucide-react";
 import { authClient } from "../lib/auth";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
 
 export default function SignInPage() {
   const [, setLocation] = useLocation();
@@ -11,21 +9,15 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [name, setName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      if (isSignUp) {
-        const res = await authClient.signUp.email({ name, email, password });
-        if (res.error) { setError(res.error.message || "Sign up failed"); setLoading(false); return; }
-      } else {
-        const res = await authClient.signIn.email({ email, password });
-        if (res.error) { setError(res.error.message || "Invalid credentials"); setLoading(false); return; }
-      }
+      const res = await authClient.signIn.email({ email, password });
+      if (res.error) { setError(res.error.message || "Invalid credentials"); setLoading(false); return; }
       setLocation("/");
     } catch {
       setError("Something went wrong. Try again.");
@@ -36,66 +28,170 @@ export default function SignInPage() {
 
   return (
     <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: "var(--bg-primary)",
-      backgroundImage: "radial-gradient(ellipse at 20% 50%, rgba(74,222,128,0.06) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(74,222,128,0.04) 0%, transparent 60%)",
+      minHeight: "100vh", display: "flex",
+      fontFamily: "'Poppins', sans-serif",
     }}>
-      <div style={{ width: "100%", maxWidth: 400, padding: "0 20px" }}>
+      {/* ── Left: Form Panel ── */}
+      <div style={{
+        flex: "0 0 480px",
+        background: "#FFFFFF",
+        display: "flex", flexDirection: "column",
+        justifyContent: "center", alignItems: "center",
+        padding: "48px 56px",
+        position: "relative", zIndex: 2,
+      }}>
         {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 14,
-            background: "linear-gradient(135deg, #4ADE80, #22C55E)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            margin: "0 auto 14px",
-            boxShadow: "0 0 32px rgba(74,222,128,0.3)",
-          }}>
-            <GraduationCap size={28} color="#0D1117" />
+        <div style={{ width: "100%", maxWidth: 360, marginBottom: 40 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: 12,
+              background: "linear-gradient(135deg, #E91E8C, #c0166d)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 4px 16px rgba(233,30,140,0.35)",
+            }}>
+              <GraduationCap size={24} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontFamily: "'Dancing Script', cursive", fontSize: 22, fontWeight: 700, color: "#1B4D4D", lineHeight: 1.1 }}>
+                Vineyard Primary
+              </div>
+              <div style={{ fontSize: 10, color: "#E91E8C", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Fruitful Development
+              </div>
+            </div>
           </div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "var(--text-primary)" }}>Vineyard School</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-secondary)" }}>School Management System</p>
-        </div>
 
-        {/* Card */}
-        <div style={{
-          background: "var(--bg-secondary)", borderRadius: 16,
-          border: "1px solid var(--border)", padding: "32px 28px",
-          boxShadow: "0 16px 48px rgba(0,0,0,0.4)",
-        }}>
-          <h2 style={{ margin: "0 0 24px", fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
-            {isSignUp ? "Create Account" : "Welcome Back"}
-          </h2>
+          <h1 style={{ margin: "0 0 6px", fontSize: 26, fontWeight: 700, color: "#1E293B" }}>
+            Welcome back
+          </h1>
+          <p style={{ margin: "0 0 32px", fontSize: 14, color: "#64748B" }}>
+            Sign in to manage your school
+          </p>
 
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {isSignUp && (
-              <Input label="Full Name" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="John Doe" required />
-            )}
-            <Input label="Email Address" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="admin@vineyard.school" required />
-            <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+                Email Address
+              </label>
+              <input
+                type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="admin@vineyard.school" required
+                style={{
+                  width: "100%", padding: "11px 14px", borderRadius: 10, fontSize: 14,
+                  border: "1.5px solid #E2E8F0", outline: "none", fontFamily: "'Poppins', sans-serif",
+                  background: "#F8FAFC", color: "#1E293B", transition: "border 0.15s",
+                }}
+                onFocus={e => (e.target.style.borderColor = "#E91E8C")}
+                onBlur={e => (e.target.style.borderColor = "#E2E8F0")}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+                Password
+              </label>
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••" required
+                  style={{
+                    width: "100%", padding: "11px 40px 11px 14px", borderRadius: 10, fontSize: 14,
+                    border: "1.5px solid #E2E8F0", outline: "none", fontFamily: "'Poppins', sans-serif",
+                    background: "#F8FAFC", color: "#1E293B", transition: "border 0.15s",
+                  }}
+                  onFocus={e => (e.target.style.borderColor = "#E91E8C")}
+                  onBlur={e => (e.target.style.borderColor = "#E2E8F0")}
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8", padding: 2 }}>
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
             {error && (
-              <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(248,81,73,0.1)", border: "1px solid rgba(248,81,73,0.3)", fontSize: 12, color: "var(--danger)" }}>
+              <div style={{ padding: "10px 14px", borderRadius: 8, background: "#FEF2F2", border: "1px solid #FECACA", fontSize: 13, color: "#DC2626", fontWeight: 500 }}>
                 {error}
               </div>
             )}
-            <Button type="submit" loading={loading} style={{ marginTop: 4 }}>
-              {isSignUp ? "Create Account" : "Sign In"}
-            </Button>
-          </form>
 
-          <div style={{ marginTop: 20, textAlign: "center", fontSize: 12, color: "var(--text-secondary)" }}>
-            {isSignUp ? "Already have an account? " : "Need an account? "}
-            <button onClick={() => setIsSignUp(!isSignUp)} style={{
-              color: "var(--accent)", background: "none", border: "none",
-              cursor: "pointer", fontFamily: "Poppins", fontSize: 12, fontWeight: 600
-            }}>
-              {isSignUp ? "Sign In" : "Register"}
+            <button type="submit" disabled={loading}
+              style={{
+                width: "100%", padding: "13px", borderRadius: 10, fontSize: 15, fontWeight: 700,
+                background: loading ? "#f472b6" : "linear-gradient(135deg, #E91E8C, #c0166d)",
+                color: "#fff", border: "none", cursor: loading ? "not-allowed" : "pointer",
+                fontFamily: "'Poppins', sans-serif", letterSpacing: 0.3,
+                boxShadow: "0 4px 16px rgba(233,30,140,0.35)",
+                transition: "all 0.2s", marginTop: 4,
+              }}
+              onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}>
+              {loading ? "Signing in..." : "Sign In"}
             </button>
-          </div>
+          </form>
         </div>
 
-        <p style={{ textAlign: "center", marginTop: 20, fontSize: 11, color: "var(--text-secondary)" }}>
-          © 2025 Vineyard School. All rights reserved.
+        <p style={{ fontSize: 11, color: "#94A3B8", marginTop: 24 }}>
+          © {new Date().getFullYear()} Vineyard Primary School · All rights reserved
         </p>
+      </div>
+
+      {/* ── Right: Classroom Hero Panel ── */}
+      <div style={{
+        flex: 1,
+        background: "#1B4D4D",
+        backgroundImage: `
+          url("https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1200&q=80")
+        `,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        position: "relative",
+        display: "flex", flexDirection: "column",
+        justifyContent: "flex-end",
+        padding: "48px",
+      }}>
+        {/* overlay */}
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "linear-gradient(160deg, rgba(27,77,77,0.55) 0%, rgba(27,77,77,0.82) 60%, rgba(10,35,35,0.95) 100%)",
+        }} />
+        {/* Pink accent bar top */}
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 5,
+          background: "linear-gradient(90deg, #E91E8C, #ff6ecb, #E91E8C)",
+        }} />
+
+        <div style={{ position: "relative", zIndex: 2 }}>
+          <div style={{
+            display: "inline-block", background: "rgba(233,30,140,0.2)", border: "1px solid rgba(233,30,140,0.5)",
+            borderRadius: 20, padding: "5px 16px", fontSize: 12, fontWeight: 600, color: "#f9a8d4",
+            marginBottom: 16, letterSpacing: "0.05em",
+          }}>
+            School Management System
+          </div>
+          <h2 style={{
+            margin: "0 0 14px",
+            fontFamily: "'Dancing Script', cursive",
+            fontSize: 46, fontWeight: 700, color: "#FFFFFF",
+            lineHeight: 1.15, textShadow: "0 2px 16px rgba(0,0,0,0.3)",
+          }}>
+            Nurturing minds,<br />building futures
+          </h2>
+          <p style={{ margin: "0 0 32px", fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.7, maxWidth: 420 }}>
+            Manage students, staff, attendance, fees, exams and more — all from one powerful platform designed for Vineyard Primary School.
+          </p>
+
+          {/* Feature pills */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {["Student Records", "Fee Management", "Attendance", "Exam Results", "Report Cards", "Staff Payroll"].map(f => (
+              <span key={f} style={{
+                fontSize: 12, fontWeight: 500, color: "rgba(255,255,255,0.85)",
+                background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)",
+                borderRadius: 20, padding: "5px 14px",
+              }}>{f}</span>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

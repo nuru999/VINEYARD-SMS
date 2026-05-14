@@ -17,7 +17,7 @@ export function Button({ variant = "primary", size = "md", loading, children, st
   };
 
   const variants: Record<string, React.CSSProperties> = {
-    primary: { background: "var(--accent)", color: "#0D1117" },
+    primary: { background: "linear-gradient(135deg, #E91E8C, #c0166d)", color: "#FFFFFF", boxShadow: "0 2px 8px rgba(233,30,140,0.3)" },
     secondary: { background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" },
     danger: { background: "rgba(248,81,73,0.15)", color: "var(--danger)", border: "1px solid rgba(248,81,73,0.3)" },
     ghost: { background: "transparent", color: "var(--text-secondary)" },
