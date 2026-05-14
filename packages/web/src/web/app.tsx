@@ -1,5 +1,6 @@
 import { Route, Switch, Redirect, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Provider } from "./components/provider";
 import { AgentFeedback, RunableBadge } from "@runablehq/website-runtime";
 
@@ -43,10 +44,11 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
     );
   }
 
-  if (!user) {
-    navigate("/sign-in");
-    return null;
-  }
+  useEffect(() => {
+    if (!isLoading && !user) navigate("/sign-in");
+  }, [isLoading, user]);
+
+  if (!user) return null;
 
   return <Component />;
 }
