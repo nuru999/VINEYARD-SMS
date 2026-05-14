@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Provider } from "./components/provider";
 import { AgentFeedback } from "@runablehq/website-runtime";
+import { useRole } from "./lib/use-role";
 
 // Pages
 import SignIn from "./pages/sign-in";
@@ -23,6 +24,7 @@ import CommunicationPage from "./pages/communication";
 import TransportPage from "./pages/transport";
 import LibraryPage from "./pages/library";
 import InventoryPage from "./pages/inventory";
+import UserManagementPage from "./pages/user-management";
 
 function useAuth() {
   const { data, isLoading } = useQuery({
@@ -59,28 +61,58 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 
+// Admin-only wrapper: redirects teachers to home
+function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+  const { user, isLoading: authLoading } = useAuth();
+  const { isAdmin, isLoading: roleLoading } = useRole();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!authLoading && !user) navigate("/sign-in");
+    if (!authLoading && !roleLoading && user && !isAdmin) navigate("/");
+  }, [authLoading, roleLoading, user, isAdmin]);
+
+  if (authLoading || roleLoading) {
+    return (
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}>
+        <div style={{ width: 32, height: 32, border: "3px solid #E2E8F0", borderTop: "3px solid #E91E8C", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+      </div>
+    );
+  }
+
+  if (!user || !isAdmin) return null;
+
+  return <Component />;
+}
+
 function App() {
   return (
     <Provider>
       <Switch>
         <Route path="/sign-in" component={SignIn} />
+
+        {/* All authenticated users */}
         <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
         <Route path="/students" component={() => <ProtectedRoute component={StudentsPage} />} />
-        <Route path="/staff" component={() => <ProtectedRoute component={StaffPage} />} />
         <Route path="/classes" component={() => <ProtectedRoute component={ClassesPage} />} />
         <Route path="/attendance" component={() => <ProtectedRoute component={AttendancePage} />} />
-        <Route path="/fees" component={() => <ProtectedRoute component={FeesPage} />} />
         <Route path="/exams" component={() => <ProtectedRoute component={ExamsPage} />} />
-        <Route path="/payroll" component={() => <ProtectedRoute component={PayrollPage} />} />
         <Route path="/certificates" component={() => <ProtectedRoute component={CertificatesPage} />} />
         <Route path="/report-cards" component={() => <ProtectedRoute component={ReportCardsPage} />} />
-        <Route path="/accounts" component={() => <ProtectedRoute component={AccountsPage} />} />
-        <Route path="/reports" component={() => <ProtectedRoute component={ReportsPage} />} />
         <Route path="/timetable" component={() => <ProtectedRoute component={TimetablePage} />} />
         <Route path="/communication" component={() => <ProtectedRoute component={CommunicationPage} />} />
         <Route path="/transport" component={() => <ProtectedRoute component={TransportPage} />} />
         <Route path="/library" component={() => <ProtectedRoute component={LibraryPage} />} />
         <Route path="/inventory" component={() => <ProtectedRoute component={InventoryPage} />} />
+
+        {/* Admin only */}
+        <Route path="/staff" component={() => <AdminRoute component={StaffPage} />} />
+        <Route path="/fees" component={() => <AdminRoute component={FeesPage} />} />
+        <Route path="/payroll" component={() => <AdminRoute component={PayrollPage} />} />
+        <Route path="/accounts" component={() => <AdminRoute component={AccountsPage} />} />
+        <Route path="/reports" component={() => <AdminRoute component={ReportsPage} />} />
+        <Route path="/user-management" component={() => <AdminRoute component={UserManagementPage} />} />
+
         <Route component={() => <Redirect to="/" />} />
       </Switch>
       {import.meta.env.DEV && <AgentFeedback />}

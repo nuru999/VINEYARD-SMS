@@ -107,7 +107,7 @@ export default function ReportCardsPage() {
 
   const { data: examsData } = useQuery({
     queryKey: ["exams"],
-    queryFn: async () => (await api.exams.$get()).json(),
+    queryFn: async () => { const r = await (await api.exams.$get()).json(); return (r as any).exams ?? r; },
   });
 
   const { data: cardsData, isLoading: cardsLoading } = useQuery({

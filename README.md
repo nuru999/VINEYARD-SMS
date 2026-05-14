@@ -1,326 +1,170 @@
-# Vineyard Primary School — School Management System (SMS)
+# Vineyard Primary School — Management System
 
-> **Supervisor Presentation Documentation**  
-> Built with modern full-stack web + mobile technologies. Manages all aspects of school administration from a single platform.
-
----
-
-## Overview
-
-The Vineyard SMS is a complete school administration platform built for Vineyard Primary School (Nairobi, Kenya). It covers student records, fee collection, staff management, academic operations, and communication — accessible from a web browser or a mobile app for staff on the go.
-
----
-
-## System Architecture
-
-```
-vineyard-school/
-├── packages/
-│   ├── server/          # Hono API server (runs on Bun)
-│   │   ├── src/routes/  # All API route handlers
-│   │   └── src/db/      # Drizzle ORM schema + migrations
-│   ├── web/             # React web frontend (Vite)
-│   │   └── src/web/
-│   │       ├── pages/   # All page components
-│   │       ├── components/  # Shared UI components
-│   │       └── lib/     # API client, auth helpers
-│   └── mobile/          # React Native / Expo mobile app
-│       └── src/
-│           ├── screens/ # Mobile screens
-│           └── components/
-├── package.json         # Monorepo root (Bun workspaces)
-└── README.md
-```
-
-**Tech Stack:**
-
-| Layer | Technology |
-|-------|-----------|
-| Runtime | Bun |
-| API Framework | Hono (TypeScript) |
-| Database | SQLite via Drizzle ORM |
-| Authentication | better-auth (sessions + Bearer tokens) |
-| Web Frontend | React 18 + Vite + Wouter (routing) |
-| Mobile | React Native (Expo) |
-| State / Data | TanStack Query |
-| Styling | Inline CSS (design system via CSS variables) |
-| Fonts | Dancing Script (headings) + Poppins (body) |
+A full-stack school management platform built for **Vineyard Primary School, Kenya**.  
+Live: [https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/](https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/)
 
 ---
 
 ## Features
 
-### Student Management
-- Register, edit, deactivate students
-- Admission number auto-generation
-- Parent/guardian contact details
-- Class assignment
-- Student profile with full history
-
-### Staff Management
-- Staff records (teachers, admin, support)
-- Role and department assignment
-- Contact information
-
-### Class Management
-- Create and manage classes/streams
-- Assign class teachers
-- View enrolled students per class
-
-### Fee Management
-- Fee structures per class and term
-- Record fee payments (cash, M-Pesa, bank)
-- Receipt number generation
-- Outstanding balances and defaulter tracking
-- WhatsApp reminders for defaulters (one-click)
-- KES currency throughout
-
-### Attendance
-- Daily attendance marking (Present / Absent / Late)
-- View attendance by class and date
-- Dashboard attendance summary
-
-### Examinations & Results
-- Exam creation per term
-- Enter marks per student per subject
-- Automatic grade and comment generation
-- Results listing per exam
-
-### Report Cards
-- Generate individual student report cards
-- Per-subject marks, grades, teacher remarks
-- Printable PDF-style layout
-
-### Timetable
-- Weekly timetable per class
-- Period, subject, teacher assignment
-
-### Payroll
-- Staff salary records
-- Allowances and deductions
-- Monthly payroll processing
-
-### Communication
-- Internal announcement/message board
-- WhatsApp deep-link integration for parent contact
-
-### Transport
-- Vehicle and route management
-- Student transport assignment
-
-### Library
-- Book catalogue management
-- Issue and return tracking
-
-### Inventory
-- School asset and supply tracking
-- Stock levels
-
-### Dashboard
-- Live KPIs: total students, staff, fees collected, outstanding, net balance
-- Today's attendance summary
-- Fee defaulters widget
-- Recent student enrollments
-- Recent payments
+| Module | What it does |
+|--------|-------------|
+| **Dashboard** | KPI overview — students, fees collected, attendance, payroll |
+| **Students** | Enrol, edit, archive students; class assignment |
+| **Staff** | Staff records, contact details (admin-only) |
+| **Classes & Subjects** | Create classes, assign subjects per class |
+| **Attendance** | Daily mark-in by class; weekly summary |
+| **Exams & Results** | Create exams, record scores per student per subject |
+| **Timetable** | Weekly schedule builder by class |
+| **Report Cards** | Auto-generated from exam data; printable |
+| **Certificates** | Issue achievement/completion certificates |
+| **Fees & Payments** | Fee structure per class; record payments; outstanding balance |
+| **Payroll** | Generate monthly payroll for staff |
+| **Accounts** | Income & expense ledger |
+| **Reports** | Aggregate analytics across all modules |
+| **Communication** | Compose notices to parents / staff |
+| **Transport** | Route & vehicle management |
+| **Library** | Book inventory tracking |
+| **Inventory** | School assets management |
+| **User Management** | Add/remove admin & teacher login accounts (max 2 admins) |
 
 ---
 
-## API Endpoints
+## Tech Stack
 
-Base URL: `/api`
-
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/sign-in/email` | Sign in with email + password |
-| POST | `/api/auth/sign-up/email` | Create admin account |
-| POST | `/api/auth/sign-out` | Sign out |
-| GET | `/api/auth/session` | Get current session |
-
-### Students
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/students` | List all students |
-| POST | `/api/students` | Add student |
-| GET | `/api/students/:id` | Get student detail |
-| PUT | `/api/students/:id` | Update student |
-| DELETE | `/api/students/:id` | Delete student |
-
-### Staff
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/staff` | List all staff |
-| POST | `/api/staff` | Add staff member |
-| PUT | `/api/staff/:id` | Update staff |
-| DELETE | `/api/staff/:id` | Delete staff |
-
-### Classes
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/classes` | List classes |
-| POST | `/api/classes` | Create class |
-| PUT | `/api/classes/:id` | Update class |
-| DELETE | `/api/classes/:id` | Delete class |
-
-### Fee Payments
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/fee-payments` | All payments |
-| POST | `/api/fee-payments` | Record payment |
-| GET | `/api/fee-payments/defaulters` | Students with outstanding fees |
-| GET | `/api/fee-payments/student/:id` | Payments for a student |
-
-### Fee Structures
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/fee-structures` | List fee structures |
-| POST | `/api/fee-structures` | Create structure |
-| PUT | `/api/fee-structures/:id` | Update structure |
-
-### Attendance
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/attendance` | List attendance records |
-| POST | `/api/attendance` | Mark attendance |
-| GET | `/api/attendance/today` | Today's summary |
-
-### Exams & Results
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/exams` | List exams |
-| POST | `/api/exams` | Create exam |
-| GET | `/api/exam-results` | List results |
-| POST | `/api/exam-results` | Enter result |
-
-### Dashboard
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/dashboard/stats` | Aggregated KPI stats |
-
-### Other Modules
-- `/api/timetable` — Timetable entries
-- `/api/payroll` — Payroll records
-- `/api/report-cards` — Report card generation
-- `/api/communication` — Messages/announcements
-- `/api/transport` — Routes and vehicles
-- `/api/library` — Book management
-- `/api/inventory` — Asset/stock management
+- **Frontend**: React 19 + Vite + Wouter (SPA routing)
+- **Backend**: Hono API (Bun runtime)
+- **Auth**: better-auth (email/password, session-based)
+- **Database**: Turso (libSQL / SQLite edge)
+- **Styling**: Inline styles (no CSS framework dependency)
+- **Deployment**: Runable platform (Node/Bun serverless)
 
 ---
 
-## Authentication
+## Role System
 
-The system uses **better-auth** for session management.
+| Role | Access |
+|------|--------|
+| `admin` | All modules including Staff, Fees, Payroll, Accounts, Reports, User Management |
+| `teacher` | All student-facing modules: Students, Classes, Attendance, Exams, Timetable, Report Cards, Certificates, Communication, Transport, Library, Inventory |
 
-- **Web**: Cookie-based sessions (auto-handled by browser)
-- **Mobile**: Bearer token authentication  
-  - Sign in via `/api/auth/sign-in/email`
-  - Token returned in response header
-  - All subsequent requests include `Authorization: Bearer <token>`
-
----
-
-## Database
-
-SQLite database managed by **Drizzle ORM**.
-
-**Key tables:**
-- `user`, `session`, `account` — Auth tables (better-auth managed)
-- `students` — Student records
-- `staff` — Staff records
-- `classes` — Class/stream definitions
-- `fee_structures` — Fee requirements per class/term
-- `fee_payments` — Payment transactions
-- `attendance` — Daily attendance records
-- `exams` — Exam definitions
-- `exam_results` — Student exam marks
-- `timetable_entries` — Weekly timetable slots
-- `payroll_records` — Staff payroll
-- `transport_routes`, `transport_vehicles` — Transport
-- `library_books`, `library_issues` — Library
-- `inventory_items` — Inventory
-- `communication_messages` — Announcements
+- Maximum **2 admin accounts** enforced at signup
+- Role stored in `user_profiles` table; checked server-side on every protected API call
 
 ---
 
-## How to Run
+## Local Development
 
 ### Prerequisites
-- [Bun](https://bun.sh) installed
-- Node.js 18+ (for tooling)
+- [Bun](https://bun.sh) ≥ 1.1
+- A [Turso](https://turso.tech) database (free tier works)
 
 ### Setup
 
 ```bash
-# Clone the repo
 git clone https://github.com/nuru999/VINEYARD-SMS.git
 cd VINEYARD-SMS
 
 # Install dependencies
 bun install
 
+# Copy env template
+cp .env.example .env
+# Fill in your Turso DATABASE_URL and DATABASE_AUTH_TOKEN
+
 # Run database migrations
-cd packages/server
-bun run db:migrate
+cd packages/web
+bun src/api/database/migrate.ts
+
+# Start dev server (port 4200)
+bun dev
 ```
 
-### Development
+### Environment Variables
 
-```bash
-# From repo root — starts both API server and web frontend
-bun run dev
-
-# Or individually:
-# API server (port 3000)
-cd packages/server && bun run dev
-
-# Web frontend (port 4200)
-cd packages/web && bunx vite
-
-# Mobile (Expo)
-cd packages/mobile && bun expo start
 ```
-
-### Production Build
-
-```bash
-# Build web frontend
-cd packages/web && bunx vite build
-
-# The server serves the built web files statically
-cd packages/server && bun run start
+DATABASE_URL=libsql://your-db.turso.io
+DATABASE_AUTH_TOKEN=your-token-here
+BETTER_AUTH_SECRET=any-long-random-string
+BASE_URL=http://localhost:4200
 ```
 
 ---
 
-## Mobile App
+## First-Time Setup (Production)
 
-The Expo mobile app provides full access to the SMS on the go:
-
-- **Home** — Dashboard stats + quick actions
-- **Students** — Search, view, add students
-- **Attendance** — Mark and review attendance
-- **Fees** — View payments, defaulters, record payments
-- **Staff** — Staff directory and details
-
-Authentication uses Bearer tokens. Build and distribute via Expo's EAS Build service.
-
----
-
-## Security
-
-- All API routes protected by session/Bearer token middleware
-- Passwords hashed with bcrypt via better-auth
-- CORS configured for trusted origins only
-- Input validation on all POST/PUT endpoints
+1. Deploy to your hosting platform
+2. Set the environment variables above
+3. Run migrations once: `bun src/api/database/migrate.ts`
+4. Create the first admin account via the sign-up API:
+   ```bash
+   curl -X POST https://your-domain.com/api/auth/sign-up/email \
+     -H "Content-Type: application/json" \
+     -d '{"name":"School Admin","email":"admin@yourschool.com","password":"YourSecurePassword"}'
+   ```
+5. Manually set that user as admin in the database:
+   ```sql
+   INSERT INTO user_profiles (user_id, role) VALUES ('<userId-from-above>', 'admin');
+   ```
+6. Sign in at `/sign-in`
 
 ---
 
-## Developed By
+## Project Structure
 
-Built for Vineyard Primary School, Nairobi, Kenya.  
-School motto: *"Fruitful Development"*
+```
+packages/
+  web/
+    src/
+      api/
+        database/       # Schema, migrations, DB client
+        middleware/      # Auth, requireAdmin middleware
+        routes/          # All API route handlers
+        auth.ts          # better-auth configuration
+        index.ts         # Hono app entry
+      web/
+        components/      # Sidebar, shared UI
+        lib/             # Auth client
+        pages/           # All 18 page components
+        app.tsx          # Router + ProtectedRoute/AdminRoute
+        main.tsx         # React entry
+```
 
 ---
 
-*© 2025 Vineyard Primary School. All rights reserved.*
+## Database Schema (key tables)
+
+- `user` / `session` / `account` / `verification` — better-auth managed
+- `user_profiles` — `user_id`, `role` (admin|teacher)
+- `students` — full student records
+- `staff` — staff records
+- `classes` — class definitions
+- `subjects` — subjects per class
+- `attendance` / `attendance_records` — daily attendance
+- `exams` / `exam_results` — exam scores
+- `timetable_entries` — weekly schedule
+- `fee_structures` / `fee_payments` — fees
+- `payroll_records` — payroll
+- `transactions` — accounts ledger
+- `messages` — communication
+- `transport_routes` / `vehicles` — transport
+- `books` — library
+- `inventory_items` — inventory
+- `certificates` — issued certificates
+
+---
+
+## Handover Notes (for school IT supervisor)
+
+- **Login URL**: `/sign-in`  
+- **Admin credentials**: Contact the person who set up the system — passwords are not stored in plain text  
+- **Backups**: Turso provides automatic cloud backups; export via Turso dashboard  
+- **Adding teachers**: Go to **User Management** → **Add User** → select role "Teacher"  
+- **Max admins**: System enforces maximum 2 admin accounts  
+- **Support**: Raise issues on [GitHub](https://github.com/nuru999/VINEYARD-SMS/issues)
+
+---
+
+## License
+
+Private — Vineyard Primary School, Kenya. All rights reserved.

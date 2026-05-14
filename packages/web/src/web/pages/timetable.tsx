@@ -16,8 +16,8 @@ export default function TimetablePage() {
   const [editing, setEditing] = useState<{ day: string; period: number } | null>(null);
   const [form, setForm] = useState({ subject: "", teacherId: "" });
 
-  const { data: classes = [] } = useQuery({ queryKey: ["classes"], queryFn: async () => (await api.classes.$get()).json() });
-  const { data: staff = [] } = useQuery({ queryKey: ["staff"], queryFn: async () => (await api.staff.$get()).json() });
+  const { data: classes = [] } = useQuery({ queryKey: ["classes"], queryFn: async () => { const r = await (await api.classes.$get()).json(); return (r as any).classes ?? r; } });
+  const { data: staff = [] } = useQuery({ queryKey: ["staff"], queryFn: async () => { const r = await (await api.staff.$get()).json(); return (r as any).staff ?? r; } });
   const { data: slots = [] } = useQuery({
     queryKey: ["timetable", selectedClass],
     queryFn: async () => (await api.timetable.$get({ query: selectedClass ? { classId: String(selectedClass) } : {} })).json(),

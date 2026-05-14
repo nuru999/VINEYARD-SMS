@@ -19,7 +19,7 @@ export default function StaffPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["staff"],
-    queryFn: async () => (await api.staff.$get()).json(),
+    queryFn: async () => { const r = await (await api.staff.$get()).json(); return (r as any).staff ?? r; },
   });
 
   const save = useMutation({

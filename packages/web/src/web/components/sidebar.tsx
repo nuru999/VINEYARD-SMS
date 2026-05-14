@@ -3,18 +3,20 @@ import {
   LayoutDashboard, Users, UserCheck, BookOpen, CalendarCheck,
   DollarSign, ClipboardList, Award, FileText, BarChart3,
   GraduationCap, LogOut, Wallet, Calendar, MessageSquare,
-  Bus, Library, Package, ChevronDown, ChevronRight
+  Bus, Library, Package, ChevronDown, ChevronRight, ShieldCheck
 } from "lucide-react";
 import { useState } from "react";
 import { authClient } from "../lib/auth";
+import { useRole } from "../lib/use-role";
 
+// adminOnly: true = hidden from teachers
 const navGroups = [
   {
     group: "Main",
     items: [
       { label: "Dashboard", icon: LayoutDashboard, path: "/" },
       { label: "Students", icon: Users, path: "/students" },
-      { label: "Staff", icon: UserCheck, path: "/staff" },
+      { label: "Staff", icon: UserCheck, path: "/staff", adminOnly: true },
       { label: "Classes", icon: BookOpen, path: "/classes" },
     ],
   },
@@ -30,11 +32,12 @@ const navGroups = [
   },
   {
     group: "Finance",
+    adminOnly: true,
     items: [
-      { label: "Fees & Payments", icon: DollarSign, path: "/fees" },
-      { label: "Payroll", icon: Wallet, path: "/payroll" },
-      { label: "Accounts", icon: FileText, path: "/accounts" },
-      { label: "Reports", icon: BarChart3, path: "/reports" },
+      { label: "Fees & Payments", icon: DollarSign, path: "/fees", adminOnly: true },
+      { label: "Payroll", icon: Wallet, path: "/payroll", adminOnly: true },
+      { label: "Accounts", icon: FileText, path: "/accounts", adminOnly: true },
+      { label: "Reports", icon: BarChart3, path: "/reports", adminOnly: true },
     ],
   },
   {
@@ -51,6 +54,7 @@ const navGroups = [
 export function Sidebar() {
   const [location] = useLocation();
   const { data: session } = authClient.useSession();
+  const { isAdmin, role } = useRole();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const handleSignOut = async () => {
@@ -103,52 +107,87 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: "12px 0" }}>
-        {navGroups.map(({ group, items }) => (
-          <div key={group} style={{ marginBottom: 4 }}>
-            <button onClick={() => toggleGroup(group)}
-              style={{
-                width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "5px 20px", background: "none", border: "none", cursor: "pointer",
-                color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 700,
-                textTransform: "uppercase", letterSpacing: "0.08em",
-                fontFamily: "'Poppins', sans-serif",
-              }}>
-              {group}
-              {collapsed[group] ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-            </button>
-            {!collapsed[group] && items.map(({ label, icon: Icon, path }) => {
-              const active = location === path;
-              return (
-                <Link key={path} href={path} style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: "9px 20px",
-                  color: active ? "#FFFFFF" : "rgba(255,255,255,0.65)",
-                  background: active ? "rgba(233,30,140,0.2)" : "transparent",
-                  borderLeft: active ? "3px solid #E91E8C" : "3px solid transparent",
-                  textDecoration: "none", fontSize: 13,
-                  fontWeight: active ? 600 : 400,
-                  transition: "all 0.15s",
+        {navGroups.map(({ group, items, adminOnly: groupAdminOnly }) => {
+          // Hide entire group if admin-only and user is teacher
+          if (groupAdminOnly && !isAdmin) return null;
+
+          // Filter items by role
+          const visibleItems = items.filter(item => !item.adminOnly || isAdmin);
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <div key={group} style={{ marginBottom: 4 }}>
+              <button onClick={() => toggleGroup(group)}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "5px 20px", background: "none", border: "none", cursor: "pointer",
+                  color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 700,
+                  textTransform: "uppercase", letterSpacing: "0.08em",
                   fontFamily: "'Poppins', sans-serif",
-                }}
-                  onMouseEnter={e => {
-                    if (!active) {
-                      (e.currentTarget as HTMLElement).style.color = "#FFFFFF";
-                      (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
-                    }
+                }}>
+                {group}
+                {collapsed[group] ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+              </button>
+              {!collapsed[group] && visibleItems.map(({ label, icon: Icon, path }) => {
+                const active = location === path;
+                return (
+                  <Link key={path} href={path} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "9px 20px",
+                    color: active ? "#FFFFFF" : "rgba(255,255,255,0.65)",
+                    background: active ? "rgba(233,30,140,0.2)" : "transparent",
+                    borderLeft: active ? "3px solid #E91E8C" : "3px solid transparent",
+                    textDecoration: "none", fontSize: 13,
+                    fontWeight: active ? 600 : 400,
+                    transition: "all 0.15s",
+                    fontFamily: "'Poppins', sans-serif",
                   }}
-                  onMouseLeave={e => {
-                    if (!active) {
-                      (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)";
-                      (e.currentTarget as HTMLElement).style.background = "transparent";
-                    }
-                  }}>
-                  <Icon size={15} />
-                  {label}
-                </Link>
-              );
-            })}
+                    onMouseEnter={e => {
+                      if (!active) {
+                        (e.currentTarget as HTMLElement).style.color = "#FFFFFF";
+                        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!active) {
+                        (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)";
+                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                      }
+                    }}>
+                    <Icon size={15} />
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })}
+
+        {/* Admin-only: User Management link */}
+        {isAdmin && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{
+              padding: "5px 20px",
+              color: "rgba(255,255,255,0.4)", fontSize: 10, fontWeight: 700,
+              textTransform: "uppercase", letterSpacing: "0.08em",
+              fontFamily: "'Poppins', sans-serif",
+            }}>Admin</div>
+            <Link href="/user-management" style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "9px 20px",
+              color: location === "/user-management" ? "#FFFFFF" : "rgba(255,255,255,0.65)",
+              background: location === "/user-management" ? "rgba(233,30,140,0.2)" : "transparent",
+              borderLeft: location === "/user-management" ? "3px solid #E91E8C" : "3px solid transparent",
+              textDecoration: "none", fontSize: 13,
+              fontWeight: location === "/user-management" ? 600 : 400,
+              transition: "all 0.15s",
+              fontFamily: "'Poppins', sans-serif",
+            }}>
+              <ShieldCheck size={15} />
+              User Management
+            </Link>
           </div>
-        ))}
+        )}
       </nav>
 
       {/* User / Sign Out */}
@@ -159,8 +198,17 @@ export function Sidebar() {
               fontSize: 13, fontWeight: 600, color: "#FFFFFF",
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>{session.user.name}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
+              {role === "admin" ? (
+                <span style={{ color: "#E91E8C", fontWeight: 600, textTransform: "uppercase", fontSize: 10 }}>
+                  ● Admin
+                </span>
+              ) : (
+                <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Teacher</span>
+              )}
+            </div>
             <div style={{
-              fontSize: 11, color: "rgba(255,255,255,0.5)",
+              fontSize: 11, color: "rgba(255,255,255,0.4)",
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>{session.user.email}</div>
           </div>
