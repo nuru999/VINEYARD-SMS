@@ -36,22 +36,16 @@ export default function ClassesPage() {
     queryFn: async () => (await api.subjects.$get()).json(),
   });
 
-  const { data: staffData } = useQuery({
-    queryKey: ["staff"],
+  const { data: teachersData } = useQuery({
+    queryKey: ["teachers"],
     queryFn: async () => {
-      const r = await fetch("/api/staff", { credentials: "include" });
+      const r = await fetch("/api/classes/teachers", { credentials: "include" });
       return r.json();
     },
     staleTime: 1000 * 60 * 5,
   });
 
-  // Only teachers from staff list
-  const teachers = (staffData?.staff ?? []).filter(
-    (s: any) => s.designation === "Teacher" || s.designation === "teacher"
-  );
-
-  // All staff as fallback if no teacher designation filter
-  const allStaff = staffData?.staff ?? [];
+  const allTeachers = teachersData?.teachers ?? [];
 
   const saveClass = useMutation({
     mutationFn: async (f: any) => {
@@ -83,16 +77,16 @@ export default function ClassesPage() {
   const assignTeacher = useMutation({
     mutationFn: async ({
       classId,
-      teacherId,
+      teacherUserId,
     }: {
       classId: number;
-      teacherId: number | null;
+      teacherUserId: string | null;
     }) => {
       const r = await fetch(`/api/classes/${classId}/assign-teacher`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teacherId }),
+        body: JSON.stringify({ teacherUserId }),
       });
       return r.json();
     },
@@ -128,7 +122,7 @@ export default function ClassesPage() {
 
   const openAssign = (cls: any) => {
     setAssignTarget(cls);
-    setAssignTeacherId(cls.teacherId ? String(cls.teacherId) : "");
+    setAssignTeacherId(cls.teacherUserId ?? "");
     setAssignModal(true);
   };
 
@@ -452,12 +446,17 @@ export default function ClassesPage() {
               onChange={(e) => setAssignTeacherId(e.target.value)}
               options={[
                 { value: "", label: "— None —" },
-                ...allStaff.map((s: any) => ({
-                  value: String(s.id),
-                  label: `${s.name}${s.designation ? ` (${s.designation})` : ""}`,
+                ...allTeachers.map((t: any) => ({
+                  value: t.userId,
+                  label: t.name,
                 })),
               ]}
             />
+            {allTeachers.length === 0 && (
+              <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: 0 }}>
+                No teacher accounts found. Create a teacher user in User Management first.
+              </p>
+            )}
             <div
               style={{
                 display: "flex",
@@ -477,9 +476,7 @@ export default function ClassesPage() {
                 onClick={() =>
                   assignTeacher.mutate({
                     classId: assignTarget.id,
-                    teacherId: assignTeacherId
-                      ? parseInt(assignTeacherId)
-                      : null,
+                    teacherUserId: assignTeacherId || null,
                   })
                 }
               >
