@@ -23,12 +23,19 @@ export const userManagementRoutes = new Hono()
     });
   })
 
-  // GET /api/me/users — admin: list all users with roles
+  // GET /api/me/users — admin: list all users with roles + assigned class
   .get("/users", requireAdmin, async (c) => {
     const authUsers = await db.select().from(userTable);
     const profiles = await db.select().from(schema.userProfiles);
+    const classes = await db.select().from(schema.classes);
 
     const profileMap = new Map(profiles.map((p) => [p.userId, p]));
+    // Map teacherUserId -> class
+    const classMap = new Map(
+      classes
+        .filter((cl) => cl.teacherUserId)
+        .map((cl) => [cl.teacherUserId!, { id: cl.id, name: cl.name }])
+    );
 
     const users = authUsers.map((u: any) => ({
       id: u.id,
@@ -36,6 +43,7 @@ export const userManagementRoutes = new Hono()
       name: u.name,
       role: profileMap.get(u.id)?.role ?? "teacher",
       createdAt: u.createdAt,
+      assignedClass: classMap.get(u.id) ?? null,
     }));
 
     return c.json({ users });
