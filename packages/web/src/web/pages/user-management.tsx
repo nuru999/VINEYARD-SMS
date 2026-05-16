@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import {
   Shield, ShieldCheck, Plus, Trash2, RefreshCw, User, Eye, EyeOff
 } from "lucide-react";
+import { Layout } from "../components/layout";
 
 interface UserRecord {
   id: string;
@@ -100,26 +101,19 @@ export default function UserManagementPage() {
   }
 
   return (
-    <div style={{ padding: "24px 28px", fontFamily: "'Poppins', sans-serif" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#1B4D4D", margin: 0 }}>User Management</h1>
-          <p style={{ fontSize: 13, color: "#64748B", margin: "4px 0 0" }}>
-            Manage admin &amp; teacher login accounts
-          </p>
-        </div>
-        <button
-          onClick={() => { setShowForm(true); setFormError(""); }}
-          style={{
-            display: "flex", alignItems: "center", gap: 8,
-            padding: "10px 18px", background: "#E91E8C", color: "#fff",
-            border: "none", borderRadius: 10, cursor: "pointer",
-            fontSize: 13, fontWeight: 600,
-          }}>
-          <Plus size={15} /> Add User
-        </button>
-      </div>
+    <Layout title="User Management" action={
+      <button
+        onClick={() => { setShowForm(true); setFormError(""); }}
+        style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "10px 18px", background: "#E91E8C", color: "#fff",
+          border: "none", borderRadius: 10, cursor: "pointer",
+          fontSize: 13, fontWeight: 600,
+        }}>
+        <Plus size={15} /> Add User
+      </button>
+    }>
+    <div style={{ fontFamily: "'Poppins', sans-serif" }}>
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24, maxWidth: 480 }}>
@@ -328,5 +322,6 @@ export default function UserManagementPage() {
         </div>
       </div>
     </div>
+    </Layout>
   );
 }
