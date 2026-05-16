@@ -1,18 +1,23 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Dancing+Script:wght@700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #0D1117;
-  --bg-secondary: #161B22;
-  --bg-card: #161B22;
-  --accent: #4ADE80;
-  --accent-hover: #22C55E;
-  --text-primary: #F0F6FC;
-  --text-secondary: #8B949E;
-  --border: #30363D;
-  --danger: #F85149;
-  --warning: #E3B341;
-  --success: #3FB950;
+  /* Sidebar (dark) */
+  --sidebar-bg: #1B2A2A;
+  --sidebar-border: rgba(255,255,255,0.08);
+
+  /* App (light) */
+  --bg-primary: #F8FAFC;
+  --bg-secondary: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --text-primary: #1E293B;
+  --text-secondary: #64748B;
+  --border: #E2E8F0;
+  --accent: #E91E8C;
+  --accent-hover: #c0166d;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+  --success: #22C55E;
 }
 
 * {
@@ -23,9 +28,19 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
+  background-color: #F8FAFC;
+  color: #1E293B;
   font-family: 'Poppins', sans-serif;
+}
+
+/* Inputs, selects, textareas get white bg + dark text by default */
+input, select, textarea {
+  background-color: #ffffff;
+  color: #1E293B;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #94A3B8;
 }
 
 ::-webkit-scrollbar {
