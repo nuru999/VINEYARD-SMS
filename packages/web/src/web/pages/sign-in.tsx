@@ -43,13 +43,8 @@ export default function SignInPage() {
         {/* Logo */}
         <div style={{ width: "100%", maxWidth: 360, marginBottom: 40 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 32 }}>
-            <div style={{
-              width: 48, height: 48, borderRadius: 12,
-              background: "linear-gradient(135deg, #E91E8C, #c0166d)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 4px 16px rgba(233,30,140,0.35)",
-            }}>
-              <GraduationCap size={24} color="#fff" />
+            <div style={{ width: 56, height: 56 }}>
+              <img src="/school-logo.png" alt="School Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
             </div>
             <div>
               <div style={{ fontFamily: "'Dancing Script', cursive", fontSize: 22, fontWeight: 700, color: "#1B4D4D", lineHeight: 1.1 }}>
