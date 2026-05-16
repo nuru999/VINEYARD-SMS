@@ -42,7 +42,7 @@ export default function ClassesPage() {
       const r = await fetch("/api/staff", { credentials: "include" });
       return r.json();
     },
-    enabled: isAdmin,
+    staleTime: 1000 * 60 * 5,
   });
 
   // Only teachers from staff list
