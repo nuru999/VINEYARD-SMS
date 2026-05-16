@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Printer } from "lucide-react";
 import { Layout } from "../components/layout";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Modal } from "../components/ui/modal";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
+
+const SCHOOL_NAME = "Vineyard Primary School";
+const SCHOOL_MOTTO = "Fruitful Development";
+const fmt = (n: number) => `KES ${(n || 0).toLocaleString("en-KE")}`;
 
 interface Transaction {
   id: string;
@@ -23,11 +28,113 @@ const INCOME_CATEGORIES = ["School Fees", "Donations", "Grants", "Other Income"]
 const EXPENSE_CATEGORIES = ["Salaries", "Utilities", "Supplies", "Maintenance", "Transport", "Events", "Other Expense"];
 const PAYMENT_METHODS = ["Cash", "M-Pesa", "Bank Transfer"];
 
-const api = {
+function printHTML(html: string, title: string) {
+  const win = window.open("", "_blank", "width=800,height=900");
+  if (!win) return;
+  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; color: #1a1a1a; padding: 32px; font-size: 13px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+      th { background: #1B4D4D; color: #fff; padding: 9px 12px; text-align: left; font-size: 12px; }
+      td { padding: 9px 12px; border-bottom: 1px solid #e5e7eb; font-size: 12px; }
+      .header { display: flex; justify-content: space-between; border-bottom: 3px solid #E91E8C; padding-bottom: 16px; margin-bottom: 20px; }
+      .school-name { font-size: 20px; font-weight: 700; color: #1B4D4D; }
+      .school-motto { font-size: 12px; color: #6b7280; margin-top: 2px; }
+      .summary-box { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+      .summary-card { border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px 20px; min-width: 140px; }
+      .summary-label { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+      .summary-value { font-size: 18px; font-weight: 700; }
+      .total-row td { font-weight: 700; background: #f8fafc; }
+      .income-badge { background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+      .expense-badge { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+      .footer { margin-top: 24px; font-size: 11px; color: #6b7280; border-top: 1px solid #e5e7eb; padding-top: 12px; }
+      @media print { body { padding: 16px; } }
+    </style>
+  </head><body>${html}
+    <div class="footer">Printed: ${new Date().toLocaleString("en-KE")} · ${SCHOOL_NAME}</div>
+    <script>setTimeout(() => window.print(), 300);</script>
+  </body></html>`);
+  win.document.close();
+}
+
+function printAccountsReport(transactions: Transaction[], summary: any, filter: any) {
+  const filterDesc = [
+    filter.type ? `Type: ${filter.type}` : "",
+    filter.category ? `Category: ${filter.category}` : "",
+    filter.startDate ? `From: ${filter.startDate}` : "",
+    filter.endDate ? `To: ${filter.endDate}` : "",
+  ].filter(Boolean).join(" · ");
+
+  // Group by category
+  const incomeRows = transactions.filter(t => t.type === "income");
+  const expenseRows = transactions.filter(t => t.type === "expense");
+  const totalIncome = incomeRows.reduce((s, t) => s + t.amount, 0);
+  const totalExpense = expenseRows.reduce((s, t) => s + t.amount, 0);
+  const balance = totalIncome - totalExpense;
+
+  const makeRows = (list: Transaction[]) => list.map(t => `
+    <tr>
+      <td>${new Date(t.date).toLocaleDateString("en-KE")}</td>
+      <td><span class="${t.type}-badge">${t.type}</span></td>
+      <td>${t.category}</td>
+      <td>${t.description}</td>
+      <td>${t.paymentMethod}</td>
+      <td>${t.reference || "—"}</td>
+      <td style="font-weight:600;color:${t.type === "income" ? "#065f46" : "#991b1b"}">${t.type === "income" ? "+" : "-"}${fmt(t.amount)}</td>
+    </tr>`).join("");
+
+  const html = `
+    <div class="header">
+      <div><div class="school-name">${SCHOOL_NAME}</div><div class="school-motto">${SCHOOL_MOTTO}</div></div>
+      <div style="text-align:right">
+        <div style="font-size:16px;font-weight:700">INCOME & EXPENSE REPORT</div>
+        <div style="font-size:12px;color:#6b7280">${filterDesc || "All Transactions"}</div>
+      </div>
+    </div>
+    <div class="summary-box">
+      <div class="summary-card">
+        <div class="summary-label">Total Income</div>
+        <div class="summary-value" style="color:#065f46">${fmt(totalIncome)}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Total Expenses</div>
+        <div class="summary-value" style="color:#991b1b">${fmt(totalExpense)}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Net Balance</div>
+        <div class="summary-value" style="color:${balance >= 0 ? "#065f46" : "#991b1b"}">${fmt(balance)}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Transactions</div>
+        <div class="summary-value">${transactions.length}</div>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Method</th><th>Reference</th><th>Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${makeRows(transactions)}
+      </tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td colspan="6"><strong>TOTALS</strong></td>
+          <td style="color:${balance >= 0 ? "#065f46" : "#991b1b"}"><strong>${balance >= 0 ? "+" : ""}${fmt(balance)}</strong></td>
+        </tr>
+      </tfoot>
+    </table>`;
+
+  printHTML(html, "Income & Expense Report");
+}
+
+const accountsApi = {
   list: async (params?: Record<string, string>) => {
     const q = params ? "?" + new URLSearchParams(params).toString() : "";
     const r = await fetch(`/api/accounts${q}`, { credentials: "include" });
-    if (!r.ok) throw new Error("Failed to fetch transactions");
+    if (!r.ok) return { transactions: [], summary: { totalIncome: 0, totalExpense: 0, balance: 0 } };
     return r.json();
   },
   create: async (data: Partial<Transaction>) => {
@@ -57,9 +164,6 @@ const api = {
   },
 };
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n);
-
 const empty: Partial<Transaction> = {
   type: "income",
   category: "",
@@ -84,22 +188,22 @@ export default function AccountsPage() {
   if (filter.startDate) params.startDate = filter.startDate;
   if (filter.endDate) params.endDate = filter.endDate;
 
-  const { data, isLoading } = useQuery({ queryKey: ["accounts", params], queryFn: () => api.list(params) });
+  const { data, isLoading } = useQuery({ queryKey: ["accounts", params], queryFn: () => accountsApi.list(params) });
   const transactions: Transaction[] = data?.transactions || [];
   const summary = data?.summary || { totalIncome: 0, totalExpense: 0, balance: 0 };
 
   const createMut = useMutation({
-    mutationFn: api.create,
+    mutationFn: accountsApi.create,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounts"] }); closeModal(); },
     onError: (e: Error) => setError(e.message),
   });
   const updateMut = useMutation({
-    mutationFn: api.update,
+    mutationFn: accountsApi.update,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounts"] }); closeModal(); },
     onError: (e: Error) => setError(e.message),
   });
   const deleteMut = useMutation({
-    mutationFn: api.delete,
+    mutationFn: accountsApi.delete,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounts"] }); closeModal(); },
   });
 
@@ -118,6 +222,9 @@ export default function AccountsPage() {
 
   const categories = form.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
+  const fmtCurrency = (n: number) =>
+    new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n);
+
   return (
     <Layout>
       <div style={{ padding: "24px", maxWidth: 1200 }}>
@@ -127,7 +234,12 @@ export default function AccountsPage() {
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>Accounts</h1>
             <p style={{ margin: "4px 0 0", color: "var(--text-secondary)", fontSize: 14 }}>Track income & expenses</p>
           </div>
-          <Button onClick={openCreate}>+ New Transaction</Button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button variant="secondary" onClick={() => printAccountsReport(transactions, summary, filter)}>
+              <Printer size={14} /> Print Report
+            </Button>
+            <Button onClick={openCreate}>+ New Transaction</Button>
+          </div>
         </div>
 
         {/* Summary Cards */}
@@ -140,7 +252,7 @@ export default function AccountsPage() {
             <Card key={s.label}>
               <div style={{ padding: 20 }}>
                 <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8 }}>{s.label}</div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{fmt(s.value)}</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{fmtCurrency(s.value)}</div>
               </div>
             </Card>
           ))}
@@ -220,7 +332,7 @@ export default function AccountsPage() {
                       <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-secondary)" }}>{t.paymentMethod}</td>
                       <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-secondary)" }}>{t.reference || "—"}</td>
                       <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 600, color: t.type === "income" ? "#4ADE80" : "#F87171" }}>
-                        {t.type === "expense" ? "-" : "+"}{fmt(t.amount)}
+                        {t.type === "expense" ? "-" : "+"}{fmtCurrency(t.amount)}
                       </td>
                       <td style={{ padding: "12px 16px" }}>
                         <div style={{ display: "flex", gap: 8 }}>
@@ -247,7 +359,7 @@ export default function AccountsPage() {
                   <button
                     key={t}
                     onClick={() => setForm((f) => ({ ...f, type: t as "income" | "expense", category: "" }))}
-                    style={{ flex: 1, padding: "10px", borderRadius: 6, border: `1px solid ${form.type === t ? (t === "income" ? "#4ADE80" : "#F87171") : "var(--border)"}`, background: form.type === t ? (t === "income" ? "#4ADE8020" : "#F8717120") : "var(--bg-primary)", color: form.type === t ? (t === "income" ? "#4ADE80" : "#F87171") : "var(--text-secondary)", cursor: "pointer", textTransform: "capitalize", fontFamily: "Poppins, sans-serif" }}
+                    style={{ flex: 1, padding: "10px", borderRadius: 6, border: `1px solid ${form.type === t ? (t === "income" ? "#4ADE80" : "#F87171") : "var(--border)"}`, background: form.type === t ? (t === "income" ? "#4ADE8020" : "#F8717120") : "var(--bg-primary)", color: form.type === t ? (t === "income" ? "#4ADE80" : "#F87171") : "var(--text-secondary)", cursor: "pointer", textTransform: "capitalize", fontFamily: "inherit" }}
                   >
                     {t}
                   </button>
@@ -259,7 +371,7 @@ export default function AccountsPage() {
               <select
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                style={{ width: "100%", background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)", borderRadius: 6, padding: "10px 12px", fontSize: 14, fontFamily: "Poppins, sans-serif" }}
+                style={{ width: "100%", background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)", borderRadius: 6, padding: "10px 12px", fontSize: 14, fontFamily: "inherit" }}
               >
                 <option value="">Select category</option>
                 {categories.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -272,7 +384,7 @@ export default function AccountsPage() {
               <select
                 value={form.paymentMethod}
                 onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value }))}
-                style={{ width: "100%", background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)", borderRadius: 6, padding: "10px 12px", fontSize: 14, fontFamily: "Poppins, sans-serif" }}
+                style={{ width: "100%", background: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)", borderRadius: 6, padding: "10px 12px", fontSize: 14, fontFamily: "inherit" }}
               >
                 {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
