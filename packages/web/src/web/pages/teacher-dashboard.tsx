@@ -52,13 +52,23 @@ export default function TeacherDashboard() {
   // Load classes to find teacher's assigned class
   const { data: classesData } = useQuery({
     queryKey: ["classes"],
-    queryFn: async () => { const r = await (await fetch("/api/classes", { credentials: "include" })).json(); return r.classes ?? r; },
+    queryFn: async () => {
+      const res = await fetch("/api/classes", { credentials: "include" });
+      if (!res.ok) return [];
+      const r = await res.json();
+      return Array.isArray(r) ? r : (r.classes ?? []);
+    },
   });
 
-  // Load staff to find current teacher record
+  // Load staff to find current teacher record (admin-only endpoint — gracefully handle 403)
   const { data: staffData } = useQuery({
     queryKey: ["staff"],
-    queryFn: async () => { const r = await (await fetch("/api/staff", { credentials: "include" })).json(); return r.staff ?? r; },
+    queryFn: async () => {
+      const res = await fetch("/api/staff", { credentials: "include" });
+      if (!res.ok) return [];
+      const r = await res.json();
+      return Array.isArray(r) ? r : (r.staff ?? []);
+    },
   });
 
   // Match teacher by email
@@ -70,8 +80,10 @@ export default function TeacherDashboard() {
   const { data: allSlots } = useQuery({
     queryKey: ["timetable-all"],
     queryFn: async () => {
-      const r = await fetch("/api/timetable", { credentials: "include" });
-      return r.json();
+      const res = await fetch("/api/timetable", { credentials: "include" });
+      if (!res.ok) return [];
+      const r = await res.json();
+      return Array.isArray(r) ? r : (r.slots ?? r.timetable ?? []);
     },
   });
 
@@ -103,7 +115,12 @@ export default function TeacherDashboard() {
   // Load exams
   const { data: examsData } = useQuery({
     queryKey: ["exams"],
-    queryFn: async () => { const r = await (await fetch("/api/exams", { credentials: "include" })).json(); return r.exams ?? r; },
+    queryFn: async () => {
+      const res = await fetch("/api/exams", { credentials: "include" });
+      if (!res.ok) return [];
+      const r = await res.json();
+      return Array.isArray(r) ? r : (r.exams ?? []);
+    },
   });
 
   const upcomingExams = (Array.isArray(examsData) ? examsData : [])
