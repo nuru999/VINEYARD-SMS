@@ -43,6 +43,7 @@ export default function ClassesPage() {
       return r.json();
     },
     staleTime: 1000 * 60 * 5,
+    enabled: isAdmin, // only admins can fetch this
   });
 
   const allTeachers = teachersData?.teachers ?? [];
