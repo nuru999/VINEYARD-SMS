@@ -86,6 +86,24 @@ export const userManagementRoutes = new Hono()
         set: { role: targetRole },
       });
 
+    // If teacher, auto-create a linked staff record (if one doesn't already exist)
+    if (targetRole === "teacher") {
+      const existing = await db
+        .select()
+        .from(schema.staff)
+        .where(eq(schema.staff.userId, newUser.id));
+
+      if (!existing.length) {
+        await db.insert(schema.staff).values({
+          userId: newUser.id,
+          name,
+          email,
+          designation: "Teacher",
+          status: "active",
+        });
+      }
+    }
+
     return c.json({ user: { id: newUser.id, email, name, role: targetRole } }, 201);
   })
 
