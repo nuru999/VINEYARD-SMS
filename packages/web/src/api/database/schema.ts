@@ -17,6 +17,7 @@ export const classes = sqliteTable("classes", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   level: text("level").notNull().default("primary"), // primary | secondary
+  teacherId: integer("teacher_id"), // assigned class teacher (staff.id)
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
 
