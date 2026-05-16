@@ -60,21 +60,7 @@ export default function TeacherDashboard() {
     },
   });
 
-  // Load staff to find current teacher record (admin-only endpoint — gracefully handle 403)
-  const { data: staffData } = useQuery({
-    queryKey: ["staff"],
-    queryFn: async () => {
-      const res = await fetch("/api/staff", { credentials: "include" });
-      if (!res.ok) return [];
-      const r = await res.json();
-      return Array.isArray(r) ? r : (r.staff ?? []);
-    },
-  });
-
-  // Match teacher by email
-  const teacherRecord = (staffData ?? []).find((s: any) =>
-    s.email?.toLowerCase() === user?.email?.toLowerCase()
-  );
+  // No staff lookup needed — teacher identity comes from auth user directly
 
   // Load timetable for today to show teacher's periods
   const { data: allSlots } = useQuery({
@@ -87,17 +73,14 @@ export default function TeacherDashboard() {
     },
   });
 
-  // Filter today's slots for this teacher
+  // My class = the class where teacherUserId matches my auth user id
+  const myClasses = (classesData ?? []).filter((c: any) => c.teacherUserId === user?.id);
+  const myClassIds = myClasses.map((c: any) => c.id);
+
+  // Filter today's slots for my classes
   const todaySlots = (Array.isArray(allSlots) ? allSlots : []).filter(
-    (s: any) => s.day === dayName && s.teacherId === teacherRecord?.id
+    (s: any) => s.day === dayName && myClassIds.includes(s.classId)
   ).sort((a: any, b: any) => a.period - b.period);
-
-  // Classes this teacher teaches
-  const myClassIds = [...new Set((Array.isArray(allSlots) ? allSlots : [])
-    .filter((s: any) => s.teacherId === teacherRecord?.id)
-    .map((s: any) => s.classId))];
-
-  const myClasses = (classesData ?? []).filter((c: any) => myClassIds.includes(c.id));
 
   // Load attendance stats for today
   const { data: attendanceData } = useQuery({
@@ -147,11 +130,9 @@ export default function TeacherDashboard() {
           <div style={{ fontSize: 22, fontWeight: 800, color: "#FFFFFF", marginBottom: 4 }}>
             Welcome back, {user?.name?.split(" ")[0] ?? "Teacher"} 👋
           </div>
-          {teacherRecord && (
-            <div style={{ fontSize: 13, color: "rgba(233,30,140,0.9)", fontWeight: 600 }}>
-              {teacherRecord.designation} · {teacherRecord.department || "Vineyard Primary"}
-            </div>
-          )}
+          <div style={{ fontSize: 13, color: "rgba(233,30,140,0.9)", fontWeight: 600 }}>
+            Teacher · Vineyard Primary
+          </div>
         </div>
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>My Classes</div>
@@ -181,7 +162,7 @@ export default function TeacherDashboard() {
           <div style={{ padding: "8px 0" }}>
             {todaySlots.length === 0 ? (
               <div style={{ padding: "24px 18px", textAlign: "center", color: "#94A3B8", fontSize: 13 }}>
-                {teacherRecord ? "No classes scheduled today" : "Link your staff profile to see schedule"}
+                {myClasses.length > 0 ? "No classes scheduled today" : "No class assigned yet"}
               </div>
             ) : todaySlots.map((slot: any) => {
               const cls = (classesData ?? []).find((c: any) => c.id === slot.classId);
