@@ -84,14 +84,8 @@ export function Sidebar() {
       {/* Logo / School Brand */}
       <div style={{ padding: "18px 20px 16px", borderBottom: "1px solid var(--sidebar-border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 38, height: 38, borderRadius: 10,
-            background: "rgba(233,30,140,0.2)",
-            border: "1px solid rgba(233,30,140,0.4)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
-          }}>
-            <GraduationCap size={20} color="#E91E8C" />
+          <div style={{ width: 38, height: 38, flexShrink: 0 }}>
+            <img src="/school-logo.png" alt="School Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </div>
           <div>
             <div style={{
