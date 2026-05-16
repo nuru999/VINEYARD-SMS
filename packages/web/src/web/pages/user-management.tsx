@@ -4,7 +4,7 @@ import { useRole } from "../lib/use-role";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import {
-  Shield, ShieldCheck, Plus, Trash2, RefreshCw, User, Eye, EyeOff
+  Shield, ShieldCheck, Plus, Trash2, RefreshCw, User, Eye, EyeOff, BookOpen
 } from "lucide-react";
 import { Layout } from "../components/layout";
 
@@ -14,6 +14,7 @@ interface UserRecord {
   name: string;
   role: "admin" | "teacher";
   createdAt?: string;
+  assignedClass?: { id: number; name: string } | null;
 }
 
 export default function UserManagementPage() {
@@ -22,9 +23,13 @@ export default function UserManagementPage() {
   const qc = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "teacher" as "admin" | "teacher" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "teacher" as "admin" | "teacher", classId: "" });
   const [showPw, setShowPw] = useState(false);
   const [formError, setFormError] = useState("");
+
+  // For reassigning class to existing teacher
+  const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
+  const [assignClassId, setAssignClassId] = useState("");
 
   // Redirect non-admins away
   useEffect(() => {
@@ -41,6 +46,17 @@ export default function UserManagementPage() {
     enabled: isAdmin,
   });
 
+  // Load classes for the dropdown
+  const { data: classesData } = useQuery({
+    queryKey: ["classes"],
+    queryFn: async () => {
+      const r = await fetch("/api/classes", { credentials: "include" });
+      return r.json();
+    },
+    enabled: isAdmin,
+  });
+  const allClasses: any[] = classesData?.classes ?? classesData ?? [];
+
   const createMutation = useMutation({
     mutationFn: async (body: typeof form) => {
       const r = await fetch("/api/me/users", {
@@ -53,10 +69,20 @@ export default function UserManagementPage() {
       if (!r.ok) throw new Error(json.message || "Failed to create user");
       return json;
     },
-    onSuccess: () => {
+    onSuccess: async (data, variables) => {
+      // If a class was selected, auto-assign right after creation
+      if (variables.role === "teacher" && variables.classId) {
+        await fetch(`/api/classes/${variables.classId}/assign-teacher`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ teacherUserId: data.user.id }),
+        });
+      }
       qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["classes"] });
       setShowForm(false);
-      setForm({ name: "", email: "", password: "", role: "teacher" });
+      setForm({ name: "", email: "", password: "", role: "teacher", classId: "" });
       setFormError("");
     },
     onError: (e: any) => setFormError(e.message),
@@ -86,6 +112,24 @@ export default function UserManagementPage() {
       return json;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
+  });
+
+  const assignClassMutation = useMutation({
+    mutationFn: async ({ classId, userId }: { classId: string; userId: string }) => {
+      const r = await fetch(`/api/classes/${classId}/assign-teacher`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teacherUserId: userId || null }),
+      });
+      if (!r.ok) throw new Error("Failed to assign");
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["classes"] });
+      setAssigningUserId(null);
+      setAssignClassId("");
+    },
   });
 
   const users = data?.users ?? [];
@@ -184,7 +228,7 @@ export default function UserManagementPage() {
               <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Role</label>
               <select
                 value={form.role}
-                onChange={e => setForm(f => ({ ...f, role: e.target.value as "admin" | "teacher" }))}
+                onChange={e => setForm(f => ({ ...f, role: e.target.value as "admin" | "teacher", classId: "" }))}
                 style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, outline: "none", background: "#fff" }}>
                 <option value="teacher">Teacher</option>
                 <option value="admin" disabled={adminCount >= 2}>Admin {adminCount >= 2 ? "(max reached)" : ""}</option>
@@ -195,6 +239,31 @@ export default function UserManagementPage() {
                 </p>
               )}
             </div>
+
+            {/* Class assignment — only shown for teachers */}
+            {form.role === "teacher" && (
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>
+                  Assign Class <span style={{ fontWeight: 400, color: "#94A3B8" }}>(optional)</span>
+                </label>
+                <select
+                  value={form.classId}
+                  onChange={e => setForm(f => ({ ...f, classId: e.target.value }))}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #D1FAE5", borderRadius: 8, fontSize: 13, outline: "none", background: "#F0FDF4" }}>
+                  <option value="">— No class yet —</option>
+                  {allClasses.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}{c.teacherName ? ` (${c.teacherName})` : ""}
+                    </option>
+                  ))}
+                </select>
+                {form.classId && (
+                  <p style={{ fontSize: 11, color: "#16A34A", margin: "4px 0 0" }}>
+                    ✓ Teacher will be assigned to this class immediately
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
@@ -238,58 +307,113 @@ export default function UserManagementPage() {
                 <th style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Name</th>
                 <th style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Email</th>
                 <th style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Role</th>
+                <th style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Assigned Class</th>
                 <th style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u, i) => (
-                <tr key={u.id} style={{ borderTop: i > 0 ? "1px solid #F1F5F9" : "none" }}>
-                  <td style={{ padding: "12px 20px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{
-                        width: 32, height: 32, borderRadius: "50%",
-                        background: u.role === "admin" ? "rgba(233,30,140,0.1)" : "rgba(27,77,77,0.1)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                      }}>
-                        {u.role === "admin" ? <ShieldCheck size={15} color="#E91E8C" /> : <User size={15} color="#1B4D4D" />}
+              {users.map((u, i) => {
+                // Find assigned class for this teacher
+                const assignedClass = allClasses.find((c: any) => c.teacherUserId === u.id);
+                const isAssigning = assigningUserId === u.id;
+
+                return (
+                  <tr key={u.id} style={{ borderTop: i > 0 ? "1px solid #F1F5F9" : "none" }}>
+                    <td style={{ padding: "12px 20px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: "50%",
+                          background: u.role === "admin" ? "rgba(233,30,140,0.1)" : "rgba(27,77,77,0.1)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          {u.role === "admin" ? <ShieldCheck size={15} color="#E91E8C" /> : <User size={15} color="#1B4D4D" />}
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{u.name}</span>
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{u.name}</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: "12px 20px", fontSize: 13, color: "#64748B" }}>{u.email}</td>
-                  <td style={{ padding: "12px 20px" }}>
-                    <select
-                      value={u.role}
-                      onChange={e => changeRoleMutation.mutate({ id: u.id, role: e.target.value })}
-                      style={{
-                        padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
-                        border: "1px solid",
-                        borderColor: u.role === "admin" ? "#FBCFE8" : "#BBF7D0",
-                        background: u.role === "admin" ? "#FDF2F8" : "#F0FDF4",
-                        color: u.role === "admin" ? "#E91E8C" : "#166534",
-                        cursor: "pointer", outline: "none",
-                      }}>
-                      <option value="teacher">Teacher</option>
-                      <option value="admin" disabled={u.role !== "admin" && adminCount >= 2}>Admin</option>
-                    </select>
-                  </td>
-                  <td style={{ padding: "12px 20px" }}>
-                    <button
-                      onClick={() => {
-                        if (confirm(`Delete ${u.name}? This cannot be undone.`)) {
-                          deleteMutation.mutate(u.id);
-                        }
-                      }}
-                      style={{
-                        background: "none", border: "1px solid #FECACA", borderRadius: 6,
-                        padding: "5px 8px", cursor: "pointer", color: "#EF4444",
-                        display: "flex", alignItems: "center", gap: 4, fontSize: 12,
-                      }}>
-                      <Trash2 size={12} /> Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td style={{ padding: "12px 20px", fontSize: 13, color: "#64748B" }}>{u.email}</td>
+                    <td style={{ padding: "12px 20px" }}>
+                      <select
+                        value={u.role}
+                        onChange={e => changeRoleMutation.mutate({ id: u.id, role: e.target.value })}
+                        style={{
+                          padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+                          border: "1px solid",
+                          borderColor: u.role === "admin" ? "#FBCFE8" : "#BBF7D0",
+                          background: u.role === "admin" ? "#FDF2F8" : "#F0FDF4",
+                          color: u.role === "admin" ? "#E91E8C" : "#166534",
+                          cursor: "pointer", outline: "none",
+                        }}>
+                        <option value="teacher">Teacher</option>
+                        <option value="admin" disabled={u.role !== "admin" && adminCount >= 2}>Admin</option>
+                      </select>
+                    </td>
+                    <td style={{ padding: "12px 20px" }}>
+                      {u.role === "teacher" ? (
+                        isAssigning ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <select
+                              value={assignClassId}
+                              onChange={e => setAssignClassId(e.target.value)}
+                              style={{ padding: "5px 8px", border: "1px solid #D1FAE5", borderRadius: 6, fontSize: 12, background: "#F0FDF4", outline: "none" }}>
+                              <option value="">— None —</option>
+                              {allClasses.map((c: any) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}{c.teacherUserId && c.teacherUserId !== u.id ? ` (${c.teacherName})` : ""}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => assignClassMutation.mutate({ classId: assignClassId, userId: u.id })}
+                              disabled={assignClassMutation.isPending}
+                              style={{ padding: "5px 10px", background: "#16A34A", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>
+                              Save
+                            </button>
+                            <button
+                              onClick={() => { setAssigningUserId(null); setAssignClassId(""); }}
+                              style={{ padding: "5px 8px", background: "#F1F5F9", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setAssigningUserId(u.id);
+                              setAssignClassId(assignedClass ? String(assignedClass.id) : "");
+                            }}
+                            style={{
+                              display: "flex", alignItems: "center", gap: 5,
+                              padding: "5px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer", border: "1px solid",
+                              background: assignedClass ? "#F0FDF4" : "#F8FAFC",
+                              borderColor: assignedClass ? "#BBF7D0" : "#E2E8F0",
+                              color: assignedClass ? "#166534" : "#94A3B8",
+                            }}>
+                            <BookOpen size={11} />
+                            {assignedClass ? assignedClass.name : "Assign class"}
+                          </button>
+                        )
+                      ) : (
+                        <span style={{ fontSize: 12, color: "#CBD5E1" }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ padding: "12px 20px" }}>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete ${u.name}? This cannot be undone.`)) {
+                            deleteMutation.mutate(u.id);
+                          }
+                        }}
+                        style={{
+                          background: "none", border: "1px solid #FECACA", borderRadius: 6,
+                          padding: "5px 8px", cursor: "pointer", color: "#EF4444",
+                          display: "flex", alignItems: "center", gap: 4, fontSize: 12,
+                        }}>
+                        <Trash2 size={12} /> Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
