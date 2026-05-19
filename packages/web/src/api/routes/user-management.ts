@@ -155,8 +155,8 @@ export const userManagementRoutes = new Hono()
     const id = c.req.param("id");
     const { role } = await c.req.json();
 
-    if (!["admin", "teacher"].includes(role)) {
-      return c.json({ message: "role must be admin or teacher" }, 400);
+    if (!["admin", "principal", "teacher"].includes(role)) {
+      return c.json({ message: "role must be admin, principal or teacher" }, 400);
     }
 
     if (role === "admin") {
