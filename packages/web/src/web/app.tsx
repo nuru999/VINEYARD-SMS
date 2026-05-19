@@ -62,15 +62,15 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 
-// Admin-only wrapper: redirects teachers to home
+// Admin/principal-only wrapper: redirects teachers to home
 function AdminRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading: authLoading } = useAuth();
-  const { isAdmin, isLoading: roleLoading } = useRole();
+  const { isAdmin, isPrincipal, role, isLoading: roleLoading } = useRole();
   const [, navigate] = useLocation();
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/sign-in");
-    if (!authLoading && !roleLoading && user && !isAdmin) navigate("/");
+    if (!authLoading && !roleLoading && user && !(isAdmin || isPrincipal)) navigate("/");
   }, [authLoading, roleLoading, user, isAdmin]);
 
   if (authLoading || roleLoading) {
@@ -81,7 +81,7 @@ function AdminRoute({ component: Component }: { component: React.ComponentType }
     );
   }
 
-  if (!user || !isAdmin) return null;
+  if (!user || !(isAdmin || isPrincipal)) return null;
 
   return <Component />;
 }

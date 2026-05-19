@@ -57,11 +57,11 @@ export const userManagementRoutes = new Hono()
     if (!name || !email || !password) {
       return c.json({ message: "name, email, password required" }, 400);
     }
-    if (!["admin", "teacher"].includes(role ?? "teacher")) {
-      return c.json({ message: "role must be admin or teacher" }, 400);
+    if (!["admin", "principal", "teacher"].includes(role ?? "teacher")) {
+      return c.json({ message: "role must be admin, principal or teacher" }, 400);
     }
 
-    const targetRole = (role ?? "teacher") as "admin" | "teacher";
+    const targetRole = (role ?? "teacher") as "admin" | "principal" | "teacher";
 
     // Enforce max 2 admins
     if (targetRole === "admin") {
@@ -94,7 +94,7 @@ export const userManagementRoutes = new Hono()
         set: { role: targetRole },
       });
 
-    // If teacher, auto-create a linked staff record (if one doesn't already exist)
+    // If teacher, auto-create a linked staff record and optionally assign a class
     if (targetRole === "teacher") {
       const existing = await db
         .select()
@@ -110,6 +110,25 @@ export const userManagementRoutes = new Hono()
           status: "active",
         });
       }
+    }
+
+    // Optional: assign a class immediately when creating the teacher
+    const classId = body.classId ? parseInt(body.classId) : null;
+    if (targetRole === "teacher" && classId) {
+      const targetClass = await db
+        .select()
+        .from(schema.classes)
+        .where(eq(schema.classes.id, classId))
+        .limit(1);
+
+      if (!targetClass.length) {
+        return c.json({ message: "Selected class not found" }, 400);
+      }
+
+      await db
+        .update(schema.classes)
+        .set({ teacherUserId: newUser.id })
+        .where(eq(schema.classes.id, classId));
     }
 
     return c.json({ user: { id: newUser.id, email, name, role: targetRole } }, 201);
