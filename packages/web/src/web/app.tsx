@@ -8,6 +8,7 @@ import { useRole } from "./lib/use-role";
 // Pages
 import SignIn from "./pages/sign-in";
 import Dashboard from "./pages/index";
+import PrincipalDashboard from "./pages/principal-dashboard";
 import TeacherDashboard from "./pages/teacher-dashboard";
 import StudentsPage from "./pages/students";
 import StaffPage from "./pages/staff";
@@ -87,13 +88,13 @@ function AdminRoute({ component: Component }: { component: React.ComponentType }
 }
 
 function RoleDashboard() {
-  const { isAdmin, isLoading } = useRole();
+  const { isAdmin, isPrincipal, isLoading } = useRole();
   if (isLoading) return (
     <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}>
       <div style={{ width: 32, height: 32, border: "3px solid #E2E8F0", borderTop: "3px solid #E91E8C", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
     </div>
   );
-  return isAdmin ? <Dashboard /> : <TeacherDashboard />;
+  return isAdmin ? <Dashboard /> : isPrincipal ? <PrincipalDashboard /> : <TeacherDashboard />;
 }
 
 function App() {
