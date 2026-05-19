@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Layout } from "../components/layout";
 import { Link } from "wouter";
-import { Users, BookOpen, CalendarCheck, ClipboardList, ShieldCheck, School2 } from "lucide-react";
+import { Users, BookOpen, CalendarCheck, ClipboardList, ShieldCheck, School2, CheckCircle2, XCircle } from "lucide-react";
+import { useMemo } from "react";
 import { api } from "../lib/api";
 
 function Card({ label, value, icon, color = "#E91E8C" }: { label: string; value: any; icon: React.ReactNode; color?: string }) {
@@ -48,6 +49,10 @@ export default function PrincipalDashboard() {
   const classList = (classes.data as any)?.classes ?? [];
   const teacherCount = (users.data as any)?.users?.filter((u: any) => u.role === "teacher").length ?? 0;
   const principals = (users.data as any)?.users?.filter((u: any) => u.role === "principal").length ?? 0;
+  const classesWithTeachers = useMemo(() => classList.map((c: any) => ({
+    ...c,
+    teacherName: c.teacherName ?? (users.data as any)?.users?.find((u: any) => u.id === c.teacherUserId)?.name ?? "Unassigned",
+  })), [classList, users.data]);
 
   return (
     <Layout title="Principal Dashboard">
@@ -64,7 +69,7 @@ export default function PrincipalDashboard() {
         <Card label="Principals" value={principals} icon={<School2 size={20} />} color="#8B5CF6" />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", marginBottom: 10 }}>Quick Access</div>
           <div style={{ display: "grid", gap: 10 }}>
@@ -83,6 +88,26 @@ export default function PrincipalDashboard() {
             <div>School data remains under admin control.</div>
           </div>
         </div>
+      </div>
+
+      <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: 20, marginBottom: 20 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", marginBottom: 12 }}>Classes per teacher</div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "#F8FAFC" }}>
+              <th style={{ padding: 10, textAlign: "left", fontSize: 11, textTransform: "uppercase", color: "#64748B" }}>Class</th>
+              <th style={{ padding: 10, textAlign: "left", fontSize: 11, textTransform: "uppercase", color: "#64748B" }}>Teacher</th>
+            </tr>
+          </thead>
+          <tbody>
+            {classesWithTeachers.map((c: any) => (
+              <tr key={c.id} style={{ borderTop: "1px solid #F1F5F9" }}>
+                <td style={{ padding: 10, fontWeight: 600, color: "#1E293B" }}>{c.name}</td>
+                <td style={{ padding: 10, color: c.teacherName === "Unassigned" ? "#94A3B8" : "#1E293B" }}>{c.teacherName}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </Layout>
   );

@@ -161,7 +161,7 @@ export default function UserManagementPage() {
     <div style={{ fontFamily: "'Poppins', sans-serif" }}>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24, maxWidth: 480 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24, maxWidth: 720 }}>
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, padding: "16px 20px" }}>
           <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Admins</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: "#E91E8C" }}>{adminCount}<span style={{ fontSize: 14, color: "#94A3B8", fontWeight: 400 }}>/2</span></div>
@@ -169,6 +169,10 @@ export default function UserManagementPage() {
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, padding: "16px 20px" }}>
           <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Principals</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: "#1B4D4D" }}>{principalCount}</div>
+        </div>
+        <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, padding: "16px 20px" }}>
+          <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Teachers</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#3B82F6" }}>{teacherCount}</div>
         </div>
       </div>
 

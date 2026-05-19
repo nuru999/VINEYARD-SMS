@@ -63,16 +63,26 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 
-// Admin/principal-only wrapper: redirects teachers to home
-function AdminRoute({ component: Component }: { component: React.ComponentType }) {
+function ProtectedRoleRoute({
+  component: Component,
+  allowPrincipal = true,
+  allowAdmin = true,
+}: {
+  component: React.ComponentType;
+  allowPrincipal?: boolean;
+  allowAdmin?: boolean;
+}) {
   const { user, isLoading: authLoading } = useAuth();
-  const { isAdmin, isPrincipal, role, isLoading: roleLoading } = useRole();
+  const { isAdmin, isPrincipal, isLoading: roleLoading } = useRole();
   const [, navigate] = useLocation();
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/sign-in");
-    if (!authLoading && !roleLoading && user && !(isAdmin || isPrincipal)) navigate("/");
-  }, [authLoading, roleLoading, user, isAdmin]);
+    if (!authLoading && !roleLoading && user) {
+      const allowed = (isAdmin && allowAdmin) || (isPrincipal && allowPrincipal);
+      if (!allowed) navigate("/");
+    }
+  }, [authLoading, roleLoading, user, isAdmin, isPrincipal, allowAdmin, allowPrincipal]);
 
   if (authLoading || roleLoading) {
     return (
@@ -82,7 +92,8 @@ function AdminRoute({ component: Component }: { component: React.ComponentType }
     );
   }
 
-  if (!user || !(isAdmin || isPrincipal)) return null;
+  const allowed = (isAdmin && allowAdmin) || (isPrincipal && allowPrincipal);
+  if (!user || !allowed) return null;
 
   return <Component />;
 }
@@ -117,13 +128,15 @@ function App() {
         <Route path="/library" component={() => <ProtectedRoute component={LibraryPage} />} />
         <Route path="/inventory" component={() => <ProtectedRoute component={InventoryPage} />} />
 
+        {/* Admin / principal */}
+        <Route path="/staff" component={() => <ProtectedRoleRoute component={StaffPage} />} />
+        <Route path="/fees" component={() => <ProtectedRoleRoute component={FeesPage} />} />
+        <Route path="/reports" component={() => <ProtectedRoleRoute component={ReportsPage} />} />
+
         {/* Admin only */}
-        <Route path="/staff" component={() => <AdminRoute component={StaffPage} />} />
-        <Route path="/fees" component={() => <AdminRoute component={FeesPage} />} />
-        <Route path="/payroll" component={() => <AdminRoute component={PayrollPage} />} />
-        <Route path="/accounts" component={() => <AdminRoute component={AccountsPage} />} />
-        <Route path="/reports" component={() => <AdminRoute component={ReportsPage} />} />
-        <Route path="/user-management" component={() => <AdminRoute component={UserManagementPage} />} />
+        <Route path="/payroll" component={() => <ProtectedRoleRoute component={PayrollPage} allowPrincipal={false} />} />
+        <Route path="/accounts" component={() => <ProtectedRoleRoute component={AccountsPage} allowPrincipal={false} />} />
+        <Route path="/user-management" component={() => <ProtectedRoleRoute component={UserManagementPage} allowPrincipal={false} />} />
 
         <Route component={() => <Redirect to="/" />} />
       </Switch>

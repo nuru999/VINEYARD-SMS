@@ -32,12 +32,11 @@ const navGroups = [
   },
   {
     group: "Finance",
-    adminOnly: true,
     items: [
       { label: "Fees & Payments", icon: DollarSign, path: "/fees", adminOnly: true },
       { label: "Payroll", icon: Wallet, path: "/payroll", adminOnly: true },
       { label: "Accounts", icon: FileText, path: "/accounts", adminOnly: true },
-      { label: "Reports", icon: BarChart3, path: "/reports", adminOnly: true },
+      { label: "Reports", icon: BarChart3, path: "/reports", adminOnly: false },
     ],
   },
   {
@@ -104,11 +103,11 @@ export function Sidebar() {
       {/* Nav */}
       <nav style={{ flex: 1, padding: "12px 0" }}>
         {navGroups.map(({ group, items, adminOnly: groupAdminOnly }) => {
-          // Hide entire group if admin-only and user is teacher
-          if (groupAdminOnly && !isAdmin) return null;
-
-          // Filter items by role
-          const visibleItems = items.filter(item => !item.adminOnly || isAdmin);
+          const visibleItems = items.filter(item => {
+            if (!item.adminOnly) return true;
+            if (isAdmin) return true;
+            return group === "Finance" && item.label === "Reports" && isPrincipal;
+          });
           if (visibleItems.length === 0) return null;
 
           return (
