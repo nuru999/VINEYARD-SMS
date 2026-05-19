@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Layout } from "../components/layout";
 import { Link } from "wouter";
-import { Building2, Users, BookOpen, CalendarCheck, ClipboardList, ShieldCheck } from "lucide-react";
+import { Users, BookOpen, CalendarCheck, ClipboardList, ShieldCheck, School2 } from "lucide-react";
 import { api } from "../lib/api";
 
 function Card({ label, value, icon, color = "#E91E8C" }: { label: string; value: any; icon: React.ReactNode; color?: string }) {
@@ -13,6 +13,16 @@ function Card({ label, value, icon, color = "#E91E8C" }: { label: string; value:
         <div style={{ fontSize: 12, color: "#64748B" }}>{label}</div>
       </div>
     </div>
+  );
+}
+
+function QuickAction({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} style={{ textDecoration: "none" }}>
+      <div style={{ padding: "12px 14px", border: "1px solid #E2E8F0", borderRadius: 10, color: "#1E293B", fontWeight: 600 }}>
+        {label}
+      </div>
+    </Link>
   );
 }
 
@@ -37,39 +47,40 @@ export default function PrincipalDashboard() {
   const s = (stats.data as any)?.stats;
   const classList = (classes.data as any)?.classes ?? [];
   const teacherCount = (users.data as any)?.users?.filter((u: any) => u.role === "teacher").length ?? 0;
+  const principals = (users.data as any)?.users?.filter((u: any) => u.role === "principal").length ?? 0;
 
   return (
     <Layout title="Principal Dashboard">
       <div style={{ marginBottom: 20, background: "linear-gradient(135deg,#1B4D4D,#0f2e2e)", color: "#fff", borderRadius: 16, padding: 24 }}>
         <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>School oversight</div>
         <div style={{ fontSize: 24, fontWeight: 800 }}>Principal overview</div>
-        <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>Read everything. Manage nothing.</div>
+        <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>Read everything. Guide the school. No setup actions.</div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, marginBottom: 20 }}>
         <Card label="Students" value={s?.totalStudents} icon={<Users size={20} />} color="#E91E8C" />
         <Card label="Classes" value={classList.length} icon={<BookOpen size={20} />} color="#F59E0B" />
         <Card label="Teachers" value={teacherCount} icon={<ShieldCheck size={20} />} color="#3B82F6" />
-        <Card label="Attendance Today" value={s?.attendanceMarked ? "Marked" : "Pending"} icon={<CalendarCheck size={20} />} color="#22C55E" />
+        <Card label="Principals" value={principals} icon={<School2 size={20} />} color="#8B5CF6" />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", marginBottom: 10 }}>Quick Links</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", marginBottom: 10 }}>Quick Access</div>
           <div style={{ display: "grid", gap: 10 }}>
-            <Link href="/students">Students</Link>
-            <Link href="/classes">Classes</Link>
-            <Link href="/attendance">Attendance</Link>
-            <Link href="/exams">Exams</Link>
-            <Link href="/reports">Reports</Link>
+            <QuickAction href="/students" label="Students" />
+            <QuickAction href="/classes" label="Classes" />
+            <QuickAction href="/attendance" label="Attendance" />
+            <QuickAction href="/exams" label="Exams" />
+            <QuickAction href="/report-cards" label="Report Cards" />
           </div>
         </div>
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", marginBottom: 10 }}>School snapshot</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", marginBottom: 10 }}>Oversight</div>
           <div style={{ fontSize: 14, color: "#1E293B", lineHeight: 1.8 }}>
-            <div>Teachers assigned to classes: {teacherCount ? "Yes" : "No"}</div>
+            <div>Teachers assigned to classes: {teacherCount}</div>
             <div>Classes configured: {classList.length}</div>
-            <div>Use admin pages for setup and principal pages for oversight.</div>
+            <div>School data remains under admin control.</div>
           </div>
         </div>
       </div>
