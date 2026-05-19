@@ -134,6 +134,7 @@ export default function UserManagementPage() {
 
   const users = data?.users ?? [];
   const adminCount = users.filter(u => u.role === "admin").length;
+  const principalCount = users.filter(u => u.role === "principal").length;
   const teacherCount = users.filter(u => u.role === "teacher").length;
 
   if (roleLoading || !isAdmin) {
@@ -166,8 +167,8 @@ export default function UserManagementPage() {
           <div style={{ fontSize: 28, fontWeight: 700, color: "#E91E8C" }}>{adminCount}<span style={{ fontSize: 14, color: "#94A3B8", fontWeight: 400 }}>/2</span></div>
         </div>
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, padding: "16px 20px" }}>
-          <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Teachers</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#1B4D4D" }}>{teacherCount}</div>
+          <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Principals</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#1B4D4D" }}>{principalCount}</div>
         </div>
       </div>
 
