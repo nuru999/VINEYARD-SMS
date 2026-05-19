@@ -80,6 +80,13 @@ export const classesRoutes = new Hono()
   .post("/:id/assign-teacher", requireAdmin, async (c) => {
     const id = parseInt(c.req.param("id"));
     const { teacherUserId } = await c.req.json();
+    if (teacherUserId) {
+      await db
+        .update(schema.classes)
+        .set({ teacherUserId: null })
+        .where(eq(schema.classes.teacherUserId, teacherUserId));
+    }
+
     const [cls] = await db
       .update(schema.classes)
       .set({ teacherUserId: teacherUserId ?? null })

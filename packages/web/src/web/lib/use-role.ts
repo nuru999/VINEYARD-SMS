@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
-export type UserRole = "admin" | "teacher";
+export type UserRole = "admin" | "principal" | "teacher";
 
 export interface CurrentUser {
   id: string;
@@ -25,6 +25,7 @@ export function useRole() {
     user: data ?? null,
     role: data?.role ?? null,
     isAdmin: data?.role === "admin",
+    isPrincipal: data?.role === "principal",
     isTeacher: data?.role === "teacher",
     isLoading,
   };
