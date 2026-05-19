@@ -54,7 +54,7 @@ const navGroups = [
 export function Sidebar() {
   const [location] = useLocation();
   const { data: session } = authClient.useSession();
-  const { isAdmin, role } = useRole();
+  const { isAdmin, isPrincipal, role } = useRole();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const handleSignOut = async () => {
@@ -63,6 +63,8 @@ export function Sidebar() {
   };
 
   const toggleGroup = (g: string) => setCollapsed(c => ({ ...c, [g]: !c[g] }));
+
+  const roleLabel = isAdmin ? "Admin" : isPrincipal ? "Principal" : "Teacher";
 
   return (
     <aside style={{
@@ -193,13 +195,9 @@ export function Sidebar() {
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>{session.user.name}</div>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
-              {role === "admin" ? (
-                <span style={{ color: "#E91E8C", fontWeight: 600, textTransform: "uppercase", fontSize: 10 }}>
-                  ● Admin
-                </span>
-              ) : (
-                <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>Teacher</span>
-              )}
+              <span style={{ color: isAdmin ? "#E91E8C" : isPrincipal ? "#60A5FA" : "rgba(255,255,255,0.4)", fontWeight: 600, textTransform: "uppercase", fontSize: 10 }}>
+                ● {roleLabel}
+              </span>
             </div>
             <div style={{
               fontSize: 11, color: "rgba(255,255,255,0.4)",
