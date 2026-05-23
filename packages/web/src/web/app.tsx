@@ -1,5 +1,4 @@
 import { Route, Switch, Redirect, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Provider } from "./components/provider";
 import { AgentFeedback } from "@runablehq/website-runtime";
@@ -28,22 +27,8 @@ import LibraryPage from "./pages/library";
 import InventoryPage from "./pages/inventory";
 import UserManagementPage from "./pages/user-management";
 
-function useAuth() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["session"],
-    queryFn: async () => {
-      const r = await fetch("/api/auth/get-session", { credentials: "include" });
-      if (!r.ok) return null;
-      return r.json();
-    },
-    retry: false,
-    staleTime: 1000 * 60 * 5,
-  });
-  return { user: data?.user ?? null, isLoading };
-}
-
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useRole();
   const [, navigate] = useLocation();
 
   useEffect(() => {
@@ -72,8 +57,8 @@ function ProtectedRoleRoute({
   allowPrincipal?: boolean;
   allowAdmin?: boolean;
 }) {
-  const { user, isLoading: authLoading } = useAuth();
-  const { isAdmin, isPrincipal, isLoading: roleLoading } = useRole();
+  const { user, isAdmin, isPrincipal, isLoading: roleLoading } = useRole();
+  const authLoading = roleLoading;
   const [, navigate] = useLocation();
 
   useEffect(() => {

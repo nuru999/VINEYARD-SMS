@@ -10,13 +10,6 @@ export const classesRoutes = new Hono()
   .get("/", requireAuth, async (c) => {
     const data = await db.select().from(schema.classes);
 
-    // Get all teacher users to resolve names
-    const profiles = await db
-      .select()
-      .from(schema.userProfiles)
-      .where(eq(schema.userProfiles.role, "teacher"));
-    const teacherUserIds = profiles.map((p) => p.userId);
-
     const authUsers = await db.select().from(userTable);
     const userMap = new Map(authUsers.map((u: any) => [u.id, u.name]));
 

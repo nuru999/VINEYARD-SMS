@@ -53,7 +53,7 @@ const navGroups = [
 export function Sidebar() {
   const [location] = useLocation();
   const { data: session } = authClient.useSession();
-  const { isAdmin, isPrincipal, role } = useRole();
+  const { isAdmin, isPrincipal, role, isLoading } = useRole();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const handleSignOut = async () => {
@@ -63,7 +63,7 @@ export function Sidebar() {
 
   const toggleGroup = (g: string) => setCollapsed(c => ({ ...c, [g]: !c[g] }));
 
-  const roleLabel = isAdmin ? "Admin" : isPrincipal ? "Principal" : "Teacher";
+  const roleLabel = isLoading ? "Loading" : isAdmin ? "Admin" : isPrincipal ? "Principal" : "Teacher";
 
   return (
     <aside style={{
