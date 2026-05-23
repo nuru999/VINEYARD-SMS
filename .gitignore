@@ -6,3 +6,7 @@ dist/
 *.log
 .DS_Store
 dev.db
+
+# desktop build artifacts
+packages/desktop/dist-electron/
+packages/desktop/dist/
