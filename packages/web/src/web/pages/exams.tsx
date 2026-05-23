@@ -23,27 +23,27 @@ export default function ExamsPage() {
 
   const { data: examsData, isLoading } = useQuery({
     queryKey: ["exams"],
-    queryFn: async () => { const r = await (await api.exams.$get()).json(); return (r as any).exams ?? r; },
+    queryFn: async () => { try { const r = await (await api.exams.$get()).json(); return Array.isArray(r) ? r : (r as any).exams ?? []; } catch { return []; } },
   });
 
   const { data: resultsData } = useQuery({
     queryKey: ["results"],
-    queryFn: async () => { const r = await (await api.results.$get()).json(); return (r as any).results ?? r; },
+    queryFn: async () => { try { const r = await (await api.results.$get()).json(); return Array.isArray(r) ? r : (r as any).results ?? []; } catch { return []; } },
   });
 
   const { data: classesData } = useQuery({
     queryKey: ["classes"],
-    queryFn: async () => { const r = await (await api.classes.$get()).json(); return (r as any).classes ?? r; },
+    queryFn: async () => { try { const r = await (await api.classes.$get()).json(); return Array.isArray(r) ? r : (r as any).classes ?? []; } catch { return []; } },
   });
 
   const { data: studentsData } = useQuery({
     queryKey: ["students"],
-    queryFn: async () => { const r = await (await api.students.$get()).json(); return (r as any).students ?? r; },
+    queryFn: async () => { try { const r = await (await api.students.$get()).json(); return Array.isArray(r) ? r : (r as any).students ?? []; } catch { return []; } },
   });
 
   const { data: subjectsData } = useQuery({
     queryKey: ["subjects"],
-    queryFn: async () => { const r = await (await api.subjects.$get()).json(); return (r as any).subjects ?? r; },
+    queryFn: async () => { try { const r = await (await api.subjects.$get()).json(); return Array.isArray(r) ? r : (r as any).subjects ?? []; } catch { return []; } },
   });
 
   const exams: any[] = Array.isArray(examsData) ? examsData : (examsData as any)?.exams ?? [];

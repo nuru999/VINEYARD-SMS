@@ -65,7 +65,7 @@ export default function FeesPage() {
       const r = await fetch("/api/fee-payments", { credentials: "include" });
       if (!r.ok) return [];
       const j = await r.json();
-      return j.payments ?? j;
+      return Array.isArray(j.payments) ? j.payments : Array.isArray(j) ? j : [];
     },
   });
 
@@ -74,7 +74,8 @@ export default function FeesPage() {
     queryFn: async () => {
       const r = await fetch("/api/fee-payments/defaulters", { credentials: "include" });
       if (!r.ok) return { defaulters: [], count: 0 };
-      return r.json();
+      const j = await r.json();
+      return { defaulters: Array.isArray(j.defaulters) ? j.defaulters : [], count: j.count || 0 };
     },
   });
 
@@ -84,7 +85,7 @@ export default function FeesPage() {
       const r = await fetch("/api/fee-structures", { credentials: "include" });
       if (!r.ok) return [];
       const j = await r.json();
-      return j.feeStructures ?? j;
+      return Array.isArray(j.feeStructures) ? j.feeStructures : Array.isArray(j) ? j : [];
     },
   });
 
@@ -94,7 +95,7 @@ export default function FeesPage() {
       const r = await fetch("/api/students?limit=1000", { credentials: "include" });
       if (!r.ok) return [];
       const j = await r.json();
-      return j.students ?? j;
+      return Array.isArray(j.students) ? j.students : Array.isArray(j) ? j : [];
     },
   });
 
@@ -104,7 +105,7 @@ export default function FeesPage() {
       const r = await fetch("/api/classes", { credentials: "include" });
       if (!r.ok) return [];
       const j = await r.json();
-      return j.classes ?? j;
+      return Array.isArray(j.classes) ? j.classes : Array.isArray(j) ? j : [];
     },
   });
 

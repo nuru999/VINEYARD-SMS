@@ -9,9 +9,9 @@ export default function CommunicationPage() {
   const [form, setForm] = useState({ subject: "", body: "", recipientType: "all", recipientId: "" });
   const [sent, setSent] = useState(false);
 
-  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => { const r = await (await api.students.$get()).json(); return (r as any).students ?? r; } });
-  const { data: classes = [] } = useQuery({ queryKey: ["classes"], queryFn: async () => { const r = await (await api.classes.$get()).json(); return (r as any).classes ?? r; } });
-  const { data: msgs = [] } = useQuery({ queryKey: ["messages"], queryFn: async () => (await api.messages.$get()).json() });
+  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => { try { const r = await (await api.students.$get()).json(); return Array.isArray(r) ? r : (r as any).students ?? []; } catch { return []; } } });
+  const { data: classes = [] } = useQuery({ queryKey: ["classes"], queryFn: async () => { try { const r = await (await api.classes.$get()).json(); return Array.isArray(r) ? r : (r as any).classes ?? []; } catch { return []; } } });
+  const { data: msgs = [] } = useQuery({ queryKey: ["messages"], queryFn: async () => { try { const r = await (await api.messages.$get()).json(); return Array.isArray(r) ? r : (r as any).messages ?? []; } catch { return []; } } });
 
   const sendMsg = useMutation({
     mutationFn: async () => (await api.messages.$post({ json: { ...form, recipientId: form.recipientId ? Number(form.recipientId) : null } })).json(),
@@ -33,13 +33,17 @@ export default function CommunicationPage() {
     return `https://wa.me/?text=${text}`;
   };
 
+  const safeStudents = Array.isArray(students) ? students : [];
+  const safeClasses = Array.isArray(classes) ? classes : [];
+  const safeMsgs = Array.isArray(msgs) ? msgs : [];
+
   const recipientLabel = (msg: any) => {
     if (msg.recipientType === "all") return "All Parents";
     if (msg.recipientType === "class") {
-      const cls = classes.find((c: any) => c.id === msg.recipientId);
+      const cls = safeClasses.find((c: any) => c.id === msg.recipientId);
       return `Class: ${cls?.name || msg.recipientId}`;
     }
-    const s = students.find((s: any) => s.id === msg.recipientId);
+    const s = safeStudents.find((s: any) => s.id === msg.recipientId);
     return s ? `${s.firstName} ${s.lastName}` : "Individual";
   };
 
@@ -83,7 +87,7 @@ export default function CommunicationPage() {
                 <label style={labelStyle}>Class</label>
                 <select value={form.recipientId} onChange={e => setForm(f => ({ ...f, recipientId: e.target.value }))} style={selectStyle}>
                   <option value="">Select class</option>
-                  {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {safeClasses.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
             )}
@@ -93,7 +97,7 @@ export default function CommunicationPage() {
                 <label style={labelStyle}>Student</label>
                 <select value={form.recipientId} onChange={e => setForm(f => ({ ...f, recipientId: e.target.value }))} style={selectStyle}>
                   <option value="">Select student</option>
-                  {students.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                  {safeStudents.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
                 </select>
               </div>
             )}
@@ -137,11 +141,11 @@ export default function CommunicationPage() {
 
       {tab === "history" && (
         <div>
-          {msgs.length === 0 ? (
+          {safeMsgs.length === 0 ? (
             <div style={{ textAlign: "center", padding: 60, color: "#94A3B8", fontSize: 15 }}>No messages sent yet</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {msgs.map((msg: any) => (
+              {safeMsgs.map((msg: any) => (
                 <div key={msg.id} style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                     <div>
