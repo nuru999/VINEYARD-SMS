@@ -34,13 +34,13 @@ export default function UserManagementPage() {
   // Redirect non-admins away
   useEffect(() => {
     if (!roleLoading && !isAdmin) navigate("/");
-  }, [isAdmin, roleLoading]);
+  }, [isAdmin, roleLoading, navigate]);
 
   const { data, isLoading } = useQuery<{ users: UserRecord[] }>({
     queryKey: ["admin-users"],
     queryFn: async () => {
       const r = await fetch("/api/me/users", { credentials: "include" });
-      if (!r.ok) throw new Error("Failed to load users");
+      if (!r.ok) return { users: [] };
       return r.json();
     },
     enabled: isAdmin,
@@ -51,6 +51,7 @@ export default function UserManagementPage() {
     queryKey: ["classes"],
     queryFn: async () => {
       const r = await fetch("/api/classes", { credentials: "include" });
+      if (!r.ok) return { classes: [] };
       return r.json();
     },
     enabled: isAdmin,
@@ -137,7 +138,7 @@ export default function UserManagementPage() {
   const principalCount = users.filter(u => u.role === "principal").length;
   const teacherCount = users.filter(u => u.role === "teacher").length;
 
-  if (roleLoading || !isAdmin) {
+  if (roleLoading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
         <div style={{ width: 32, height: 32, border: "3px solid #E2E8F0", borderTop: "3px solid #E91E8C", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
