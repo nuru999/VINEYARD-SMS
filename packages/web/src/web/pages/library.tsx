@@ -15,9 +15,9 @@ export default function LibraryPage() {
   const [borrowForm, setBorrowForm] = useState({ bookId: "", studentId: "", borrowDate: new Date().toISOString().split("T")[0], dueDate: "" });
   const [search, setSearch] = useState("");
 
-  const { data: books = [], isLoading: booksLoading } = useQuery({ queryKey: ["library-books"], queryFn: async () => (await api.library.books.$get()).json() });
-  const { data: borrows = [] } = useQuery({ queryKey: ["library-borrows"], queryFn: async () => (await api.library.borrows.$get()).json() });
-  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => { const r = await (await api.students.$get()).json(); return (r as any).students ?? r; } });
+  const { data: books = [], isLoading: booksLoading } = useQuery({ queryKey: ["library-books"], queryFn: async () => { try { const r = await (await api.library.books.$get()).json(); return Array.isArray(r) ? r : (r as any)?.books ?? []; } catch { return []; } } });
+  const { data: borrows = [] } = useQuery({ queryKey: ["library-borrows"], queryFn: async () => { try { const r = await (await api.library.borrows.$get()).json(); return Array.isArray(r) ? r : (r as any)?.borrows ?? []; } catch { return []; } } });
+  const { data: students = [] } = useQuery({ queryKey: ["students"], queryFn: async () => { try { const r = await (await api.students.$get()).json(); return Array.isArray(r) ? r : (r as any).students ?? r; } catch { return []; } } });
 
   const saveBook = useMutation({
     mutationFn: async () => {
@@ -44,12 +44,15 @@ export default function LibraryPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["library-books", "library-borrows"] }),
   });
 
-  const filteredBooks = books.filter((b: any) =>
+  const safeBooks = Array.isArray(books) ? books : [];
+  const safeBorrows = Array.isArray(borrows) ? borrows : [];
+  const safeStudents = Array.isArray(students) ? students : [];
+  const filteredBooks = safeBooks.filter((b: any) =>
     b.title.toLowerCase().includes(search.toLowerCase()) ||
     (b.author || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const overdue = borrows.filter((b: any) => b.status === "borrowed" && b.dueDate < new Date().toISOString().split("T")[0]);
+  const overdue = safeBorrows.filter((b: any) => b.status === "borrowed" && b.dueDate < new Date().toISOString().split("T")[0]);
 
   if (booksLoading) return <Layout title="Library"><div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 300, color: "#64748B", fontSize: 16 }}>Loading library...</div></Layout>;
 
@@ -66,7 +69,7 @@ export default function LibraryPage() {
           <button key={t} onClick={() => setTab(t)}
             style={{ padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 500,
               background: tab === t ? "#E91E8C" : "transparent", color: tab === t ? "#fff" : "#64748B" }}>
-            {t === "books" ? "📚 Books" : `📋 Borrows${borrows.filter((b:any)=>b.status==="borrowed").length ? ` (${borrows.filter((b:any)=>b.status==="borrowed").length})` : ""}`}
+            {t === "books" ? "📚 Books" : `📋 Borrows${safeBorrows.filter((b:any)=>b.status==="borrowed").length ? ` (${safeBorrows.filter((b:any)=>b.status==="borrowed").length})` : ""}`}
           </button>
         ))}
       </div>
@@ -127,7 +130,7 @@ export default function LibraryPage() {
               </tr>
             </thead>
             <tbody>
-              {borrows.map((b: any) => {
+              {safeBorrows.map((b: any) => {
                 const book = books.find((x: any) => x.id === b.bookId);
                 const student = students.find((x: any) => x.id === b.studentId);
                 const isOverdue = b.status === "borrowed" && b.dueDate < new Date().toISOString().split("T")[0];
@@ -206,7 +209,7 @@ export default function LibraryPage() {
               <select value={borrowForm.bookId} onChange={e => setBorrowForm(f => ({ ...f, bookId: e.target.value }))}
                 style={{ width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }}>
                 <option value="">Select book</option>
-                {books.filter((b: any) => (b.available || 0) > 0).map((b: any) => <option key={b.id} value={b.id}>{b.title} ({b.available} left)</option>)}
+                {safeBooks.filter((b: any) => (b.available || 0) > 0).map((b: any) => <option key={b.id} value={b.id}>{b.title} ({b.available} left)</option>)}
               </select>
             </div>
             <div style={{ marginBottom: 12 }}>
@@ -214,7 +217,7 @@ export default function LibraryPage() {
               <select value={borrowForm.studentId} onChange={e => setBorrowForm(f => ({ ...f, studentId: e.target.value }))}
                 style={{ width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }}>
                 <option value="">Select student</option>
-                {students.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                {safeStudents.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
               </select>
             </div>
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
