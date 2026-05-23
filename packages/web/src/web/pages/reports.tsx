@@ -138,15 +138,15 @@ export default function ReportsPage() {
     },
   });
 
-  const students = studentsData?.students || [];
-  const payments = feePaymentsData?.payments || [];
-  const feeStructures = feeStructData?.structures || feeStructData?.feeStructures || [];
-  const staff = staffData?.staff || [];
-  const classes = classesData?.classes || [];
-  const transactions = accountsData?.transactions || [];
+  const students = Array.isArray(studentsData?.students) ? studentsData.students : [];
+  const payments = Array.isArray(feePaymentsData?.payments) ? feePaymentsData.payments : [];
+  const feeStructures = Array.isArray(feeStructData?.structures) ? feeStructData.structures : Array.isArray(feeStructData?.feeStructures) ? feeStructData.feeStructures : [];
+  const staff = Array.isArray(staffData?.staff) ? staffData.staff : [];
+  const classes = Array.isArray(classesData?.classes) ? classesData.classes : [];
+  const transactions = Array.isArray(accountsData?.transactions) ? accountsData.transactions : [];
   const summary = accountsData?.summary || { totalIncome: 0, totalExpense: 0, balance: 0 };
   const payrollList = Array.isArray(payrollData) ? payrollData : (payrollData?.payroll || []);
-  const attendanceRecords = attendanceData?.attendance || [];
+  const attendanceRecords = Array.isArray(attendanceData?.attendance) ? attendanceData.attendance : [];
 
   // Derived stats
   const activeStudents = students.filter((s: any) => s.status === "active").length;
