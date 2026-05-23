@@ -21,7 +21,7 @@ export default function StaffPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ["staff"],
-    queryFn: async () => { const r = await (await api.staff.$get()).json(); return (r as any).staff ?? r; },
+    queryFn: async () => { try { const r = await (await api.staff.$get()).json(); return (r as any).staff ?? r; } catch { return []; } },
   });
 
   const save = useMutation({
@@ -41,7 +41,7 @@ export default function StaffPage() {
             body: JSON.stringify({ name: f.name, email: f.email, password: loginPassword, role: "teacher" }),
           });
           if (!r.ok) {
-            const err = await r.json();
+            const err = await r.json().catch(() => ({}));
             throw new Error(err.message || "Staff added but login account failed");
           }
         }

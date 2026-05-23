@@ -23,7 +23,7 @@ app.get("/", async (c) => {
   const classes = await db.select().from(schema.classes);
   const myClassIds = classes.filter((c2) => c2.teacherUserId === user.id).map((c2) => c2.id);
   const myRows = rows.filter((r) => myClassIds.includes(r.classId));
-  return c.json(myRows, 200);
+  return c.json({ slots: myRows }, 200);
 });
 
 app.post("/", async (c) => {
@@ -36,7 +36,7 @@ app.post("/", async (c) => {
   if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
   const body = await c.req.json();
   const [row] = await db.insert(schema.timetableSlots).values(body).returning();
-  return c.json(row, 201);
+  return c.json({ slot: row }, 201);
 });
 
 app.put("/:id", async (c) => {
@@ -50,7 +50,7 @@ app.put("/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const body = await c.req.json();
   const [row] = await db.update(schema.timetableSlots).set(body).where(eq(schema.timetableSlots.id, id)).returning();
-  return c.json(row, 200);
+  return c.json({ slot: row }, 200);
 });
 
 app.delete("/:id", async (c) => {

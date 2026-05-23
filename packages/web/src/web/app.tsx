@@ -43,7 +43,7 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
     );
   }
 
-  if (!user) return null;
+  if (!user) return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}><div style={{ color: "#64748B" }}>Redirecting...</div></div>;
 
   return <Component />;
 }
@@ -78,7 +78,7 @@ function ProtectedRoleRoute({
   }
 
   const allowed = (isAdmin && allowAdmin) || (isPrincipal && allowPrincipal);
-  if (!user || !allowed) return null;
+  if (!user || !allowed) return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}><div style={{ color: "#64748B" }}>Redirecting...</div></div>;
 
   return <Component />;
 }
