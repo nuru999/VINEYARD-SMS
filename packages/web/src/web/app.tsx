@@ -97,7 +97,7 @@ function App() {
   return (
     <Provider>
       <Suspense fallback={<div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}><div style={{ width: 32, height: 32, border: "3px solid #E2E8F0", borderTop: "3px solid #E91E8C", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /></div>}>
-      <Switch>
+        <Switch>
         <Route path="/sign-in" component={SignIn} />
 
         {/* Dashboard — admin sees full dashboard, teacher sees teacher dashboard */}
@@ -125,7 +125,7 @@ function App() {
         <Route path="/user-management" component={() => <ProtectedRoleRoute component={UserManagementPage} allowPrincipal={false} />} />
 
         <Route component={() => <Redirect to="/" />} />
-      </Switch>
+        </Switch>
       </Suspense>
       {import.meta.env.DEV && <AgentFeedback />}
     </Provider>
