@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Suspense } from "react";
 import { Layout } from "../components/layout";
 import { Link } from "wouter";
 import { Users, BookOpen, CalendarCheck, ClipboardList, ShieldCheck, School2, CheckCircle2, XCircle } from "lucide-react";
