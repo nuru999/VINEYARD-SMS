@@ -1,31 +1,31 @@
 import { Route, Switch, Redirect, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Provider } from "./components/provider";
 import { AgentFeedback } from "@runablehq/website-runtime";
 import { useRole } from "./lib/use-role";
 
 // Pages
 import SignIn from "./pages/sign-in";
-import Dashboard from "./pages/index";
-import PrincipalDashboard from "./pages/principal-dashboard";
-import TeacherDashboard from "./pages/teacher-dashboard";
-import StudentsPage from "./pages/students";
-import StaffPage from "./pages/staff";
-import ClassesPage from "./pages/classes";
-import AttendancePage from "./pages/attendance";
-import FeesPage from "./pages/fees";
-import ExamsPage from "./pages/exams";
-import PayrollPage from "./pages/payroll";
-import CertificatesPage from "./pages/certificates";
-import ReportCardsPage from "./pages/reportcards";
-import AccountsPage from "./pages/accounts";
-import ReportsPage from "./pages/reports";
-import TimetablePage from "./pages/timetable";
-import CommunicationPage from "./pages/communication";
-import TransportPage from "./pages/transport";
-import LibraryPage from "./pages/library";
-import InventoryPage from "./pages/inventory";
-import UserManagementPage from "./pages/user-management";
+const Dashboard = lazy(() => import("./pages/index"));
+const PrincipalDashboard = lazy(() => import("./pages/principal-dashboard"));
+const TeacherDashboard = lazy(() => import("./pages/teacher-dashboard"));
+const StudentsPage = lazy(() => import("./pages/students"));
+const StaffPage = lazy(() => import("./pages/staff"));
+const ClassesPage = lazy(() => import("./pages/classes"));
+const AttendancePage = lazy(() => import("./pages/attendance"));
+const FeesPage = lazy(() => import("./pages/fees"));
+const ExamsPage = lazy(() => import("./pages/exams"));
+const PayrollPage = lazy(() => import("./pages/payroll"));
+const CertificatesPage = lazy(() => import("./pages/certificates"));
+const ReportCardsPage = lazy(() => import("./pages/reportcards"));
+const AccountsPage = lazy(() => import("./pages/accounts"));
+const ReportsPage = lazy(() => import("./pages/reports"));
+const TimetablePage = lazy(() => import("./pages/timetable"));
+const CommunicationPage = lazy(() => import("./pages/communication"));
+const TransportPage = lazy(() => import("./pages/transport"));
+const LibraryPage = lazy(() => import("./pages/library"));
+const InventoryPage = lazy(() => import("./pages/inventory"));
+const UserManagementPage = lazy(() => import("./pages/user-management"));
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useRole();
@@ -96,6 +96,7 @@ function RoleDashboard() {
 function App() {
   return (
     <Provider>
+      <Suspense fallback={<div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}><div style={{ width: 32, height: 32, border: "3px solid #E2E8F0", borderTop: "3px solid #E91E8C", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /></div>}>
       <Switch>
         <Route path="/sign-in" component={SignIn} />
 
@@ -125,6 +126,7 @@ function App() {
 
         <Route component={() => <Redirect to="/" />} />
       </Switch>
+      </Suspense>
       {import.meta.env.DEV && <AgentFeedback />}
     </Provider>
   );
