@@ -18,11 +18,16 @@ export default function TimetablePage() {
 
   const { data: classes = [], isLoading } = useQuery({ queryKey: ["classes"], queryFn: async () => { const r = await (await api.classes.$get()).json(); return (r as any).classes ?? r; } });
   const { data: staff = [] } = useQuery({ queryKey: ["staff"], queryFn: async () => { const r = await (await api.staff.$get()).json(); return (r as any).staff ?? r; } });
-  const { data: slots = [] } = useQuery({
+  const { data: slotsData = [] } = useQuery({
     queryKey: ["timetable", selectedClass],
-    queryFn: async () => (await api.timetable.$get({ query: selectedClass ? { classId: String(selectedClass) } : {} })).json(),
+    queryFn: async () => {
+      const r = await api.timetable.$get({ query: selectedClass ? { classId: String(selectedClass) } : {} });
+      const d = await r.json();
+      return Array.isArray(d) ? d : (d?.slots ?? d?.timetable ?? []);
+    },
     enabled: !!selectedClass,
   });
+  const slots = Array.isArray(slotsData) ? slotsData : [];
 
   const saveSlot = useMutation({
     mutationFn: async () => {
