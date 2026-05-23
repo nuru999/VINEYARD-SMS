@@ -107,7 +107,7 @@ export default function ReportCardsPage() {
 
   const { data: examsData } = useQuery({
     queryKey: ["exams"],
-    queryFn: async () => { const r = await (await api.exams.$get()).json(); return (r as any).exams ?? r; },
+    queryFn: async () => { try { const r = await (await api.exams.$get()).json(); return Array.isArray(r) ? r : (r as any).exams ?? []; } catch { return []; } },
   });
 
   const { data: cardsData, isLoading: cardsLoading } = useQuery({
@@ -115,7 +115,8 @@ export default function ReportCardsPage() {
     queryFn: async () => {
       if (!selectedExam) return null;
       const r = await fetch(`/api/report-cards?examId=${selectedExam}`, { credentials: "include" });
-      return r.json();
+      const j = await r.json();
+      return j?.reportCards ?? j?.reportCard ?? j ?? null;
     },
     enabled: !!selectedExam,
   });
@@ -125,7 +126,8 @@ export default function ReportCardsPage() {
     queryFn: async () => {
       if (!selectedExam || !selectedStudent) return null;
       const r = await fetch(`/api/report-cards/${selectedStudent}?examId=${selectedExam}`, { credentials: "include" });
-      return r.json();
+      const j = await r.json();
+      return j?.reportCards ?? j?.reportCard ?? j ?? null;
     },
     enabled: !!selectedExam && !!selectedStudent,
   });
