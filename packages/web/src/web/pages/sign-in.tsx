@@ -18,8 +18,8 @@ export default function SignInPage() {
     try {
       const res = await authClient.signIn.email({ email, password });
       if (res.error) { setError(res.error.message || "Invalid credentials"); setLoading(false); return; }
-      setLocation("/");
-    } catch {
+      setTimeout(() => setLocation("/"), 50);
+    } catch (e) {
       setError("Something went wrong. Try again.");
     } finally {
       setLoading(false);
