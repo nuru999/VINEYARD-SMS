@@ -6,7 +6,7 @@ import https from "node:https";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const REMOTE_URL = process.env.REMOTE_URL || "https://templateweb-production-7d1c1up.railway.app";
+const REMOTE_URL = process.env.REMOTE_URL || process.env.WEBSITE_URL || "http://localhost:3000";
 
 let win: BrowserWindow | null;
 

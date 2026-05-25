@@ -21,7 +21,7 @@ import inventoryRoutes from "./routes/inventory";
 import reportCardsRoutes from "./routes/reportcards";
 
 const app = new Hono()
-  .use(cors({ origin: "*" }))
+  .use(cors({ origin: process.env.WEBSITE_URL || "*", credentials: true }))
   .on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))
   .basePath("api")
   .use("*", authMiddleware)
