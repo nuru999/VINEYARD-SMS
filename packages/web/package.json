@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "preview": "bun run build && vite preview",
     "start": "bun server.ts",
+    "seed": "bun --env-file=../../.env seed.ts",
     "db:generate": "bun --env-file=../../.env drizzle-kit generate",
     "db:migrate": "bun --env-file=../../.env drizzle-kit migrate",
     "db:push": "bun --env-file=../../.env drizzle-kit push",
