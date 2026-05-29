@@ -6,7 +6,7 @@ import https from "node:https";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const REMOTE_URL = process.env.REMOTE_URL || process.env.WEBSITE_URL || "http://localhost:3000";
+const REMOTE_URL = process.env.REMOTE_URL || process.env.WEBSITE_URL ||  "https://vineyard-sms.onrender.com";
 
 let win: BrowserWindow | null;
 
