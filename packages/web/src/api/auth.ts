@@ -3,7 +3,6 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer } from "better-auth/plugins";
 import { db } from "./database";
 
-// Render provides WEBSITE_URL as a hostname or full URL.
 function buildOrigin(): string {
   const raw = process.env.WEBSITE_URL || process.env.REMOTE_URL || "";
   if (!raw) return "http://localhost:3000";
