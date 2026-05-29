@@ -1,6 +1,10 @@
 import { createAuthClient } from "better-auth/react";
 
+const baseURL =
+  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) ||
+  "https://vineyard-sms.onrender.com";
+
 export const authClient = createAuthClient({
-  baseURL: window.location.origin,
+  baseURL,
   basePath: "/api/auth",
 });
