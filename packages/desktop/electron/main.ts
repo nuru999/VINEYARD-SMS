@@ -2,11 +2,43 @@ import { app, BrowserWindow, ipcMain, dialog, Notification } from "electron";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import https from "node:https";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const REMOTE_URL = process.env.REMOTE_URL || process.env.WEBSITE_URL ||  "https://vineyard-sms.onrender.com";
+// Auto-load .env from repo root (works without PowerShell env setup)
+function loadDotEnv() {
+  // Walk up from dist-electron/ to find repo root .env
+  const candidates = [
+    path.join(__dirname, ".env"),
+    path.join(__dirname, "..", ".env"),
+    path.join(__dirname, "..", "..", ".env"),
+    path.join(__dirname, "..", "..", "..", ".env"),
+  ];
+  for (const envPath of candidates) {
+    if (fsSync.existsSync(envPath)) {
+      const lines = fsSync.readFileSync(envPath, "utf-8").split("\n");
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const eqIdx = trimmed.indexOf("=");
+        if (eqIdx === -1) continue;
+        const key = trimmed.slice(0, eqIdx).trim();
+        const value = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
+        if (key && !(key in process.env)) {
+          process.env[key] = value;
+        }
+      }
+      break;
+    }
+  }
+}
+
+loadDotEnv();
+
+// Always point to Render — env vars can override for local dev
+const REMOTE_URL = process.env.REMOTE_URL || process.env.WEBSITE_URL || "https://vineyard-sms.onrender.com";
 
 let win: BrowserWindow | null;
 
