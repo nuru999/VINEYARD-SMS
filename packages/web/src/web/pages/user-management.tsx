@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../components/ui/toast";
 import { useRole } from "../lib/use-role";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
@@ -21,6 +22,7 @@ export default function UserManagementPage() {
   const { isAdmin, isLoading: roleLoading } = useRole();
   const [, navigate] = useLocation();
   const qc = useQueryClient();
+  const { success, error: toastError } = useToast();
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "teacher" as "admin" | "principal" | "teacher", classId: "" });
@@ -85,8 +87,9 @@ export default function UserManagementPage() {
       setShowForm(false);
       setForm({ name: "", email: "", password: "", role: "teacher", classId: "" });
       setFormError("");
+      success("User created successfully");
     },
-    onError: (e: any) => setFormError(e.message),
+    onError: (e: any) => { setFormError(e.message); toastError("Create failed", e.message); },
   });
 
   const deleteMutation = useMutation({
@@ -97,7 +100,8 @@ export default function UserManagementPage() {
       });
       if (!r.ok) throw new Error("Failed to delete");
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-users"] }); success("User deleted"); },
+    onError: () => toastError("Delete failed"),
   });
 
   const changeRoleMutation = useMutation({
@@ -112,7 +116,8 @@ export default function UserManagementPage() {
       if (!r.ok) throw new Error(json.message);
       return json;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-users"] }); success("Role updated"); },
+    onError: (e: any) => toastError("Role change failed", e?.message),
   });
 
   const assignClassMutation = useMutation({
@@ -130,7 +135,9 @@ export default function UserManagementPage() {
       qc.invalidateQueries({ queryKey: ["classes"] });
       setAssigningUserId(null);
       setAssignClassId("");
+      success("Class assigned");
     },
+    onError: () => toastError("Assign failed"),
   });
 
   const users = data?.users ?? [];

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Pencil, Trash2, X, User, Phone, MapPin, Calendar, Users } from "lucide-react";
 import { Layout } from "../components/layout";
 import { Button } from "../components/ui/button";
+import { useToast } from "../components/ui/toast";
 import { Badge } from "../components/ui/badge";
 import { Modal } from "../components/ui/modal";
 import { Input, Select } from "../components/ui/input";
@@ -25,6 +26,7 @@ const emptyStudent = {
 export default function StudentsPage() {
   const qc = useQueryClient();
   const { isAdmin } = useRole();
+  const { success, error: toastError } = useToast();
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(false);
   const [detailModal, setDetailModal] = useState(false);
@@ -65,7 +67,9 @@ export default function StudentsPage() {
       setModal(false);
       setEditing(null);
       setForm(emptyStudent);
+      success(editing ? "Student updated" : "Student added", editing ? "Record saved successfully." : "New student registered.");
     },
+    onError: () => toastError("Save failed", "Could not save student. Try again."),
   });
 
   const remove = useMutation({
@@ -73,7 +77,11 @@ export default function StudentsPage() {
       (
         await api.students[":id"].$delete({ param: { id: String(id) } })
       ).json(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["students"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["students"] });
+      success("Student removed", "Record deleted.");
+    },
+    onError: () => toastError("Delete failed", "Could not remove student."),
   });
 
   const openEdit = (s: any) => {

@@ -83,7 +83,7 @@ function DefaultersList() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: "#EF4444" }}>KES {d.totalOwed?.toLocaleString()}</span>
-            {d.student?.parentPhone && (
+            {d.student?.parentPhone && d.student.parentPhone.replace(/\D/g, "").length > 6 && (
               <a href={`https://wa.me/${d.student.parentPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Dear ${d.student.parentName || "Parent"}, ${d.student.name} has an outstanding fee balance of KES ${d.totalOwed?.toLocaleString()} at Vineyard Primary School.`)}`}
                 target="_blank" rel="noopener noreferrer"
                 style={{

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import { Layout } from "../components/layout";
 import { Button } from "../components/ui/button";
+import { useToast } from "../components/ui/toast";
 import { Badge } from "../components/ui/badge";
 import { Modal } from "../components/ui/modal";
 import { Input, Select } from "../components/ui/input";
@@ -12,6 +13,7 @@ const empty = { name: "", email: "", phone: "", designation: "Teacher", departme
 
 export default function StaffPage() {
   const qc = useQueryClient();
+  const { success, error: toastError } = useToast();
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -48,13 +50,18 @@ export default function StaffPage() {
       }
       return staffResult;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["staff"] }); setModal(false); setEditing(null); setForm(empty); setSaveError(""); },
-    onError: (e: any) => setSaveError(e.message),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["staff"] });
+      setModal(false); setEditing(null); setForm(empty); setSaveError("");
+      success(editing ? "Staff updated" : "Staff added");
+    },
+    onError: (e: any) => { setSaveError(e.message); toastError("Save failed", e.message); },
   });
 
   const remove = useMutation({
     mutationFn: async (id: number) => (await api.staff[":id"].$delete({ param: { id: String(id) } })).json(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["staff"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["staff"] }); success("Staff removed"); },
+    onError: () => toastError("Delete failed"),
   });
 
   const openEdit = (s: any) => { setEditing(s); setForm({ ...s, salary: String(s.salary || ""), loginPassword: "" }); setModal(true); setSaveError(""); };
