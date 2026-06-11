@@ -44,7 +44,7 @@ export default function CommunicationPage() {
       return `Class: ${cls?.name || msg.recipientId}`;
     }
     const s = safeStudents.find((s: any) => s.id === msg.recipientId);
-    return s ? `${s.firstName} ${s.lastName}` : "Individual";
+    return s ? (s.name ?? `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim()) : "Individual";
   };
 
   return (
@@ -97,7 +97,7 @@ export default function CommunicationPage() {
                 <label style={labelStyle}>Student</label>
                 <select value={form.recipientId} onChange={e => setForm(f => ({ ...f, recipientId: e.target.value }))} style={selectStyle}>
                   <option value="">Select student</option>
-                  {safeStudents.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                  {safeStudents.map((s: any) => <option key={s.id} value={s.id}>{s.name ?? `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim()}</option>)}
                 </select>
               </div>
             )}

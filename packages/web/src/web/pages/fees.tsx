@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../components/ui/toast";
 import { Plus, Trash2, MessageCircle, AlertTriangle, CheckCircle, Printer, Download, FileText } from "lucide-react";
 import { Layout } from "../components/layout";
 import { Button } from "../components/ui/button";
@@ -51,6 +52,7 @@ function printHTML(html: string, title: string) {
 
 export default function FeesPage() {
   const qc = useQueryClient();
+  const { success, error: toastError } = useToast();
   const [tab, setTab] = useState<Tab>("payments");
   const [structureModal, setStructureModal] = useState(false);
   const [paymentModal, setPaymentModal] = useState(false);
@@ -118,7 +120,8 @@ export default function FeesPage() {
       });
       return r.json();
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); setStructureModal(false); setSf(emptyStructure); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); setStructureModal(false); setSf(emptyStructure); success("Fee structure saved"); },
+    onError: (e: any) => toastError("Save failed", e?.message),
   });
 
   const savePayment = useMutation({
@@ -139,7 +142,9 @@ export default function FeesPage() {
       qc.invalidateQueries({ queryKey: ["fee-defaulters"] });
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       setPaymentModal(false); setPf(emptyPayment);
+      success("Payment recorded");
     },
+    onError: (e: any) => toastError("Payment failed", e?.message),
   });
 
   const deletePayment = useMutation({
@@ -150,7 +155,9 @@ export default function FeesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fee-payments"] });
       qc.invalidateQueries({ queryKey: ["fee-defaulters"] });
+      success("Payment deleted");
     },
+    onError: () => toastError("Delete failed"),
   });
 
   const payments: any[] = Array.isArray(paymentsData) ? paymentsData : [];

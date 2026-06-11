@@ -48,9 +48,10 @@ export const dashboardRoutes = new Hono()
 
     return c.json({
       stats: {
-        totalStudents: studentCount.count,
-        totalStaff: staffCount.count,
-        totalClasses: classCount.count,
+        // drizzle .select() returns an array — must index [0]
+        totalStudents: studentCount[0]?.count ?? 0,
+        totalStaff: staffCount[0]?.count ?? 0,
+        totalClasses: classCount[0]?.count ?? 0,
         totalRevenue,
         totalIncome,
         totalExpenses,
