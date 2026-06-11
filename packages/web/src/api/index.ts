@@ -20,8 +20,34 @@ import libraryRoutes from "./routes/library";
 import inventoryRoutes from "./routes/inventory";
 import reportCardsRoutes from "./routes/reportcards";
 
+const PRODUCTION_URL = "https://vineyard-sms.onrender.com";
+
+// Build allowed origins list — always include production + localhost variants
+const allowedOrigins = [
+  PRODUCTION_URL,
+  process.env.WEBSITE_URL,
+  process.env.REMOTE_URL,
+  "http://localhost:3000",
+  "http://localhost:4200",
+  "http://localhost:5173",
+].filter(Boolean) as string[];
+
 const app = new Hono()
-  .use(cors({ origin: process.env.WEBSITE_URL || "*", credentials: true }))
+  .use(
+    cors({
+      origin: (requestOrigin) => {
+        // Electron sends null or file:// — allow it
+        if (!requestOrigin || requestOrigin === "null" || requestOrigin.startsWith("file://")) {
+          return requestOrigin || "null";
+        }
+        // Allow any listed origin
+        return allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0];
+      },
+      credentials: true,
+      allowHeaders: ["Content-Type", "Authorization"],
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    })
+  )
   .on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))
   .basePath("api")
   .use("*", authMiddleware)
