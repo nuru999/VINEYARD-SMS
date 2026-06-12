@@ -21,10 +21,12 @@ import inventoryRoutes from "./routes/inventory";
 import reportCardsRoutes from "./routes/reportcards";
 
 const PRODUCTION_URL = "https://vineyard-sms-gq1q.onrender.com";
+const OLD_PRODUCTION_URL = "https://vineyard-sms.onrender.com";
 
 // Build allowed origins list — always include production + localhost variants
 const allowedOrigins = [
   PRODUCTION_URL,
+  OLD_PRODUCTION_URL,
   process.env.WEBSITE_URL,
   process.env.REMOTE_URL,
   "http://localhost:3000",

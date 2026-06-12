@@ -3,8 +3,9 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { bearer } from "better-auth/plugins";
 import { db } from "./database";
 
-// Production URL — always the Render deployment
+// Production URLs — both old and new Render deployments
 const PRODUCTION_URL = "https://vineyard-sms-gq1q.onrender.com";
+const OLD_PRODUCTION_URL = "https://vineyard-sms.onrender.com";
 
 function buildOrigin(): string {
   const raw = process.env.WEBSITE_URL || process.env.REMOTE_URL || "";
@@ -24,6 +25,7 @@ export const auth = betterAuth({
   trustedOrigins: [
     origin,
     PRODUCTION_URL,
+    OLD_PRODUCTION_URL,
     "http://localhost:3000",
     "http://localhost:4200",
     "http://localhost:5173",
