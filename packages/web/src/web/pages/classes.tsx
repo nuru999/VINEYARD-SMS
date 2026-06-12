@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../components/ui/toast";
 import { Plus, Pencil, Trash2, BookOpen, Hash, UserCheck, X } from "lucide-react";
 import { Layout } from "../components/layout";
 import { Button } from "../components/ui/button";
@@ -13,6 +14,7 @@ import { useRole } from "../lib/use-role";
 export default function ClassesPage() {
   const qc = useQueryClient();
   const { isAdmin } = useRole();
+  const { success, error: toastError } = useToast();
 
   const [classModal, setClassModal] = useState(false);
   const [subjectModal, setSubjectModal] = useState(false);
@@ -64,7 +66,9 @@ export default function ClassesPage() {
       setClassModal(false);
       setEditingClass(null);
       setClassForm({ name: "", level: "primary" });
+      success(editingClass ? "Class updated" : "Class added");
     },
+    onError: (e: any) => toastError("Save failed", e?.message),
   });
 
   const deleteClass = useMutation({
@@ -72,7 +76,8 @@ export default function ClassesPage() {
       (
         await api.classes[":id"].$delete({ param: { id: String(id) } })
       ).json(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["classes"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["classes"] }); success("Class deleted"); },
+    onError: () => toastError("Delete failed"),
   });
 
   const assignTeacher = useMutation({
@@ -96,7 +101,9 @@ export default function ClassesPage() {
       setAssignModal(false);
       setAssignTarget(null);
       setAssignTeacherId("");
+      success("Teacher assigned");
     },
+    onError: () => toastError("Assign failed"),
   });
 
   const saveSubject = useMutation({
@@ -110,7 +117,9 @@ export default function ClassesPage() {
       qc.invalidateQueries({ queryKey: ["subjects"] });
       setSubjectModal(false);
       setSubjectForm({ name: "", code: "", classId: "" });
+      success("Subject added");
     },
+    onError: (e: any) => toastError("Save failed", e?.message),
   });
 
   const deleteSubject = useMutation({
@@ -118,7 +127,8 @@ export default function ClassesPage() {
       (
         await api.subjects[":id"].$delete({ param: { id: String(id) } })
       ).json(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["subjects"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["subjects"] }); success("Subject deleted"); },
+    onError: () => toastError("Delete failed"),
   });
 
   const openAssign = (cls: any) => {

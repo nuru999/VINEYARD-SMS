@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../components/ui/toast";
 import { Plus, Trash2, Wallet, Printer, FileText } from "lucide-react";
 import { Layout } from "../components/layout";
 import { Button } from "../components/ui/button";
@@ -134,6 +135,7 @@ const empty = { staffId: "", month: months[new Date().getMonth()], year: new Dat
 
 export default function PayrollPage() {
   const qc = useQueryClient();
+  const { success, error: toastError } = useToast();
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<any>(empty);
   const [filterMonth, setFilterMonth] = useState("");
@@ -178,7 +180,8 @@ export default function PayrollPage() {
       if (!r.ok) throw new Error("Failed");
       return r.json();
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); setModal(false); setForm(empty); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); setModal(false); setForm(empty); success("Payroll record saved"); },
+    onError: (e: any) => toastError("Save failed", e?.message),
   });
 
   const markPaid = useMutation({
@@ -192,7 +195,8 @@ export default function PayrollPage() {
       if (!r.ok) throw new Error("Failed");
       return r.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["payroll"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); success("Marked as paid"); },
+    onError: () => toastError("Failed to mark paid"),
   });
 
   const remove = useMutation({
@@ -201,7 +205,8 @@ export default function PayrollPage() {
       if (!r.ok) throw new Error("Failed");
       return r.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["payroll"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); success("Record deleted"); },
+    onError: () => toastError("Delete failed"),
   });
 
   const totalNet = filtered.reduce((s: number, p: any) => s + (p.netSalary || 0), 0);
