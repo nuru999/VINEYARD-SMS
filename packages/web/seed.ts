@@ -7,7 +7,7 @@ const accounts = [
   { name: "Admin User", email: "admin@vineyard.school", password: "Vineyard@2026", role: "admin" as const },
   { name: "Principal User", email: "principal@vineyard.school", password: "Vineyard@2026", role: "principal" as const },
   { name: "Teacher User", email: "teacher@vineyard.school", password: "Vineyard@2026", role: "teacher" as const },
-  { name: "Accountant User", email: "accountant@vineyard.school", password: "Vineyard@2026", role: "teacher" as const },
+  { name: "Accountant User", email: "accountant@vineyard.school", password: "Vineyard@2026", role: "accountant" as const },
   { name: "Muhammad Nuru", email: "muhammadnuru85@gmail.com", password: "Vineyard@2026", role: "teacher" as const },
 ];
 
