@@ -7,7 +7,7 @@ export * from "./auth-schema";
 export const userProfiles = sqliteTable("user_profiles", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: text("user_id").notNull().unique(),
-  role: text("role").notNull().default("teacher"), // admin | principal | teacher
+  role: text("role").notNull().default("teacher"), // admin | principal | teacher | accountant
   phone: text("phone"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });

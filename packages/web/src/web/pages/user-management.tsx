@@ -13,7 +13,7 @@ interface UserRecord {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "principal" | "teacher";
+  role: "admin" | "principal" | "teacher" | "accountant";
   createdAt?: string;
   assignedClass?: { id: number; name: string } | null;
 }
@@ -25,7 +25,7 @@ export default function UserManagementPage() {
   const { success, error: toastError } = useToast();
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "teacher" as "admin" | "principal" | "teacher", classId: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "teacher" as "admin" | "principal" | "teacher" | "accountant", classId: "" });
   const [showPw, setShowPw] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -241,10 +241,11 @@ export default function UserManagementPage() {
               <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Role</label>
               <select
                 value={form.role}
-                onChange={e => setForm(f => ({ ...f, role: e.target.value as "admin" | "principal" | "teacher", classId: "" }))}
+                onChange={e => setForm(f => ({ ...f, role: e.target.value as "admin" | "principal" | "teacher" | "accountant", classId: "" }))}
                 style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, outline: "none", background: "#fff" }}>
                 <option value="teacher">Teacher</option>
                 <option value="principal">Principal</option>
+                <option value="accountant">Accountant</option>
                 <option value="admin" disabled={adminCount >= 2}>Admin {adminCount >= 2 ? "(max reached)" : ""}</option>
               </select>
               {form.role === "admin" && (
@@ -359,6 +360,8 @@ export default function UserManagementPage() {
                           cursor: "pointer", outline: "none",
                         }}>
                         <option value="teacher">Teacher</option>
+                        <option value="principal">Principal</option>
+                        <option value="accountant">Accountant</option>
                         <option value="admin" disabled={u.role !== "admin" && adminCount >= 2}>Admin</option>
                       </select>
                     </td>

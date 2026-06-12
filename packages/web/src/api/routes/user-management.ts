@@ -57,11 +57,11 @@ export const userManagementRoutes = new Hono()
     if (!name || !email || !password) {
       return c.json({ message: "name, email, password required" }, 400);
     }
-    if (!["admin", "principal", "teacher"].includes(role ?? "teacher")) {
-      return c.json({ message: "role must be admin, principal or teacher" }, 400);
+    if (!["admin", "principal", "teacher", "accountant"].includes(role ?? "teacher")) {
+      return c.json({ message: "role must be admin, principal, teacher or accountant" }, 400);
     }
 
-    const targetRole = (role ?? "teacher") as "admin" | "principal" | "teacher";
+    const targetRole = (role ?? "teacher") as "admin" | "principal" | "teacher" | "accountant";
 
     // Enforce max 2 admins
     if (targetRole === "admin") {
@@ -155,8 +155,8 @@ export const userManagementRoutes = new Hono()
     const id = c.req.param("id");
     const { role } = await c.req.json();
 
-    if (!["admin", "principal", "teacher"].includes(role)) {
-      return c.json({ message: "role must be admin, principal or teacher" }, 400);
+    if (!["admin", "principal", "teacher", "accountant"].includes(role)) {
+      return c.json({ message: "role must be admin, principal, teacher or accountant" }, 400);
     }
 
     if (role === "admin") {
