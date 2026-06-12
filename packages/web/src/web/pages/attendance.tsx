@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../components/ui/toast";
 import { CalendarCheck, Save } from "lucide-react";
 import { Layout } from "../components/layout";
 import { Button } from "../components/ui/button";
@@ -11,6 +12,7 @@ const today = new Date().toISOString().slice(0, 10);
 
 export default function AttendancePage() {
   const qc = useQueryClient();
+  const { success, error: toastError } = useToast();
   const [date, setDate] = useState(today);
   const [classId, setClassId] = useState("");
   const [marks, setMarks] = useState<Record<number, string>>({});
@@ -51,7 +53,8 @@ export default function AttendancePage() {
       }));
       return (await api.attendance.$post({ json: records })).json();
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["attendance"] }); setSaved(true); setTimeout(() => setSaved(false), 2000); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["attendance"] }); setSaved(true); setTimeout(() => setSaved(false), 2000); success("Attendance saved"); },
+    onError: () => toastError("Save failed"),
   });
 
   const statusOptions = ["present", "absent", "late", "leave"];

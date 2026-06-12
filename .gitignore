@@ -10,3 +10,4 @@ dev.db
 # desktop build artifacts
 packages/desktop/dist-electron/
 packages/desktop/dist/
+.env.render

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../components/ui/toast";
 import { Printer } from "lucide-react";
 import { Layout } from "../components/layout";
 import { Card } from "../components/ui/card";
@@ -176,6 +177,7 @@ const empty: Partial<Transaction> = {
 
 export default function AccountsPage() {
   const qc = useQueryClient();
+  const { success, error: toastError } = useToast();
   const [filter, setFilter] = useState({ type: "", category: "", startDate: "", endDate: "" });
   const [modal, setModal] = useState<"create" | "edit" | "delete" | null>(null);
   const [selected, setSelected] = useState<Transaction | null>(null);
@@ -194,17 +196,18 @@ export default function AccountsPage() {
 
   const createMut = useMutation({
     mutationFn: accountsApi.create,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounts"] }); closeModal(); },
-    onError: (e: Error) => setError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounts"] }); closeModal(); success("Transaction created"); },
+    onError: (e: Error) => { setError(e.message); toastError("Create failed", e.message); },
   });
   const updateMut = useMutation({
     mutationFn: accountsApi.update,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounts"] }); closeModal(); },
-    onError: (e: Error) => setError(e.message),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounts"] }); closeModal(); success("Transaction updated"); },
+    onError: (e: Error) => { setError(e.message); toastError("Update failed", e.message); },
   });
   const deleteMut = useMutation({
     mutationFn: accountsApi.delete,
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounts"] }); closeModal(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounts"] }); closeModal(); success("Transaction deleted"); },
+    onError: () => toastError("Delete failed"),
   });
 
   const openCreate = () => { setForm({ ...empty, date: new Date().toISOString().split("T")[0] }); setError(""); setModal("create"); };

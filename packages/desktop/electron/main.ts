@@ -38,7 +38,7 @@ function loadDotEnv() {
 loadDotEnv();
 
 // Always point to Render — env vars can override for local dev
-const REMOTE_URL = process.env.REMOTE_URL || process.env.WEBSITE_URL || "https://vineyard-sms.onrender.com";
+const REMOTE_URL = process.env.REMOTE_URL || process.env.WEBSITE_URL || "https://vineyard-sms-gq1q.onrender.com";
 
 let win: BrowserWindow | null;
 

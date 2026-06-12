@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "../components/ui/toast";
 import { Plus, Pencil, Trash2, ClipboardList } from "lucide-react";
 import { Layout } from "../components/layout";
 import { Button } from "../components/ui/button";
@@ -14,6 +15,7 @@ const emptyResult = { examId: "", studentId: "", subjectId: "", marks: "", maxMa
 
 export default function ExamsPage() {
   const qc = useQueryClient();
+  const { success, error: toastError } = useToast();
   const [examModal, setExamModal] = useState(false);
   const [resultModal, setResultModal] = useState(false);
   const [editingExam, setEditingExam] = useState<any>(null);
@@ -55,17 +57,20 @@ export default function ExamsPage() {
       if (editingExam) return (await api.exams[":id"].$put({ param: { id: String(editingExam.id) }, json: payload })).json();
       return (await api.exams.$post({ json: payload })).json();
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["exams"] }); setExamModal(false); setEditingExam(null); setEf(emptyExam); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["exams"] }); setExamModal(false); setEditingExam(null); setEf(emptyExam); success("Exam saved"); },
+    onError: (e: any) => toastError("Save failed", e?.message),
   });
 
   const deleteExam = useMutation({
     mutationFn: async (id: number) => (await api.exams[":id"].$delete({ param: { id: String(id) } })).json(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["exams"] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["exams"] }); success("Exam deleted"); },
+    onError: () => toastError("Delete failed"),
   });
 
   const saveResult = useMutation({
     mutationFn: async (f: any) => (await api.results.$post({ json: { ...f, examId: parseInt(f.examId), studentId: parseInt(f.studentId), subjectId: parseInt(f.subjectId), marks: parseFloat(f.marks), maxMarks: parseFloat(f.maxMarks) } })).json(),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["results"] }); setResultModal(false); setRf(emptyResult); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["results"] }); setResultModal(false); setRf(emptyResult); success("Result saved"); },
+    onError: (e: any) => toastError("Save failed", e?.message),
   });
 
   const tabs = ["exams", "results"] as const;
