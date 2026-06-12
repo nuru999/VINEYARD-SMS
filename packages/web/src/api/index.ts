@@ -20,7 +20,7 @@ import libraryRoutes from "./routes/library";
 import inventoryRoutes from "./routes/inventory";
 import reportCardsRoutes from "./routes/reportcards";
 
-const PRODUCTION_URL = "https://vineyard-sms.onrender.com";
+const PRODUCTION_URL = "https://vineyard-sms-gq1q.onrender.com";
 
 // Build allowed origins list — always include production + localhost variants
 const allowedOrigins = [

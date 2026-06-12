@@ -4,7 +4,7 @@ import { bearer } from "better-auth/plugins";
 import { db } from "./database";
 
 // Production URL — always the Render deployment
-const PRODUCTION_URL = "https://vineyard-sms.onrender.com";
+const PRODUCTION_URL = "https://vineyard-sms-gq1q.onrender.com";
 
 function buildOrigin(): string {
   const raw = process.env.WEBSITE_URL || process.env.REMOTE_URL || "";
