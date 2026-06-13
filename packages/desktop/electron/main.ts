@@ -93,13 +93,15 @@ function createWindow() {
             text-align: center;
           }
           .logo {
-            width: 76px;
-            height: 76px;
+            width: 90px;
+            height: 90px;
             margin: 0 auto 18px;
-            border-radius: 20px;
+            border-radius: 16px;
             display: grid;
             place-items: center;
-            background: linear-gradient(135deg, #1B4D4D 0%, #123030 100%);
+            background: white;
+            padding: 6px;
+            object-fit: contain;
             color: #E91E8C;
             font-size: 34px;
             font-weight: 900;
@@ -122,7 +124,8 @@ function createWindow() {
       </head>
       <body>
         <div class="card">
-          <div class="logo">V</div>
+          <img class="logo" src="https://vineyard-sms-gq1q.onrender.com/school-logo.png" onerror="this.style.display='none';document.getElementById('fallback-logo').style.display='grid'" alt="Vineyard School" />
+          <div class="logo" id="fallback-logo" style="display:none">V</div>
           <h1>Vineyard School</h1>
           <div class="status">Offline mode</div>
           <p>The app will keep trying to reconnect. Once you’re online, it loads automatically.</p>
