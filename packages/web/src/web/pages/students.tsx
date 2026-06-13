@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Pencil, Trash2, X, User, Phone, MapPin, Calendar, Users } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, X, User, Download, FileSpreadsheet } from "lucide-react";
+import { exportExcel, exportCSV } from "../lib/export";
 import { Layout } from "../components/layout";
 import { Button } from "../components/ui/button";
 import { useToast } from "../components/ui/toast";
@@ -125,15 +126,59 @@ export default function StudentsPage() {
   const getClass = (classId: number) =>
     classes.find((c: any) => c.id === classId)?.name ?? "—";
 
+  const exportStudentsExcel = () => {
+    const rows = filtered.map((s: any) => ({
+      "Admission No": s.admissionNo,
+      "Full Name": s.name,
+      "Class": s.className ?? getClass(s.classId),
+      "Gender": s.gender || "",
+      "Date of Birth": s.dob || "",
+      "Admission Date": s.admissionDate || "",
+      "Status": s.status,
+      "Parent / Guardian": s.parentName || "",
+      "Parent Phone": s.parentPhone || "",
+      "Parent Email": s.parentEmail || "",
+      "Address": s.address || "",
+    }));
+    exportExcel(rows, "VineyardSMS_Students", "Students");
+  };
+
+  const exportStudentsCSV = () => {
+    const rows = filtered.map((s: any) => ({
+      "Admission No": s.admissionNo,
+      "Full Name": s.name,
+      "Class": s.className ?? getClass(s.classId),
+      "Gender": s.gender || "",
+      "Date of Birth": s.dob || "",
+      "Admission Date": s.admissionDate || "",
+      "Status": s.status,
+      "Parent / Guardian": s.parentName || "",
+      "Parent Phone": s.parentPhone || "",
+      "Parent Email": s.parentEmail || "",
+      "Address": s.address || "",
+    }));
+    exportCSV(rows, "VineyardSMS_Students");
+  };
+
   return (
     <Layout
       title={isAdmin ? "All Students" : "My Class — Students"}
       action={
-        isAdmin ? (
-          <Button onClick={openNew}>
-            <Plus size={15} /> Add Student
-          </Button>
-        ) : undefined
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={exportStudentsCSV}
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#F0FDF4", color: "#166534", border: "1px solid #BBF7D0", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            <Download size={13} /> CSV
+          </button>
+          <button onClick={exportStudentsExcel}
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            <FileSpreadsheet size={13} /> Excel
+          </button>
+          {isAdmin && (
+            <Button onClick={openNew}>
+              <Plus size={15} /> Add Student
+            </Button>
+          )}
+        </div>
       }
     >
       {/* Search bar */}
