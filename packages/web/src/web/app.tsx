@@ -27,6 +27,7 @@ const TransportPage = lazy(() => import("./pages/transport"));
 const LibraryPage = lazy(() => import("./pages/library"));
 const InventoryPage = lazy(() => import("./pages/inventory"));
 const UserManagementPage = lazy(() => import("./pages/user-management"));
+const ProfilePage = lazy(() => import("./pages/profile"));
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useRole();
@@ -122,6 +123,9 @@ function App() {
 
         {/* Admin only */}
         <Route path="/user-management" component={() => <ProtectedRoleRoute component={UserManagementPage} allowedRoles={["admin"]} />} />
+
+        {/* All roles — profile page */}
+        <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
 
         <Route component={() => <Redirect to="/" />} />
         </Switch>
