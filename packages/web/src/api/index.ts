@@ -19,6 +19,7 @@ import transportRoutes from "./routes/transport";
 import libraryRoutes from "./routes/library";
 import inventoryRoutes from "./routes/inventory";
 import reportCardsRoutes from "./routes/reportcards";
+import { settingsRoutes } from "./routes/settings";
 
 const PRODUCTION_URL = "https://vineyard-sms-gq1q.onrender.com";
 const OLD_PRODUCTION_URL = "https://vineyard-sms.onrender.com";
@@ -90,7 +91,8 @@ const app = new Hono()
   .route("/accounts", accountsRoutes)
 
   // ── User management (admin only, handled inside the route) ──
-  .route("/me", userManagementRoutes);
+  .route("/me", userManagementRoutes)
+  .route("/settings", settingsRoutes);
 
 export type AppType = typeof app;
 export default app;

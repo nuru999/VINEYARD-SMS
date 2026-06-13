@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, UserCheck, BookOpen, CalendarCheck,
   DollarSign, ClipboardList, Award, FileText, BarChart3,
   LogOut, Wallet, Calendar, MessageSquare,
-  Bus, Library, Package, ChevronDown, ChevronRight, ShieldCheck, UserCircle
+  Bus, Library, Package, ChevronDown, ChevronRight, ShieldCheck, UserCircle, Settings
 } from "lucide-react";
 import { useState } from "react";
 import { authClient } from "../lib/auth";
@@ -47,6 +47,7 @@ const navGroups = [
       { label: "Transport", icon: Bus, path: "/transport" },
       { label: "Library", icon: Library, path: "/library" },
       { label: "Inventory", icon: Package, path: "/inventory" },
+      { label: "Settings", icon: Settings, path: "/settings" },
     ],
   },
 ];
