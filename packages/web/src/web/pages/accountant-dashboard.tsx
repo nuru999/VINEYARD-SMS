@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import accountantPic from "../assets/accountant-pic.jpg";
 import { Layout } from "../components/layout";
 import { useRole } from "../lib/use-role";
 import { Link } from "wouter";
@@ -93,8 +94,19 @@ export default function AccountantDashboard() {
         background: "linear-gradient(135deg, #065f46, #047857)",
         borderRadius: 16, padding: "20px 24px", marginBottom: 24,
         display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12,
+        position: "relative", overflow: "hidden",
       }}>
-        <div>
+        {/* School photo */}
+        <img src={accountantPic} alt="School" style={{
+          position: "absolute", top: 0, right: 0, height: "100%", width: 260,
+          objectFit: "cover", objectPosition: "center", opacity: 0.22,
+          borderRadius: "0 16px 16px 0",
+        }} />
+        <div style={{
+          position: "absolute", top: 0, right: 0, bottom: 0, width: 280,
+          background: "linear-gradient(to right, #065f46 0%, transparent 100%)",
+        }} />
+        <div style={{ position: "relative", zIndex: 1 }}>
           <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, marginBottom: 4 }}>{fullDate}</div>
           <div style={{ color: "#FFFFFF", fontSize: 20, fontWeight: 700 }}>
             Welcome, {user?.name?.split(" ")[0] ?? "Accountant"} 👋
@@ -103,7 +115,7 @@ export default function AccountantDashboard() {
             Finance & Accounts — Vineyard Primary School
           </div>
         </div>
-        <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 12, padding: "10px 18px", textAlign: "center" }}>
+        <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 12, padding: "10px 18px", textAlign: "center", position: "relative", zIndex: 1 }}>
           <div style={{ color: "#FFFFFF", fontWeight: 700, fontSize: 18 }}>{fmt(totalIncome - totalExpense)}</div>
           <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>Net Balance</div>
         </div>

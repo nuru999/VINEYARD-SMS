@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import teachersPic from "../assets/teachers-pic.jpg";
 import { Layout } from "../components/layout";
 import { useRole } from "../lib/use-role";
 import { Link } from "wouter";
@@ -124,8 +125,19 @@ export default function TeacherDashboard() {
         borderRadius: 16, padding: "24px 28px", marginBottom: 24,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         boxShadow: "0 4px 20px rgba(27,77,77,0.3)",
+        position: "relative", overflow: "hidden",
       }}>
-        <div>
+        {/* School photo */}
+        <img src={teachersPic} alt="School" style={{
+          position: "absolute", top: 0, right: 0, height: "100%", width: 260,
+          objectFit: "cover", objectPosition: "center", opacity: 0.22,
+          borderRadius: "0 16px 16px 0",
+        }} />
+        <div style={{
+          position: "absolute", top: 0, right: 0, bottom: 0, width: 280,
+          background: "linear-gradient(to right, #1B4D4D 0%, transparent 100%)",
+        }} />
+        <div style={{ position: "relative", zIndex: 1 }}>
           <div style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginBottom: 4 }}>{fullDate}</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: "#FFFFFF", marginBottom: 4 }}>
             Welcome back, {user?.name?.split(" ")[0] ?? "Teacher"} 👋
@@ -134,7 +146,7 @@ export default function TeacherDashboard() {
             Teacher · Vineyard Primary
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
+        <div style={{ textAlign: "right", position: "relative", zIndex: 1 }}>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 4 }}>My Classes</div>
           {myClasses.length > 0 ? myClasses.map((c: any) => (
             <div key={c.id} style={{ fontSize: 13, color: "#4ADE80", fontWeight: 600 }}>{c.name}</div>
