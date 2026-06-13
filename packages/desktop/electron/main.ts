@@ -3,7 +3,6 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
-import https from "node:https";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -42,17 +41,7 @@ const REMOTE_URL = process.env.REMOTE_URL || process.env.WEBSITE_URL || "https:/
 
 let win: BrowserWindow | null;
 
-function checkOnline(): Promise<boolean> {
-  return new Promise((resolve) => {
-    const req = https.request(
-      { hostname: new URL(REMOTE_URL).hostname, path: "/api/health", method: "HEAD", timeout: 4000 },
-      () => resolve(true)
-    );
-    req.on("error", () => resolve(false));
-    req.on("timeout", () => { req.destroy(); resolve(false); });
-    req.end();
-  });
-}
+
 
 function createWindow() {
   win = new BrowserWindow({
@@ -162,21 +151,15 @@ function createWindow() {
       </body>
     </html>`;
 
-  win.loadURL(`data:text/html,
-    <html style="background:#0D1117;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif">
-    <div style="text-align:center">
-      <div style="width:80px;height:80px;border-radius:20px;background:#1B4D4D;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:36px;font-weight:900;color:#E91E8C">V</div>
-      <div style="color:#fff;font-size:20px;font-weight:700">Vineyard School</div>
-      <div style="color:#8b949e;font-size:13px;margin-top:8px">Loading...</div>
-    </div></html>
-  `);
+  // Load Render directly — no pre-check that can time out on cold start
+  win.loadURL(REMOTE_URL);
 
-  checkOnline().then((online) => {
-    win?.loadURL(online ? REMOTE_URL : offlineHtml);
-  });
-
+  // True offline fallback: only show offline page when the network request fails
   win.webContents.on("did-fail-load", (_e, code) => {
-    if (code !== -3) setTimeout(() => checkOnline().then((online) => { if (online) win?.loadURL(REMOTE_URL); }), 3000);
+    // code -3 = ERR_ABORTED (navigation cancelled by new loadURL), ignore it
+    if (code !== -3) {
+      win?.loadURL(offlineHtml);
+    }
   });
 
   win.on("closed", () => { win = null; });
