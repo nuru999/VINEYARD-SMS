@@ -126,6 +126,14 @@ export default function DashboardPage() {
 
   return (
     <Layout title="Dashboard">
+      {/* Full-page background photo */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+        <img src={adminPic} alt="" style={{
+          width: "100%", height: "100%", objectFit: "cover", objectPosition: "center",
+          opacity: 0.07,
+        }} />
+      </div>
+      <div style={{ position: "relative", zIndex: 1 }}>
 
       {/* ── School Banner ── */}
       <div style={{
@@ -320,6 +328,7 @@ export default function DashboardPage() {
         </div>
 
       </div>
+      </div>{/* end zIndex wrapper */}
     </Layout>
   );
 }

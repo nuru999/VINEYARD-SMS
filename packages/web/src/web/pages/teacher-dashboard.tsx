@@ -119,6 +119,14 @@ export default function TeacherDashboard() {
 
   return (
     <Layout title="My Dashboard">
+      {/* Full-page background photo */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+        <img src={teachersPic} alt="" style={{
+          width: "100%", height: "100%", objectFit: "cover", objectPosition: "center",
+          opacity: 0.07,
+        }} />
+      </div>
+      <div style={{ position: "relative", zIndex: 1 }}>
       {/* Welcome */}
       <div style={{
         background: "linear-gradient(135deg, #1B4D4D 0%, #0f2e2e 100%)",
@@ -235,6 +243,7 @@ export default function TeacherDashboard() {
           <QuickLink label="My Profile" icon={<UserCircle size={18} />} path="/profile" color="#FB923C" />
         </div>
       </div>
+      </div>{/* end zIndex wrapper */}
     </Layout>
   );
 }

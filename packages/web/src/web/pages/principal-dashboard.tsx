@@ -58,6 +58,14 @@ export default function PrincipalDashboard() {
 
   return (
     <Layout title="Principal Dashboard">
+      {/* Full-page background photo */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+        <img src={principalPic} alt="" style={{
+          width: "100%", height: "100%", objectFit: "cover", objectPosition: "center",
+          opacity: 0.07,
+        }} />
+      </div>
+      <div style={{ position: "relative", zIndex: 1 }}>
       <div style={{ marginBottom: 20, background: "linear-gradient(135deg,#1B4D4D,#0f2e2e)", color: "#fff", borderRadius: 16, padding: 24, position: "relative", overflow: "hidden" }}>
         {/* School photo */}
         <img src={principalPic} alt="School" style={{
@@ -123,6 +131,7 @@ export default function PrincipalDashboard() {
           </tbody>
         </table>
       </div>
+      </div>{/* end zIndex wrapper */}
     </Layout>
   );
 }

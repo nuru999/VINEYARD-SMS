@@ -89,6 +89,14 @@ export default function AccountantDashboard() {
 
   return (
     <Layout title="Accountant Dashboard">
+      {/* Full-page background photo */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
+        <img src={accountantPic} alt="" style={{
+          width: "100%", height: "100%", objectFit: "cover", objectPosition: "center",
+          opacity: 0.07,
+        }} />
+      </div>
+      <div style={{ position: "relative", zIndex: 1 }}>
       {/* Welcome banner */}
       <div style={{
         background: "linear-gradient(135deg, #065f46, #047857)",
@@ -159,6 +167,7 @@ export default function AccountantDashboard() {
           </div>
         </div>
       )}
+      </div>{/* end zIndex wrapper */}
     </Layout>
   );
 }
