@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import principalPic from "../assets/principal-pic.jpg";
 import { Suspense } from "react";
 import { Layout } from "../components/layout";
 import { Link } from "wouter";
@@ -57,10 +58,22 @@ export default function PrincipalDashboard() {
 
   return (
     <Layout title="Principal Dashboard">
-      <div style={{ marginBottom: 20, background: "linear-gradient(135deg,#1B4D4D,#0f2e2e)", color: "#fff", borderRadius: 16, padding: 24 }}>
-        <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>School oversight</div>
-        <div style={{ fontSize: 24, fontWeight: 800 }}>Principal overview</div>
-        <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>Read everything. Guide the school. No setup actions.</div>
+      <div style={{ marginBottom: 20, background: "linear-gradient(135deg,#1B4D4D,#0f2e2e)", color: "#fff", borderRadius: 16, padding: 24, position: "relative", overflow: "hidden" }}>
+        {/* School photo */}
+        <img src={principalPic} alt="School" style={{
+          position: "absolute", top: 0, right: 0, height: "100%", width: 260,
+          objectFit: "cover", objectPosition: "center", opacity: 0.22,
+          borderRadius: "0 16px 16px 0",
+        }} />
+        <div style={{
+          position: "absolute", top: 0, right: 0, bottom: 0, width: 280,
+          background: "linear-gradient(to right, #1B4D4D 0%, transparent 100%)",
+        }} />
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 6 }}>School oversight</div>
+          <div style={{ fontSize: 24, fontWeight: 800 }}>Principal overview</div>
+          <div style={{ fontSize: 13, opacity: 0.75, marginTop: 4 }}>Read everything. Guide the school. No setup actions.</div>
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, marginBottom: 20 }}>

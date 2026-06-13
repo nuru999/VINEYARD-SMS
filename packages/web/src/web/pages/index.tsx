@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import adminPic from "../assets/admin-pic.jpg";
 import {
   Users, UserCheck, BookOpen, DollarSign, TrendingUp, TrendingDown,
   AlertCircle, AlertTriangle, CalendarCheck, UserX, Clock,
@@ -145,6 +146,17 @@ export default function DashboardPage() {
         }} />
         {/* Pink top strip */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: "linear-gradient(90deg, #E91E8C, #ff6ecb)" }} />
+        {/* School photo */}
+        <img src={adminPic} alt="School" style={{
+          position: "absolute", top: 0, right: 0, height: "100%", width: 260,
+          objectFit: "cover", objectPosition: "center", opacity: 0.22,
+          borderRadius: "0 16px 16px 0",
+        }} />
+        <div style={{
+          position: "absolute", top: 0, right: 0, bottom: 0, width: 280,
+          background: "linear-gradient(to right, #1B4D4D 0%, transparent 100%)",
+          borderRadius: "0 16px 16px 0",
+        }} />
 
         <div style={{ position: "relative", zIndex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
