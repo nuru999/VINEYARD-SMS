@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../components/ui/toast";
-import { Plus, Trash2, MessageCircle, AlertTriangle, CheckCircle, Printer, Download, FileText } from "lucide-react";
+import { Plus, Trash2, MessageCircle, CheckCircle, Printer, Download, FileSpreadsheet } from "lucide-react";
 import { Layout } from "../components/layout";
+import { exportExcel, exportCSV } from "../lib/export";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Modal } from "../components/ui/modal";
@@ -194,6 +195,61 @@ export default function FeesPage() {
     };
   }).filter(c => c.studentCount > 0);
 
+  // ── Export fees to Excel / CSV
+  const exportFeesExcel = () => {
+    const rows = filteredPayments.map(p => {
+      const student = getStudent(p.studentId);
+      const cls = getClass(student?.classId);
+      const structure = getStructure(p.feeStructureId);
+      return {
+        "Receipt No": p.receiptNo,
+        "Student Name": student?.name || `#${p.studentId}`,
+        "Admission No": student?.admissionNo || "",
+        "Class": cls?.name || "",
+        "Fee Type": structure?.name || "",
+        "Total Amount (KES)": p.amount,
+        "Paid (KES)": p.paidAmount,
+        "Discount (KES)": p.discount,
+        "Balance (KES)": p.balance,
+        "Payment Method": p.paymentMethod,
+        "Term": p.term || "",
+        "Payment Date": p.paymentDate,
+        "Notes": p.notes || "",
+        "Parent Name": student?.parentName || "",
+        "Parent Phone": student?.parentPhone || "",
+      };
+    });
+    const label = filterTerm ? `_${filterTerm.replace(" ", "")}` : "";
+    exportExcel(rows, `VineyardSMS_FeePayments${label}`, "Fee Payments");
+  };
+
+  const exportFeesCSV = () => {
+    const rows = filteredPayments.map(p => {
+      const student = getStudent(p.studentId);
+      const cls = getClass(student?.classId);
+      const structure = getStructure(p.feeStructureId);
+      return {
+        "Receipt No": p.receiptNo,
+        "Student Name": student?.name || `#${p.studentId}`,
+        "Admission No": student?.admissionNo || "",
+        "Class": cls?.name || "",
+        "Fee Type": structure?.name || "",
+        "Total Amount (KES)": p.amount,
+        "Paid (KES)": p.paidAmount,
+        "Discount (KES)": p.discount,
+        "Balance (KES)": p.balance,
+        "Payment Method": p.paymentMethod,
+        "Term": p.term || "",
+        "Payment Date": p.paymentDate,
+        "Notes": p.notes || "",
+        "Parent Name": student?.parentName || "",
+        "Parent Phone": student?.parentPhone || "",
+      };
+    });
+    const label = filterTerm ? `_${filterTerm.replace(" ", "")}` : "";
+    exportCSV(rows, `VineyardSMS_FeePayments${label}`);
+  };
+
   // ── Print receipt for a single payment
   const printReceipt = (p: any) => {
     const student = getStudent(p.studentId);
@@ -201,10 +257,13 @@ export default function FeesPage() {
     const cls = getClass(student?.classId);
     printHTML(`
       <div class="header">
-        <div>
-          <div style="font-size:10px;color:#E91E8C;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${SCHOOL_MOTTO}</div>
-          <h1>${SCHOOL_NAME}</h1>
-          <div style="font-size:12px;color:#64748b;margin-top:2px">Official Fee Receipt</div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <img src="/school-logo.png" alt="Logo" style="width:60px;height:60px;object-fit:contain;border-radius:10px;background:#fff;padding:4px;" onerror="this.style.display='none'" />
+          <div>
+            <div style="font-size:10px;color:#E91E8C;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${SCHOOL_MOTTO}</div>
+            <h1>${SCHOOL_NAME}</h1>
+            <div style="font-size:12px;color:#64748b;margin-top:2px">Official Fee Receipt</div>
+          </div>
         </div>
         <div style="text-align:right">
           <div style="font-size:18px;font-weight:800;color:#1B4D4D">${p.receiptNo}</div>
@@ -260,10 +319,13 @@ export default function FeesPage() {
 
     printHTML(`
       <div class="header">
-        <div>
-          <div style="font-size:10px;color:#E91E8C;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${SCHOOL_MOTTO}</div>
-          <h1>${SCHOOL_NAME}</h1>
-          <div style="font-size:12px;color:#64748b">Fee Payments Report${filterTerm ? ` — ${filterTerm}` : ""}${filterClass ? ` — ${classes.find(c=>c.id===parseInt(filterClass))?.name||""}` : ""}</div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <img src="/school-logo.png" alt="Logo" style="width:52px;height:52px;object-fit:contain;border-radius:8px;background:#fff;padding:3px;" onerror="this.style.display='none'" />
+          <div>
+            <div style="font-size:10px;color:#E91E8C;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${SCHOOL_MOTTO}</div>
+            <h1>${SCHOOL_NAME}</h1>
+            <div style="font-size:12px;color:#64748b">Fee Payments Report${filterTerm ? ` — ${filterTerm}` : ""}${filterClass ? ` — ${classes.find(c=>c.id===parseInt(filterClass))?.name||""}` : ""}</div>
+          </div>
         </div>
         <div style="text-align:right;font-size:12px;color:#64748b">
           <div>Total Records: <strong>${filteredPayments.length}</strong></div>
@@ -283,6 +345,21 @@ export default function FeesPage() {
     `, "Fee Payments Report");
   };
 
+  // ── Export defaulters
+  const exportDefaultersExcel = () => {
+    const defaulters = defaultersData?.defaulters || [];
+    const rows = defaulters.map((d: any) => ({
+      "Student Name": d.student?.name || "",
+      "Admission No": d.student?.admissionNo || "",
+      "Class": d.class?.name || "",
+      "Parent Name": d.student?.parentName || "",
+      "Parent Phone": d.student?.parentPhone || "",
+      "Total Paid (KES)": d.totalPaid,
+      "Outstanding (KES)": d.totalOwed,
+    }));
+    exportExcel(rows, "VineyardSMS_FeeDefaulters", "Defaulters");
+  };
+
   // ── Print defaulters
   const printDefaulters = () => {
     const defaulters = defaultersData?.defaulters || [];
@@ -299,10 +376,13 @@ export default function FeesPage() {
 
     printHTML(`
       <div class="header">
-        <div>
-          <div style="font-size:10px;color:#E91E8C;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${SCHOOL_MOTTO}</div>
-          <h1>${SCHOOL_NAME}</h1>
-          <div style="font-size:12px;color:#64748b">Fee Defaulters Report</div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <img src="/school-logo.png" alt="Logo" style="width:52px;height:52px;object-fit:contain;border-radius:8px;background:#fff;padding:3px;" onerror="this.style.display='none'" />
+          <div>
+            <div style="font-size:10px;color:#E91E8C;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${SCHOOL_MOTTO}</div>
+            <h1>${SCHOOL_NAME}</h1>
+            <div style="font-size:12px;color:#64748b">Fee Defaulters Report</div>
+          </div>
         </div>
         <div style="text-align:right;font-size:12px;color:#991b1b">
           <div><strong>${defaulters.length} students</strong> with outstanding fees</div>
@@ -317,6 +397,18 @@ export default function FeesPage() {
     `, "Fee Defaulters Report");
   };
 
+  // ── Export class summary
+  const exportSummaryExcel = () => {
+    const rows = classSummary.map(c => ({
+      "Class": c.class.name,
+      "Students": c.studentCount,
+      "Transactions": c.paymentCount,
+      "Total Collected (KES)": c.totalCollected,
+      "Outstanding (KES)": c.totalOutstanding,
+    }));
+    exportExcel(rows, "VineyardSMS_FeeSummaryByClass", "Class Summary");
+  };
+
   // ── Print class summary
   const printClassSummary = () => {
     const rows = classSummary.map(c => `<tr>
@@ -329,10 +421,13 @@ export default function FeesPage() {
 
     printHTML(`
       <div class="header">
-        <div>
-          <div style="font-size:10px;color:#E91E8C;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${SCHOOL_MOTTO}</div>
-          <h1>${SCHOOL_NAME}</h1>
-          <div style="font-size:12px;color:#64748b">Fee Summary by Class</div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <img src="/school-logo.png" alt="Logo" style="width:52px;height:52px;object-fit:contain;border-radius:8px;background:#fff;padding:3px;" onerror="this.style.display='none'" />
+          <div>
+            <div style="font-size:10px;color:#E91E8C;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">${SCHOOL_MOTTO}</div>
+            <h1>${SCHOOL_NAME}</h1>
+            <div style="font-size:12px;color:#64748b">Fee Summary by Class</div>
+          </div>
         </div>
         <div style="text-align:right;font-size:12px">
           <div>Total Collected: <strong style="color:#166534">${fmt(totalCollected)}</strong></div>
@@ -427,10 +522,20 @@ export default function FeesPage() {
               <option value="">All Terms</option>
               {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-            <button onClick={printPaymentsReport}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1B4D4D", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", marginLeft: "auto" }}>
-              <Printer size={14} /> Print Report
-            </button>
+            <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
+              <button onClick={exportFeesCSV}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#F0FDF4", color: "#166534", border: "1px solid #BBF7D0", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                <Download size={13} /> CSV
+              </button>
+              <button onClick={exportFeesExcel}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                <FileSpreadsheet size={13} /> Excel
+              </button>
+              <button onClick={printPaymentsReport}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1B4D4D", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                <Printer size={14} /> Print
+              </button>
+            </div>
           </div>
 
           <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden" }}>
@@ -502,10 +607,14 @@ export default function FeesPage() {
       {/* TAB: Defaulters */}
       {tab === "defaulters" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 14 }}>
+            <button onClick={exportDefaultersExcel}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              <FileSpreadsheet size={13} /> Export Excel
+            </button>
             <button onClick={printDefaulters}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1B4D4D", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              <Printer size={14} /> Print Defaulters List
+              <Printer size={14} /> Print List
             </button>
           </div>
           {defaultersLoading ? (
@@ -593,7 +702,11 @@ export default function FeesPage() {
       {/* TAB: Class Summary */}
       {tab === "summary" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 14 }}>
+            <button onClick={exportSummaryExcel}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              <FileSpreadsheet size={13} /> Export Excel
+            </button>
             <button onClick={printClassSummary}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1B4D4D", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
               <Printer size={14} /> Print Summary
