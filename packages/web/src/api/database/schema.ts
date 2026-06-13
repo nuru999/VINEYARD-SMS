@@ -258,3 +258,11 @@ export const inventoryItems = sqliteTable("inventory_items", {
   notes: text("notes"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
 });
+
+// ─── SCHOOL SETTINGS ─────────────────────────────────────────────────────────
+export const schoolSettings = sqliteTable("school_settings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  key: text("key").notNull().unique(),   // e.g. "school_name", "current_term"
+  value: text("value").notNull().default(""),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+});

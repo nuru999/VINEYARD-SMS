@@ -60,9 +60,10 @@ function createWindow() {
     height: 900,
     minWidth: 1100,
     minHeight: 700,
-    title: "Vineyard School",
+    title: "Vineyard School SMS",
     icon: path.join(__dirname, "../assets/icon.png"),
-    backgroundColor: "#0D1117",
+    backgroundColor: "#F8FAFC",
+    autoHideMenuBar: true,       // hides the File/Edit menu bar on Windows
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
@@ -71,6 +72,9 @@ function createWindow() {
       partition: "persist:vineyard",
     },
   });
+
+  // Remove the default menu entirely on Windows/Linux
+  win.setMenu(null);
 
   const offlineHtml = `data:text/html,
     <html>
