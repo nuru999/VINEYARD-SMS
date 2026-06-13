@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Users, UserCheck, BookOpen, CalendarCheck,
   DollarSign, ClipboardList, Award, FileText, BarChart3,
   LogOut, Wallet, Calendar, MessageSquare,
-  Bus, Library, Package, ChevronDown, ChevronRight, ShieldCheck
+  Bus, Library, Package, ChevronDown, ChevronRight, ShieldCheck, UserCircle
 } from "lucide-react";
 import { useState } from "react";
 import { authClient } from "../lib/auth";
@@ -176,6 +176,36 @@ export function Sidebar() {
             </div>
           );
         })}
+
+        {/* Profile — all roles */}
+        <div style={{ marginTop: 4 }}>
+          <Link href="/profile" style={{
+            display: "flex", alignItems: "center", gap: 10,
+            padding: "9px 20px",
+            color: location === "/profile" ? "#FFFFFF" : "rgba(255,255,255,0.65)",
+            background: location === "/profile" ? "rgba(233,30,140,0.2)" : "transparent",
+            borderLeft: location === "/profile" ? "3px solid #E91E8C" : "3px solid transparent",
+            textDecoration: "none", fontSize: 13,
+            fontWeight: location === "/profile" ? 600 : 400,
+            transition: "all 0.15s",
+            fontFamily: "'Poppins', sans-serif",
+          }}
+            onMouseEnter={e => {
+              if (location !== "/profile") {
+                (e.currentTarget as HTMLElement).style.color = "#FFFFFF";
+                (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
+              }
+            }}
+            onMouseLeave={e => {
+              if (location !== "/profile") {
+                (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)";
+                (e.currentTarget as HTMLElement).style.background = "transparent";
+              }
+            }}>
+            <UserCircle size={15} />
+            My Profile
+          </Link>
+        </div>
 
         {/* Admin-only: User Management link */}
         {isAdmin && (
