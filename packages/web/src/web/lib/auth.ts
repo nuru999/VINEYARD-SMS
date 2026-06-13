@@ -1,10 +1,7 @@
 import { createAuthClient } from "better-auth/react";
 
-const baseURL =
-  (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_API_URL) ||
-  "https://vineyard-sms-gq1q.onrender.com";
-
+// Use relative URL so requests always go to the same origin (works on Render, localhost, desktop)
 export const authClient = createAuthClient({
-  baseURL,
+  baseURL: typeof window !== "undefined" ? window.location.origin : "https://vineyard-sms-gq1q.onrender.com",
   basePath: "/api/auth",
 });
