@@ -56,7 +56,8 @@ app.put("/borrows/:id/return", async (c) => {
   const today = new Date().toISOString().split("T")[0];
   const [row] = await db.update(libraryBorrows).set({ returnDate: today, status: "returned" }).where(eq(libraryBorrows.id, id)).returning();
   // increment available
-  await db.update(libraryBooks).set({ available: (await db.select().from(libraryBooks).where(eq(libraryBooks.id, borrow[0].bookId)))[0]?.available ?? 0 + 1 }).where(eq(libraryBooks.id, borrow[0].bookId));
+  const bookAfterReturn = (await db.select().from(libraryBooks).where(eq(libraryBooks.id, borrow[0].bookId)))[0];
+  await db.update(libraryBooks).set({ available: (bookAfterReturn?.available ?? 0) + 1 }).where(eq(libraryBooks.id, borrow[0].bookId));
   return c.json(row);
 });
 

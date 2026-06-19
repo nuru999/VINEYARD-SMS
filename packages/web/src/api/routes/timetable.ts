@@ -17,7 +17,7 @@ app.get("/", async (c) => {
 
   const rows = await db.select().from(schema.timetableSlots);
   if (role === "admin" || role === "principal") {
-    return c.json(rows, 200);
+    return c.json({ slots: rows }, 200);
   }
 
   const classes = await db.select().from(schema.classes);

@@ -48,10 +48,10 @@ export const dashboardRoutes = new Hono()
 
     return c.json({
       stats: {
-        // drizzle .select() returns an array — must index [0]
-        totalStudents: studentCount[0]?.count ?? 0,
-        totalStaff: staffCount[0]?.count ?? 0,
-        totalClasses: classCount[0]?.count ?? 0,
+        // Turso/LibSQL returns count(*) as string — cast to Number
+        totalStudents: Number(studentCount[0]?.count ?? 0),
+        totalStaff: Number(staffCount[0]?.count ?? 0),
+        totalClasses: Number(classCount[0]?.count ?? 0),
         totalRevenue,
         totalIncome,
         totalExpenses,

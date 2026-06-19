@@ -16,6 +16,7 @@ export const requireAuth = createMiddleware(async (c, next) => {
   return next();
 });
 
+/** Only admin can access */
 export const requireAdmin = createMiddleware(async (c, next) => {
   const user = c.get("user");
   if (!user) return c.json({ message: "Unauthorized" }, 401);
@@ -27,6 +28,54 @@ export const requireAdmin = createMiddleware(async (c, next) => {
 
   if (!profile || profile.role !== "admin") {
     return c.json({ message: "Forbidden: Admin access required" }, 403);
+  }
+  return next();
+});
+
+/** Admin OR Principal */
+export const requireAdminOrPrincipal = createMiddleware(async (c, next) => {
+  const user = c.get("user");
+  if (!user) return c.json({ message: "Unauthorized" }, 401);
+
+  const [profile] = await db
+    .select()
+    .from(schema.userProfiles)
+    .where(eq(schema.userProfiles.userId, user.id));
+
+  if (!profile || !["admin", "principal"].includes(profile.role)) {
+    return c.json({ message: "Forbidden: Admin or Principal access required" }, 403);
+  }
+  return next();
+});
+
+/** Admin OR Accountant */
+export const requireAdminOrAccountant = createMiddleware(async (c, next) => {
+  const user = c.get("user");
+  if (!user) return c.json({ message: "Unauthorized" }, 401);
+
+  const [profile] = await db
+    .select()
+    .from(schema.userProfiles)
+    .where(eq(schema.userProfiles.userId, user.id));
+
+  if (!profile || !["admin", "accountant"].includes(profile.role)) {
+    return c.json({ message: "Forbidden: Admin or Accountant access required" }, 403);
+  }
+  return next();
+});
+
+/** Admin, Principal, OR Accountant */
+export const requireFinanceAccess = createMiddleware(async (c, next) => {
+  const user = c.get("user");
+  if (!user) return c.json({ message: "Unauthorized" }, 401);
+
+  const [profile] = await db
+    .select()
+    .from(schema.userProfiles)
+    .where(eq(schema.userProfiles.userId, user.id));
+
+  if (!profile || !["admin", "principal", "accountant"].includes(profile.role)) {
+    return c.json({ message: "Forbidden: Finance access required" }, 403);
   }
   return next();
 });
