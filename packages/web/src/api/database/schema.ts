@@ -174,6 +174,7 @@ export const transactions = sqliteTable("transactions", {
   amount: real("amount").notNull(),
   description: text("description"),
   date: text("date").notNull(),
+  paymentMethod: text("payment_method").default("Cash"), // Cash | M-Pesa | Bank Transfer
   reference: text("reference"),
   createdBy: integer("staff_id"),
   createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),

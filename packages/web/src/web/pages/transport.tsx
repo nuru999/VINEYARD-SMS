@@ -118,7 +118,7 @@ export default function TransportPage() {
                   const r = routes.find((x: any) => x.id === a.routeId);
                   return (
                     <tr key={a.id} style={{ borderTop: "1px solid #E2E8F0" }}>
-                      <td style={tdS}>{s ? `${s.firstName} ${s.lastName}` : a.studentId}</td>
+                      <td style={tdS}>{s ? (s.name ?? `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim()) : a.studentId}</td>
                       <td style={tdS}>{r?.name || a.routeId}</td>
                       <td style={tdS}>{a.term}</td>
                       <td style={tdS}>{a.year}</td>
@@ -171,7 +171,7 @@ export default function TransportPage() {
               <select value={assignForm.studentId} onChange={e => setAssignForm(f => ({ ...f, studentId: e.target.value }))}
                 style={{ width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }}>
                 <option value="">Select student</option>
-                {students.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                {students.map((s: any) => <option key={s.id} value={s.id}>{s.name ?? `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim()}</option>)}
               </select>
             </div>
             <div style={{ marginBottom: 12 }}>

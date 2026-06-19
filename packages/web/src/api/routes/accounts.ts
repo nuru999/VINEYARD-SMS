@@ -1,13 +1,21 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, gte, lte } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 
 export const accountsRoutes = new Hono()
   .get("/", requireAuth, async (c) => {
-    const data = await db.select().from(schema.transactions);
-    return c.json({ transactions: data }, 200);
+    const { type, category, startDate, endDate } = c.req.query();
+    let data = await db.select().from(schema.transactions);
+    // Filter in JS (SQLite text comparisons are straightforward here)
+    if (type) data = data.filter(t => t.type === type);
+    if (category) data = data.filter(t => t.category === category);
+    if (startDate) data = data.filter(t => t.date >= startDate);
+    if (endDate) data = data.filter(t => t.date <= endDate);
+    const totalIncome = data.filter(t => t.type === "income").reduce((s, t) => s + (t.amount || 0), 0);
+    const totalExpense = data.filter(t => t.type === "expense").reduce((s, t) => s + (t.amount || 0), 0);
+    return c.json({ transactions: data, summary: { totalIncome, totalExpense, balance: totalIncome - totalExpense } }, 200);
   })
   .post("/", requireAuth, async (c) => {
     const body = await c.req.json();
