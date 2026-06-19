@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 
 async function roleOf(userId: string) {
@@ -28,12 +28,28 @@ export const attendanceRoutes = new Hono()
     const role = await roleOf(user.id);
     if (!['admin','principal','teacher'].includes(role)) return c.json({ message: "Forbidden" }, 403);
     const body = await c.req.json();
-    if (Array.isArray(body)) {
+    if (Array.isArray(body) && body.length > 0) {
+      const { classId, date } = body[0];
+      // Upsert: delete existing records for same class + date, then insert fresh
+      await db.delete(schema.attendance).where(
+        and(eq(schema.attendance.classId, classId), eq(schema.attendance.date, date))
+      );
       const records = await db.insert(schema.attendance).values(body).returning();
       return c.json({ attendance: records }, 201);
     }
-    const [record] = await db.insert(schema.attendance).values(body).returning();
-    return c.json({ attendance: record }, 201);
+    if (!Array.isArray(body)) {
+      // Single record upsert
+      await db.delete(schema.attendance).where(
+        and(
+          eq(schema.attendance.studentId, body.studentId),
+          eq(schema.attendance.classId, body.classId),
+          eq(schema.attendance.date, body.date)
+        )
+      );
+      const [record] = await db.insert(schema.attendance).values(body).returning();
+      return c.json({ attendance: record }, 201);
+    }
+    return c.json({ attendance: [] }, 201);
   })
   .put("/:id", requireAuth, async (c) => {
     const user = c.get("user")!;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../components/ui/toast";
 import { CalendarCheck, Save } from "lucide-react";
@@ -33,9 +33,26 @@ export default function AttendancePage() {
     queryFn: async () => { const r = await (await api.attendance.$get()).json(); return (r as any).attendance ?? r; },
   });
 
-  const filtered = studentsData?.students?.filter((s: any) =>
+  const filtered = (Array.isArray(studentsData) ? studentsData : []).filter((s: any) =>
     classId ? String(s.classId) === classId : true
-  ) || [];
+  );
+
+  // Pre-fill marks from existing attendance records for selected date + class
+  const initMarksFromAttendance = () => {
+    const log: any[] = Array.isArray(attendanceData) ? attendanceData : (attendanceData as any)?.attendance ?? [];
+    const m: Record<number, string> = {};
+    log.filter((a: any) => a.date === date && (classId ? String(a.classId) === classId : true))
+       .forEach((a: any) => { m[a.studentId] = a.status; });
+    return m;
+  };
+
+  // Auto-fill marks whenever date, class, or attendance data changes
+  useEffect(() => {
+    if (attendanceData) {
+      setMarks(initMarksFromAttendance());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, classId, attendanceData]);
 
   const markAll = (status: string) => {
     const m: Record<number, string> = {};
@@ -69,7 +86,7 @@ export default function AttendancePage() {
         </div>
         <div style={{ minWidth: 200 }}>
           <Select label="Filter by Class" value={classId} onChange={e => setClassId(e.target.value)}
-            options={(classesData?.classes || []).map((c: any) => ({ value: String(c.id), label: c.name }))} />
+            options={(Array.isArray(classesData) ? classesData : []).map((c: any) => ({ value: String(c.id), label: c.name }))} />
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
           <Button variant="secondary" size="sm" onClick={() => markAll("present")}>All Present</Button>

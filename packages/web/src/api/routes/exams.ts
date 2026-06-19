@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 
 function roleOf(userId: string) {
@@ -66,8 +66,39 @@ export const resultsRoutes = new Hono()
     if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
     const body = await c.req.json();
     if (Array.isArray(body)) {
-      const results = await db.insert(schema.examResults).values(body).returning();
-      return c.json({ results }, 201);
+      // Upsert each result: update if (examId, studentId, subjectId) exists, else insert
+      const upserted = [];
+      for (const item of body) {
+        const [existing] = await db.select().from(schema.examResults).where(
+          and(
+            eq(schema.examResults.examId, item.examId),
+            eq(schema.examResults.studentId, item.studentId),
+            eq(schema.examResults.subjectId, item.subjectId)
+          )
+        );
+        if (existing) {
+          const [updated] = await db.update(schema.examResults).set(item)
+            .where(eq(schema.examResults.id, existing.id)).returning();
+          upserted.push(updated);
+        } else {
+          const [inserted] = await db.insert(schema.examResults).values(item).returning();
+          upserted.push(inserted);
+        }
+      }
+      return c.json({ results: upserted }, 201);
+    }
+    // Single result upsert
+    const [existing] = await db.select().from(schema.examResults).where(
+      and(
+        eq(schema.examResults.examId, body.examId),
+        eq(schema.examResults.studentId, body.studentId),
+        eq(schema.examResults.subjectId, body.subjectId)
+      )
+    );
+    if (existing) {
+      const [updated] = await db.update(schema.examResults).set(body)
+        .where(eq(schema.examResults.id, existing.id)).returning();
+      return c.json({ result: updated }, 200);
     }
     const [result] = await db.insert(schema.examResults).values(body).returning();
     return c.json({ result }, 201);
