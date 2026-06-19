@@ -172,7 +172,7 @@ export default function ExamsPage() {
           <Select label="Exam" value={rf.examId} onChange={e => setRf({ ...rf, examId: e.target.value })}
             options={(exams || []).map((ex: any) => ({ value: String(ex.id), label: ex.name }))} />
           <Select label="Student" value={rf.studentId} onChange={e => setRf({ ...rf, studentId: e.target.value })}
-            options={(studentsData?.students || []).map((s: any) => ({ value: String(s.id), label: `${s.name} (${s.admissionNo})` }))} />
+            options={(Array.isArray(studentsData) ? studentsData : (studentsData as any)?.students || []).map((s: any) => ({ value: String(s.id), label: `${s.name} (${s.admissionNo})` }))} />
           <Select label="Subject" value={rf.subjectId} onChange={e => setRf({ ...rf, subjectId: e.target.value })}
             options={(Array.isArray(subjectsData) ? subjectsData : (subjectsData as any)?.subjects || []).map((s: any) => ({ value: String(s.id), label: s.name }))} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>

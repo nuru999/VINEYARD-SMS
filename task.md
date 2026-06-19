@@ -1,35 +1,28 @@
 # VINEYARD-SMS QA Sweep
 
-## Status: FIXING
+## Status: COMPLETE ✅
 
-## Bugs to Fix
+## Commits pushed to main:
+- `ab07c1c` — fix: attendance filter bug, marks pre-fill, attendance+results upsert
+- `e800d55` — previous fixes (auth, dashboard, etc.)
 
-### CRITICAL
-1. **Attendance page** — `studentsData?.students?.filter(...)` wrong. Query already unwraps to array. Should be `studentsData?.filter(...)`.
-2. **Attendance duplicate insert** — POST just inserts without checking. Need upsert (delete+insert for same classId+date combo).
-3. **Attendance pre-fill** — existing attendance for selected date/class not pre-loaded into marks state.
+## All bugs fixed:
 
-### MINOR
-4. **Exams results `saveResult`** — if user tries to POST a result that already exists (same exam+student+subject), it silently creates a duplicate. Add upsert logic in route.
-5. **classes route returns `{classes:[]}` but some pages expect raw array** — already handled with `(r as any).classes ?? r` pattern. Consistent ✓
+### 1. attendance.tsx — filter bug ✅
+- `studentsData?.students?.filter(...)` → `(Array.isArray(studentsData) ? studentsData : []).filter(...)`
+- `classesData?.classes` → `(Array.isArray(classesData) ? classesData : [])`
 
-## Already Good
-- index.ts role guards: correct (uses requireAdminOrAccountant, requireFinanceAccess etc.)
-- dashboard count Number() cast: done
-- middleware: all 5 middlewares present and correct
-- /api/me: returns role correctly
-- fees page: full featured, correct
-- schema: all tables present
-- CORS: fixed
+### 2. attendance.tsx — marks not pre-filled ✅
+- Added `useEffect` that calls `initMarksFromAttendance()` whenever `date`, `classId`, or `attendanceData` changes
+- Marks now auto-load from existing DB records
 
-## Fixes to Push
-1. Fix attendance.tsx filter bug
-2. Add attendance upsert in route (DELETE existing for same students+date, then INSERT)
-3. Pre-fill attendance marks from existing data
-4. Add upsert to exam results route
+### 3. attendance.ts — duplicate insert ✅
+- Before bulk insert: `DELETE WHERE classId = x AND date = y`
+- Then fresh insert — no more duplicate rows
 
-## Done
-- [ ] Fix attendance.tsx
-- [ ] Fix attendance route upsert
-- [ ] Fix exam results upsert  
-- [ ] Build + push
+### 4. exams.ts — duplicate exam results ✅
+- Added per-result upsert: check if `(examId, studentId, subjectId)` exists → UPDATE if yes, INSERT if no
+- Works for both array and single-record POST
+
+## Render: auto-deploys from main push
+URL: https://vineyard-sms-gq1q.onrender.com
