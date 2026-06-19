@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 
 export const payrollRoutes = new Hono()
@@ -12,16 +12,23 @@ export const payrollRoutes = new Hono()
   .post("/", requireAuth, async (c) => {
     const body = await c.req.json();
     const net = (body.basicSalary || 0) + (body.allowances || 0) - (body.deductions || 0);
+    // Upsert: if record exists for same staff/month/year, update it instead of inserting duplicate
+    const [existing] = await db.select().from(schema.payroll).where(
+      and(eq(schema.payroll.staffId, body.staffId), eq(schema.payroll.month, body.month), eq(schema.payroll.year, body.year))
+    );
+    if (existing) {
+      const [updated] = await db.update(schema.payroll).set({
+        basicSalary: body.basicSalary, allowances: body.allowances ?? 0,
+        deductions: body.deductions ?? 0, netSalary: net,
+        paidDate: body.paidDate ?? existing.paidDate, status: body.status ?? existing.status,
+      }).where(eq(schema.payroll.id, existing.id)).returning();
+      return c.json({ payroll: updated }, 200);
+    }
     const [record] = await db.insert(schema.payroll).values({
-      staffId: body.staffId,
-      month: body.month,
-      year: body.year,
-      basicSalary: body.basicSalary,
-      allowances: body.allowances ?? 0,
-      deductions: body.deductions ?? 0,
-      netSalary: net,
-      paidDate: body.paidDate ?? null,
-      status: body.status ?? "pending",
+      staffId: body.staffId, month: body.month, year: body.year,
+      basicSalary: body.basicSalary, allowances: body.allowances ?? 0,
+      deductions: body.deductions ?? 0, netSalary: net,
+      paidDate: body.paidDate ?? null, status: body.status ?? "pending",
     }).returning();
     return c.json({ payroll: record }, 201);
   })

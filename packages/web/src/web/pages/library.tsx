@@ -137,7 +137,7 @@ export default function LibraryPage() {
                 return (
                   <tr key={b.id} style={{ borderTop: "1px solid #E2E8F0" }}>
                     <td style={td}>{book?.title || b.bookId}</td>
-                    <td style={td}>{student ? `${student.firstName} ${student.lastName}` : b.studentId}</td>
+                    <td style={td}>{student ? (student.name ?? `${student.firstName ?? ""} ${student.lastName ?? ""}`.trim()) : b.studentId}</td>
                     <td style={td}>{b.borrowDate}</td>
                     <td style={td}>{b.dueDate}</td>
                     <td style={td}>{b.returnDate || "—"}</td>
@@ -217,7 +217,7 @@ export default function LibraryPage() {
               <select value={borrowForm.studentId} onChange={e => setBorrowForm(f => ({ ...f, studentId: e.target.value }))}
                 style={{ width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }}>
                 <option value="">Select student</option>
-                {safeStudents.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                {safeStudents.map((s: any) => <option key={s.id} value={s.id}>{s.name ?? `${s.firstName ?? ""} ${s.lastName ?? ""}`.trim()}</option>)}
               </select>
             </div>
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
