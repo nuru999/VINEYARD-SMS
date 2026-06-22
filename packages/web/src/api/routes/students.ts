@@ -93,6 +93,75 @@ export const students = new Hono()
     );
   })
 
+  // GET student full profile — fees + attendance + class
+  .get("/:id/profile", requireAuth, async (c) => {
+    const id = parseInt(c.req.param("id"));
+    const user = c.get("user")!;
+
+    const [student] = await db
+      .select()
+      .from(schema.students)
+      .where(eq(schema.students.id, id));
+    if (!student) return c.json({ message: "Not found" }, 404);
+
+    const [profile] = await db
+      .select()
+      .from(schema.userProfiles)
+      .where(eq(schema.userProfiles.userId, user.id));
+
+    const role = profile?.role ?? "teacher";
+    const allClasses = await db.select().from(schema.classes);
+
+    if (role !== "admin") {
+      const assignedIds = allClasses
+        .filter((c) => c.teacherUserId === user.id)
+        .map((c) => c.id);
+      if (!student.classId || !assignedIds.includes(student.classId)) {
+        return c.json({ message: "Forbidden" }, 403);
+      }
+    }
+
+    const cls = allClasses.find((c) => c.id === student.classId) ?? null;
+
+    // Fee payments for this student
+    const payments = await db
+      .select()
+      .from(schema.feePayments)
+      .where(eq(schema.feePayments.studentId, id));
+
+    const feeStructures = await db.select().from(schema.feeStructures);
+
+    const totalPaid = payments.reduce((s, p) => s + (p.paidAmount ?? 0), 0);
+    const totalBalance = payments.reduce((s, p) => s + (p.balance ?? 0), 0);
+    const totalAmount = payments.reduce((s, p) => s + (p.amount ?? 0), 0);
+
+    // Attendance for this student
+    const attendanceRecords = await db
+      .select()
+      .from(schema.attendance)
+      .where(eq(schema.attendance.studentId, id));
+
+    const attendanceSummary = {
+      total: attendanceRecords.length,
+      present: attendanceRecords.filter((a) => a.status === "present").length,
+      absent: attendanceRecords.filter((a) => a.status === "absent").length,
+      late: attendanceRecords.filter((a) => a.status === "late").length,
+      leave: attendanceRecords.filter((a) => a.status === "leave").length,
+    };
+
+    return c.json({
+      student: { ...student, className: cls?.name ?? null },
+      class: cls,
+      payments: payments.map((p) => ({
+        ...p,
+        feeStructureName: feeStructures.find((f) => f.id === p.feeStructureId)?.name ?? null,
+      })),
+      feeSummary: { totalPaid, totalBalance, totalAmount, count: payments.length },
+      attendanceSummary,
+      attendanceRecords,
+    }, 200);
+  })
+
   // ADMIN ONLY — edit student
   .put("/:id", requireAdmin, async (c) => {
     const id = parseInt(c.req.param("id"));

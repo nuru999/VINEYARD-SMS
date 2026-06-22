@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Pencil, Trash2, X, User, Download, FileSpreadsheet } from "lucide-react";
+import { useLocation } from "wouter";
+import { Plus, Search, Pencil, Trash2, X, User, Download, FileSpreadsheet, Eye } from "lucide-react";
 import { exportExcel, exportCSV } from "../lib/export";
 import { Layout } from "../components/layout";
 import { Button } from "../components/ui/button";
@@ -26,6 +27,7 @@ const emptyStudent = {
 
 export default function StudentsPage() {
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
   const { isAdmin } = useRole();
   const { success, error: toastError } = useToast();
   const [search, setSearch] = useState("");
@@ -409,6 +411,14 @@ export default function StudentsPage() {
                           onClick={() => openEdit(s)}
                         >
                           <Pencil size={13} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/students/${s.id}`)}
+                          title="View Profile"
+                        >
+                          <Eye size={13} />
                         </Button>
                         <Button
                           variant="danger"
