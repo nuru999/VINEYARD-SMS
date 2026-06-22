@@ -28,6 +28,7 @@ const LibraryPage = lazy(() => import("./pages/library"));
 const InventoryPage = lazy(() => import("./pages/inventory"));
 const UserManagementPage = lazy(() => import("./pages/user-management"));
 const ProfilePage = lazy(() => import("./pages/profile"));
+const StudentProfilePage = lazy(() => import("./pages/student-profile"));
 const SettingsPage = lazy(() => import("./pages/settings"));
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -100,6 +101,7 @@ function App() {
         {/* Dashboard — admin sees full dashboard, teacher sees teacher dashboard */}
         <Route path="/" component={() => <ProtectedRoute component={RoleDashboard} />} />
         <Route path="/students" component={() => <ProtectedRoute component={StudentsPage} />} />
+        <Route path="/students/:id" component={() => <ProtectedRoute component={StudentProfilePage} />} />
         <Route path="/classes" component={() => <ProtectedRoute component={ClassesPage} />} />
         <Route path="/attendance" component={() => <ProtectedRoute component={AttendancePage} />} />
         <Route path="/exams" component={() => <ProtectedRoute component={ExamsPage} />} />

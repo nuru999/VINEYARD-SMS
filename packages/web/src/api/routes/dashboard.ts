@@ -4,6 +4,12 @@ import * as schema from "../database/schema";
 import { eq, gt, sql } from "drizzle-orm";
 import { requireAuth } from "../middleware/auth";
 
+// helper: "2024-06" from a date string or Date
+function toYearMonth(d: string | Date) {
+  const s = typeof d === "string" ? d : d.toISOString();
+  return s.slice(0, 7); // "YYYY-MM"
+}
+
 function getCurrentTerm(): { term: string; year: number } {
   const now = new Date();
   const month = now.getMonth() + 1; // 1-12
@@ -65,5 +71,73 @@ export const dashboardRoutes = new Hono()
         currentTerm: term,
         currentYear: year,
       }
+    }, 200);
+  })
+
+  // ── GET /api/dashboard/analytics ─────────────────────────────────────────
+  .get("/analytics", requireAuth, async (c) => {
+    const [allPayments, allStudents, allClasses, allAttendance] = await Promise.all([
+      db.select().from(schema.feePayments),
+      db.select().from(schema.students),
+      db.select().from(schema.classes),
+      db.select().from(schema.attendance),
+    ]);
+
+    // 1. Fees collected per term
+    const termMap: Record<string, { term: string; collected: number; outstanding: number }> = {};
+    for (const p of allPayments) {
+      const key = p.term ?? "Unassigned";
+      if (!termMap[key]) termMap[key] = { term: key, collected: 0, outstanding: 0 };
+      termMap[key].collected += p.paidAmount ?? 0;
+      termMap[key].outstanding += p.balance ?? 0;
+    }
+    const feesByTerm = Object.values(termMap).sort((a, b) => a.term.localeCompare(b.term));
+
+    // 2. Monthly fee collection — last 6 months
+    const monthMap: Record<string, number> = {};
+    for (const p of allPayments) {
+      const ym = toYearMonth(p.paymentDate);
+      monthMap[ym] = (monthMap[ym] ?? 0) + (p.paidAmount ?? 0);
+    }
+    const sortedMonths = Object.keys(monthMap).sort().slice(-6);
+    const monthlyFees = sortedMonths.map(ym => ({
+      month: new Date(ym + "-01").toLocaleDateString("en-KE", { month: "short", year: "2-digit" }),
+      collected: monthMap[ym],
+    }));
+
+    // 3. Students per class
+    const classStudents = allClasses.map(cls => ({
+      class: cls.name,
+      students: allStudents.filter(s => s.classId === cls.id).length,
+    })).filter(c => c.students > 0).sort((a, b) => b.students - a.students);
+
+    // 4. Overall attendance breakdown
+    const attCount = { present: 0, absent: 0, late: 0, leave: 0 };
+    for (const a of allAttendance) {
+      if (a.status === "present") attCount.present++;
+      else if (a.status === "absent") attCount.absent++;
+      else if (a.status === "late") attCount.late++;
+      else if (a.status === "leave") attCount.leave++;
+    }
+    const attendancePie = [
+      { name: "Present", value: attCount.present, color: "#22C55E" },
+      { name: "Absent", value: attCount.absent, color: "#EF4444" },
+      { name: "Late", value: attCount.late, color: "#F59E0B" },
+      { name: "Leave", value: attCount.leave, color: "#6366F1" },
+    ].filter(d => d.value > 0);
+
+    // 5. Student status breakdown
+    const statusMap: Record<string, number> = {};
+    for (const s of allStudents) {
+      statusMap[s.status] = (statusMap[s.status] ?? 0) + 1;
+    }
+    const studentStatus = Object.entries(statusMap).map(([status, count]) => ({ status, count }));
+
+    return c.json({
+      feesByTerm,
+      monthlyFees,
+      classStudents,
+      attendancePie,
+      studentStatus,
     }, 200);
   });
