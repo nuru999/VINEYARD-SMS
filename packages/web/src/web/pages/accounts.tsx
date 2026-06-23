@@ -352,7 +352,7 @@ export default function AccountsPage() {
         </Card>
 
         {/* Create/Edit Modal */}
-        <Modal isOpen={modal === "create" || modal === "edit"} onClose={closeModal} title={modal === "create" ? "New Transaction" : "Edit Transaction"}>
+        <Modal open={modal === "create" || modal === "edit"} onClose={closeModal} title={modal === "create" ? "New Transaction" : "Edit Transaction"}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {error && <div style={{ background: "#F8717120", border: "1px solid #F87171", borderRadius: 6, padding: "10px 14px", color: "#F87171", fontSize: 14 }}>{error}</div>}
             <div>
@@ -404,7 +404,7 @@ export default function AccountsPage() {
         </Modal>
 
         {/* Delete Modal */}
-        <Modal isOpen={modal === "delete"} onClose={closeModal} title="Delete Transaction">
+        <Modal open={modal === "delete"} onClose={closeModal} title="Delete Transaction">
           <p style={{ color: "var(--text-secondary)", margin: "0 0 24px" }}>
             Delete <strong style={{ color: "var(--text-primary)" }}>{selected?.description}</strong>? This cannot be undone.
           </p>
