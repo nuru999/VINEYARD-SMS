@@ -15,15 +15,21 @@ app.get("/", async (c) => {
     .where(eq(schema.userProfiles.userId, user.id));
   const role = profile?.role ?? "teacher";
 
+  const classIdParam = c.req.query("classId");
+  const filterClassId = classIdParam ? parseInt(classIdParam) : null;
+
   const rows = await db.select().from(schema.timetableSlots);
+
+  let filtered = filterClassId ? rows.filter((r) => r.classId === filterClassId) : rows;
+
   if (role === "admin" || role === "principal") {
-    return c.json({ slots: rows }, 200);
+    return c.json(filtered, 200);
   }
 
   const classes = await db.select().from(schema.classes);
   const myClassIds = classes.filter((c2) => c2.teacherUserId === user.id).map((c2) => c2.id);
-  const myRows = rows.filter((r) => myClassIds.includes(r.classId));
-  return c.json({ slots: myRows }, 200);
+  filtered = filtered.filter((r) => myClassIds.includes(r.classId));
+  return c.json(filtered, 200);
 });
 
 app.post("/", async (c) => {
