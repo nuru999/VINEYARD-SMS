@@ -153,8 +153,9 @@ export default function ReportCardsPage() {
   };
 
   const handlePrintAll = () => {
-    if (!cardsData?.reportCards?.length) return;
-    const allCards = cardsData.reportCards.map((card: any) => {
+    const cardsArray: any[] = Array.isArray(cardsData) ? cardsData : [];
+    if (!cardsArray.length) return;
+    const allCards = cardsArray.map((card: any) => {
       const el = document.createElement("div");
       el.style.pageBreakAfter = "always";
       // We'll just render them as text summary for bulk print
@@ -170,7 +171,7 @@ export default function ReportCardsPage() {
     setTimeout(() => { win.print(); win.close(); }, 800);
   };
 
-  const activeCard = selectedStudent ? singleCard?.reportCard : null;
+  const activeCard = selectedStudent ? (singleCard?.reportCard ?? singleCard) : null;
 
   return (
     <Layout title="Report Cards" action={
@@ -181,7 +182,7 @@ export default function ReportCardsPage() {
           </Button>
           <Button onClick={handlePrint}><Printer size={14} /> Print Card</Button>
         </div>
-      ) : selectedExam && cardsData?.reportCards?.length > 0 ? (
+      ) : selectedExam && (Array.isArray(cardsData) ? cardsData.length : 0) > 0 ? (
         <Button onClick={handlePrintAll}><Printer size={14} /> Print All</Button>
       ) : undefined
     }>
@@ -194,10 +195,10 @@ export default function ReportCardsPage() {
               label="Select Exam"
               value={selectedExam}
               onChange={e => { setSelectedExam(e.target.value); setSelectedStudent(""); }}
-              options={(examsData?.exams || []).map((ex: any) => ({ value: String(ex.id), label: `${ex.name} — ${ex.term} ${ex.year}` }))}
+              options={(Array.isArray(examsData) ? examsData : (examsData as any)?.exams ?? []).map((ex: any) => ({ value: String(ex.id), label: `${ex.name} — ${ex.term} ${ex.year}` }))}
             />
           </div>
-          {cardsData?.reportCards && (
+          {Array.isArray(cardsData) && cardsData.length > 0 && (
             <div style={{ flex: 1 }}>
               <Select
                 label="View Student Card"
@@ -205,7 +206,7 @@ export default function ReportCardsPage() {
                 onChange={e => setSelectedStudent(e.target.value)}
                 options={[
                   { value: "", label: "— All students —" },
-                  ...(cardsData.reportCards.map((c: any) => ({
+                  ...(cardsData.map((c: any) => ({
                     value: String(c.student?.id),
                     label: `${c.student?.name} (${c.student?.admissionNo})`,
                   }))),
@@ -233,7 +234,7 @@ export default function ReportCardsPage() {
       {!selectedStudent && selectedExam && (
         cardsLoading ? (
           <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>Loading report cards...</div>
-        ) : !cardsData?.reportCards?.length ? (
+        ) : !(Array.isArray(cardsData) && cardsData.length) ? (
           <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-secondary)" }}>
             <FileText size={48} style={{ marginBottom: 12, opacity: 0.3 }} />
             <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>No results yet</div>
@@ -241,7 +242,7 @@ export default function ReportCardsPage() {
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
-            {cardsData.reportCards
+            {(Array.isArray(cardsData) ? cardsData : [])
               .sort((a: any, b: any) => a.position - b.position)
               .map((card: any) => (
                 <div key={card.student?.id} id={`card-${card.student?.id}`}
