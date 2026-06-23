@@ -22,7 +22,8 @@ app.post("/books", async (c) => {
 app.put("/books/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const body = await c.req.json();
-  const [row] = await db.update(libraryBooks).set(body).where(eq(libraryBooks.id, id)).returning();
+  const { id: _id, createdAt, ...safePayload } = body;
+  const [row] = await db.update(libraryBooks).set(safePayload).where(eq(libraryBooks.id, id)).returning();
   return c.json(row);
 });
 

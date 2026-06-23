@@ -57,7 +57,8 @@ export const attendanceRoutes = new Hono()
     if (!['admin','principal','teacher'].includes(role)) return c.json({ message: "Forbidden" }, 403);
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
-    const [record] = await db.update(schema.attendance).set(body).where(eq(schema.attendance.id, id)).returning();
+    const { id: _id, createdAt, ...safePayload } = body;
+    const [record] = await db.update(schema.attendance).set(safePayload).where(eq(schema.attendance.id, id)).returning();
     return c.json({ attendance: record }, 200);
   });
 

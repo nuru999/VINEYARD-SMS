@@ -17,7 +17,9 @@ export const feeStructuresRoutes = new Hono()
   .put("/:id", requireAuth, async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
-    const [fs] = await db.update(schema.feeStructures).set(body).where(eq(schema.feeStructures.id, id)).returning();
+    const { id: _id, createdAt, ...safePayload } = body;
+    const [fs] = await db.update(schema.feeStructures).set(safePayload).where(eq(schema.feeStructures.id, id)).returning();
+    if (!fs) return c.json({ message: "Fee structure not found" }, 404);
     return c.json({ feeStructure: fs }, 200);
   })
   .delete("/:id", requireAuth, async (c) => {

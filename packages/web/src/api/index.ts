@@ -36,6 +36,10 @@ const allowedOrigins = [
 ].filter(Boolean) as string[];
 
 const app = new Hono()
+  .onError((err, c) => {
+    console.error("[API Error]", err);
+    return c.json({ message: err.message || "Internal server error" }, 500);
+  })
   .use(
     cors({
       origin: (requestOrigin) => {

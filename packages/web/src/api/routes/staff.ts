@@ -11,7 +11,8 @@ export const staffRoutes = new Hono()
   })
   .post("/", requireAuth, async (c) => {
     const body = await c.req.json();
-    const [member] = await db.insert(schema.staff).values(body).returning();
+    const { id: _id, createdAt, userId, className, ...safePayload } = body;
+    const [member] = await db.insert(schema.staff).values(safePayload).returning();
     return c.json({ staff: member }, 201);
   })
   .get("/:id", requireAuth, async (c) => {
@@ -23,7 +24,10 @@ export const staffRoutes = new Hono()
   .put("/:id", requireAuth, async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
-    const [member] = await db.update(schema.staff).set(body).where(eq(schema.staff.id, id)).returning();
+    // Strip read-only / auto fields that must not be written back
+    const { id: _id, createdAt, userId, className, ...safePayload } = body;
+    const [member] = await db.update(schema.staff).set(safePayload).where(eq(schema.staff.id, id)).returning();
+    if (!member) return c.json({ message: "Staff member not found" }, 404);
     return c.json({ staff: member }, 200);
   })
   .delete("/:id", requireAuth, async (c) => {

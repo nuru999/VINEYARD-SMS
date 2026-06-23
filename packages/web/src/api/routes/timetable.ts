@@ -49,7 +49,8 @@ app.put("/:id", async (c) => {
   if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
   const id = Number(c.req.param("id"));
   const body = await c.req.json();
-  const [row] = await db.update(schema.timetableSlots).set(body).where(eq(schema.timetableSlots.id, id)).returning();
+  const { id: _id, createdAt, ...safePayload } = body;
+  const [row] = await db.update(schema.timetableSlots).set(safePayload).where(eq(schema.timetableSlots.id, id)).returning();
   return c.json({ slot: row }, 200);
 });
 

@@ -33,7 +33,8 @@ export const examsRoutes = new Hono()
     if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
-    const [exam] = await db.update(schema.exams).set(body).where(eq(schema.exams.id, id)).returning();
+    const { id: _id, createdAt, ...safePayload } = body;
+    const [exam] = await db.update(schema.exams).set(safePayload).where(eq(schema.exams.id, id)).returning();
     return c.json({ exam }, 200);
   })
   .delete("/:id", requireAuth, async (c) => {
@@ -96,11 +97,13 @@ export const resultsRoutes = new Hono()
       )
     );
     if (existing) {
-      const [updated] = await db.update(schema.examResults).set(body)
+      const { id: _eid, createdAt: _eca, ...safeBody } = body;
+      const [updated] = await db.update(schema.examResults).set(safeBody)
         .where(eq(schema.examResults.id, existing.id)).returning();
       return c.json({ result: updated }, 200);
     }
-    const [result] = await db.insert(schema.examResults).values(body).returning();
+    const { id: _eid2, createdAt: _eca2, ...safeInsert } = body;
+    const [result] = await db.insert(schema.examResults).values(safeInsert).returning();
     return c.json({ result }, 201);
   })
   .put("/:id", requireAuth, async (c) => {
@@ -109,6 +112,7 @@ export const resultsRoutes = new Hono()
     if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
-    const [result] = await db.update(schema.examResults).set(body).where(eq(schema.examResults.id, id)).returning();
+    const { id: _id, createdAt, ...safePayload } = body;
+    const [result] = await db.update(schema.examResults).set(safePayload).where(eq(schema.examResults.id, id)).returning();
     return c.json({ result }, 200);
   });
