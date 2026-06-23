@@ -152,19 +152,22 @@ export default function AttendancePage() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  {["Student ID", "Date", "Status"].map(h => (
+                  {["Student", "Date", "Status"].map(h => (
                     <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {(Array.isArray(attendanceData) ? attendanceData : (attendanceData as any)?.attendance ?? []).slice(-10).reverse().map((a: any) => (
+                {(Array.isArray(attendanceData) ? attendanceData : (attendanceData as any)?.attendance ?? []).slice(-10).reverse().map((a: any) => {
+                  const allStudents: any[] = Array.isArray(studentsData) ? studentsData : (studentsData as any)?.students ?? [];
+                  const studentName = allStudents.find((s: any) => s.id === a.studentId)?.name ?? `#${a.studentId}`;
+                  return (
                   <tr key={a.id} style={{ borderBottom: "1px solid rgba(48,54,61,0.5)" }}>
-                    <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--text-secondary)" }}>#{a.studentId}</td>
+                    <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--text-secondary)" }}>{studentName}</td>
                     <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--text-secondary)" }}>{a.date}</td>
                     <td style={{ padding: "10px 16px" }}><Badge status={a.status} /></td>
                   </tr>
-                ))}
+                );})}
               </tbody>
             </table>
           </div>

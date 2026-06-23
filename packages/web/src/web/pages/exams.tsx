@@ -123,7 +123,7 @@ export default function ExamsPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                {["Exam ID", "Student ID", "Subject ID", "Marks", "Max Marks", "Grade", "Remarks"].map(h => (
+                {["Exam", "Student", "Subject", "Marks", "Max Marks", "Grade", "Remarks"].map(h => (
                   <th key={h} style={{ padding: "12px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr>
@@ -131,17 +131,23 @@ export default function ExamsPage() {
             <tbody>
               {results?.length === 0 ? (
                 <tr><td colSpan={7} style={{ padding: "40px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>No results entered yet</td></tr>
-              ) : results?.map((r: any) => (
+              ) : results?.map((r: any) => {
+                const examName = exams.find((e: any) => e.id === r.examId)?.name ?? `#${r.examId}`;
+                const students: any[] = Array.isArray(studentsData) ? studentsData : (studentsData as any)?.students ?? [];
+                const subjects: any[] = Array.isArray(subjectsData) ? subjectsData : (subjectsData as any)?.subjects ?? [];
+                const studentName = students.find((s: any) => s.id === r.studentId)?.name ?? `#${r.studentId}`;
+                const subjectName = subjects.find((s: any) => s.id === r.subjectId)?.name ?? `#${r.subjectId}`;
+                return (
                 <tr key={r.id} style={{ borderBottom: "1px solid rgba(48,54,61,0.5)" }}>
-                  <td style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-secondary)" }}>#{r.examId}</td>
-                  <td style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-secondary)" }}>#{r.studentId}</td>
-                  <td style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-secondary)" }}>#{r.subjectId}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{examName}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{studentName}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{subjectName}</td>
                   <td style={{ padding: "10px 14px", fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>{r.marks}</td>
                   <td style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{r.maxMarks}</td>
                   <td style={{ padding: "10px 14px" }}>{r.grade ? <Badge status={r.grade}>{r.grade}</Badge> : "—"}</td>
                   <td style={{ padding: "10px 14px", fontSize: 12, color: "var(--text-secondary)" }}>{r.remarks || "—"}</td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </div>
@@ -152,7 +158,7 @@ export default function ExamsPage() {
         <form onSubmit={e => { e.preventDefault(); saveExam.mutate(ef); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <Input label="Exam Name" value={ef.name} onChange={e => setEf({ ...ef, name: e.target.value })} placeholder="e.g. Term 1 Exams" required />
           <Select label="Class" value={ef.classId} onChange={e => setEf({ ...ef, classId: e.target.value })}
-            options={(classesData?.classes || []).map((c: any) => ({ value: String(c.id), label: c.name }))} />
+            options={(Array.isArray(classesData) ? classesData : (classesData as any)?.classes ?? []).map((c: any) => ({ value: String(c.id), label: c.name }))} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Input label="Term" value={ef.term} onChange={e => setEf({ ...ef, term: e.target.value })} placeholder="Term 1" />
             <Input label="Year" type="number" value={ef.year} onChange={e => setEf({ ...ef, year: e.target.value })} />
