@@ -21,7 +21,8 @@ app.post("/", async (c) => {
 app.put("/:id", async (c) => {
   const id = Number(c.req.param("id"));
   const body = await c.req.json();
-  const [row] = await db.update(inventoryItems).set(body).where(eq(inventoryItems.id, id)).returning();
+  const { id: _id, createdAt, ...safePayload } = body;
+  const [row] = await db.update(inventoryItems).set(safePayload).where(eq(inventoryItems.id, id)).returning();
   return c.json(row);
 });
 

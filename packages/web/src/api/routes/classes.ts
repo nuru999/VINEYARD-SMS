@@ -54,9 +54,10 @@ export const classesRoutes = new Hono()
   .put("/:id", requireAdmin, async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
+    const { id: _id, createdAt, teacherName, ...safePayload } = body;
     const [cls] = await db
       .update(schema.classes)
-      .set(body)
+      .set(safePayload)
       .where(eq(schema.classes.id, id))
       .returning();
     return c.json({ class: cls }, 200);
@@ -101,9 +102,10 @@ export const sectionsRoutes = new Hono()
   .put("/:id", requireAdmin, async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
+    const { id: _sid, createdAt: _sca, ...safeSecPayload } = body;
     const [sec] = await db
       .update(schema.sections)
-      .set(body)
+      .set(safeSecPayload)
       .where(eq(schema.sections.id, id))
       .returning();
     return c.json({ section: sec }, 200);
@@ -127,9 +129,10 @@ export const subjectsRoutes = new Hono()
   .put("/:id", requireAdmin, async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
+    const { id: _subid, createdAt: _subca, ...safeSubPayload } = body;
     const [sub] = await db
       .update(schema.subjects)
-      .set(body)
+      .set(safeSubPayload)
       .where(eq(schema.subjects.id, id))
       .returning();
     return c.json({ subject: sub }, 200);

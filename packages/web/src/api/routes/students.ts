@@ -166,11 +166,14 @@ export const students = new Hono()
   .put("/:id", requireAdmin, async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
+    // Strip read-only / auto fields
+    const { id: _id, createdAt, className, ...safePayload } = body;
     const [student] = await db
       .update(schema.students)
-      .set(body)
+      .set(safePayload)
       .where(eq(schema.students.id, id))
       .returning();
+    if (!student) return c.json({ message: "Student not found" }, 404);
     return c.json({ student }, 200);
   })
 

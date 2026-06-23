@@ -25,7 +25,8 @@ export const accountsRoutes = new Hono()
   .put("/:id", requireAuth, async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
-    const [tx] = await db.update(schema.transactions).set(body).where(eq(schema.transactions.id, id)).returning();
+    const { id: _id, createdAt, ...safePayload } = body;
+    const [tx] = await db.update(schema.transactions).set(safePayload).where(eq(schema.transactions.id, id)).returning();
     return c.json({ transaction: tx }, 200);
   })
   .delete("/:id", requireAuth, async (c) => {
