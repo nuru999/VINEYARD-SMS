@@ -6,6 +6,9 @@ import { requireAuth, requireAdmin } from "../middleware/auth";
 import { auth } from "../auth";
 import { user as userTable } from "../database/auth-schema";
 
+const ALLOWED_ROLES = ["admin", "principal", "teacher", "accountant"] as const;
+type UserRole = (typeof ALLOWED_ROLES)[number];
+
 export const userManagementRoutes = new Hono()
   // GET /api/me — returns current user's role
   .get("/", requireAuth, async (c) => {
@@ -30,7 +33,6 @@ export const userManagementRoutes = new Hono()
     const classes = await db.select().from(schema.classes);
 
     const profileMap = new Map(profiles.map((p) => [p.userId, p]));
-    // Map teacherUserId -> class
     const classMap = new Map(
       classes
         .filter((cl) => cl.teacherUserId)
@@ -49,21 +51,38 @@ export const userManagementRoutes = new Hono()
     return c.json({ users });
   })
 
-  // POST /api/me/users — admin: create a new user (teacher or admin)
+  // POST /api/me/users — admin: create a new user
   .post("/users", requireAdmin, async (c) => {
     const body = await c.req.json();
-    const { name, email, password, role } = body;
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body.password === "string" ? body.password : "";
+    const targetRole = (body.role ?? "teacher") as UserRole;
 
     if (!name || !email || !password) {
       return c.json({ message: "name, email, password required" }, 400);
     }
-    if (!["admin", "principal", "teacher", "accountant"].includes(role ?? "teacher")) {
+    if (!ALLOWED_ROLES.includes(targetRole)) {
       return c.json({ message: "role must be admin, principal, teacher or accountant" }, 400);
     }
 
-    const targetRole = (role ?? "teacher") as "admin" | "principal" | "teacher" | "accountant";
+    // Validate an optional teacher class before creating any auth/profile/staff rows.
+    let classId: number | null = null;
+    if (targetRole === "teacher" && body.classId !== undefined && body.classId !== null && body.classId !== "") {
+      classId = Number(body.classId);
+      if (!Number.isInteger(classId) || classId <= 0) {
+        return c.json({ message: "Invalid classId" }, 400);
+      }
 
-    // Enforce max 2 admins
+      const [targetClass] = await db
+        .select()
+        .from(schema.classes)
+        .where(eq(schema.classes.id, classId));
+      if (!targetClass) {
+        return c.json({ message: "Selected class not found" }, 400);
+      }
+    }
+
     if (targetRole === "admin") {
       const admins = await db
         .select()
@@ -74,61 +93,57 @@ export const userManagementRoutes = new Hono()
       }
     }
 
-    // Create the user via better-auth admin API or direct DB insert
     const result = await auth.api.signUpEmail({
       body: { name, email, password },
     });
 
     if (!result || result.error) {
-      return c.json({ message: (result as any)?.error?.message ?? "Failed to create user" }, 400);
+      return c.json(
+        { message: (result as any)?.error?.message ?? "Failed to create user" },
+        400
+      );
     }
 
     const newUser = (result as any).user;
 
-    // Upsert profile with role
-    await db
-      .insert(schema.userProfiles)
-      .values({ userId: newUser.id, role: targetRole })
-      .onConflictDoUpdate({
-        target: schema.userProfiles.userId,
-        set: { role: targetRole },
-      });
-
-    // If teacher, auto-create a linked staff record and optionally assign a class
-    if (targetRole === "teacher") {
-      const existing = await db
-        .select()
-        .from(schema.staff)
-        .where(eq(schema.staff.userId, newUser.id));
-
-      if (!existing.length) {
-        await db.insert(schema.staff).values({
-          userId: newUser.id,
-          name,
-          email,
-          designation: "Teacher",
-          status: "active",
-        });
-      }
-    }
-
-    // Optional: assign a class immediately when creating the teacher
-    const classId = body.classId ? parseInt(body.classId) : null;
-    if (targetRole === "teacher" && classId) {
-      const targetClass = await db
-        .select()
-        .from(schema.classes)
-        .where(eq(schema.classes.id, classId))
-        .limit(1);
-
-      if (!targetClass.length) {
-        return c.json({ message: "Selected class not found" }, 400);
-      }
-
+    try {
       await db
-        .update(schema.classes)
-        .set({ teacherUserId: newUser.id })
-        .where(eq(schema.classes.id, classId));
+        .insert(schema.userProfiles)
+        .values({ userId: newUser.id, role: targetRole })
+        .onConflictDoUpdate({
+          target: schema.userProfiles.userId,
+          set: { role: targetRole },
+        });
+
+      if (targetRole === "teacher") {
+        const existing = await db
+          .select()
+          .from(schema.staff)
+          .where(eq(schema.staff.userId, newUser.id));
+
+        if (!existing.length) {
+          await db.insert(schema.staff).values({
+            userId: newUser.id,
+            name,
+            email,
+            designation: "Teacher",
+            status: "active",
+          });
+        }
+      }
+
+      if (targetRole === "teacher" && classId) {
+        await db
+          .update(schema.classes)
+          .set({ teacherUserId: newUser.id })
+          .where(eq(schema.classes.id, classId));
+      }
+    } catch (error) {
+      // Best-effort cleanup if creating related records fails after Better Auth created the user.
+      await db.delete(schema.userProfiles).where(eq(schema.userProfiles.userId, newUser.id)).catch(() => {});
+      await db.delete(schema.staff).where(eq(schema.staff.userId, newUser.id)).catch(() => {});
+      await db.delete(userTable).where(eq(userTable.id, newUser.id)).catch(() => {});
+      throw error;
     }
 
     return c.json({ user: { id: newUser.id, email, name, role: targetRole } }, 201);
@@ -143,8 +158,15 @@ export const userManagementRoutes = new Hono()
       return c.json({ message: "Cannot delete yourself" }, 400);
     }
 
+    await db
+      .update(schema.classes)
+      .set({ teacherUserId: null })
+      .where(eq(schema.classes.teacherUserId, id));
+    await db
+      .update(schema.staff)
+      .set({ userId: null })
+      .where(eq(schema.staff.userId, id));
     await db.delete(schema.userProfiles).where(eq(schema.userProfiles.userId, id));
-    // better-auth handles the actual user table
     await db.delete(userTable).where(eq(userTable.id, id)).catch(() => {});
 
     return c.json({ message: "User deleted" });
@@ -155,11 +177,21 @@ export const userManagementRoutes = new Hono()
     const id = c.req.param("id");
     const { role } = await c.req.json();
 
-    if (!["admin", "principal", "teacher", "accountant"].includes(role)) {
+    if (!ALLOWED_ROLES.includes(role)) {
       return c.json({ message: "role must be admin, principal, teacher or accountant" }, 400);
     }
 
-    if (role === "admin") {
+    const [targetUser] = await db.select().from(userTable).where(eq(userTable.id, id));
+    if (!targetUser) {
+      return c.json({ message: "User not found" }, 404);
+    }
+
+    const [currentProfile] = await db
+      .select()
+      .from(schema.userProfiles)
+      .where(eq(schema.userProfiles.userId, id));
+
+    if (role === "admin" && currentProfile?.role !== "admin") {
       const admins = await db
         .select()
         .from(schema.userProfiles)
