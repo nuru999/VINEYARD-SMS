@@ -2,14 +2,15 @@ import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
 import { eq, and } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth";
+import { requireAdminOrAccountant, requireFinanceAccess } from "../middleware/auth";
 
 export const payrollRoutes = new Hono()
-  .get("/", requireAuth, async (c) => {
+  // Principals can read payroll totals for reports, but cannot modify payroll.
+  .get("/", requireFinanceAccess, async (c) => {
     const data = await db.select().from(schema.payroll);
     return c.json({ payroll: data }, 200);
   })
-  .post("/", requireAuth, async (c) => {
+  .post("/", requireAdminOrAccountant, async (c) => {
     const body = await c.req.json();
     const net = (body.basicSalary || 0) + (body.allowances || 0) - (body.deductions || 0);
     // Upsert: if record exists for same staff/month/year, update it instead of inserting duplicate
@@ -32,7 +33,7 @@ export const payrollRoutes = new Hono()
     }).returning();
     return c.json({ payroll: record }, 201);
   })
-  .put("/:id", requireAuth, async (c) => {
+  .put("/:id", requireAdminOrAccountant, async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
     const net = (body.basicSalary || 0) + (body.allowances || 0) - (body.deductions || 0);
@@ -49,7 +50,7 @@ export const payrollRoutes = new Hono()
     }).where(eq(schema.payroll.id, id)).returning();
     return c.json({ payroll: record }, 200);
   })
-  .delete("/:id", requireAuth, async (c) => {
+  .delete("/:id", requireAdminOrAccountant, async (c) => {
     const id = parseInt(c.req.param("id"));
     await db.delete(schema.payroll).where(eq(schema.payroll.id, id));
     return c.json({ message: "Deleted" }, 200);
