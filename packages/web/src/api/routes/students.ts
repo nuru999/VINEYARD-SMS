@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middleware/auth";
 
 export const students = new Hono()
-  // GET — admin sees all, teacher sees only their assigned class
+  // GET — admin/principal see all, teacher sees only their assigned class
   .get("/", requireAuth, async (c) => {
     const user = c.get("user")!;
 
@@ -17,7 +17,7 @@ export const students = new Hono()
     const role = profile?.role ?? "teacher";
     const allClasses = await db.select().from(schema.classes);
 
-    if (role === "admin") {
+    if (role === "admin" || role === "principal") {
       const allStudents = await db.select().from(schema.students);
       const enriched = allStudents.map((s) => ({
         ...s,
@@ -72,7 +72,8 @@ export const students = new Hono()
       .from(schema.userProfiles)
       .where(eq(schema.userProfiles.userId, user.id));
 
-    if ((profile?.role ?? "teacher") !== "admin") {
+    const role = profile?.role ?? "teacher";
+    if (role !== "admin" && role !== "principal") {
       // Verify teacher owns this student's class
       const allClasses = await db.select().from(schema.classes);
       const assignedIds = allClasses
@@ -112,7 +113,7 @@ export const students = new Hono()
     const role = profile?.role ?? "teacher";
     const allClasses = await db.select().from(schema.classes);
 
-    if (role !== "admin") {
+    if (role !== "admin" && role !== "principal") {
       const assignedIds = allClasses
         .filter((c) => c.teacherUserId === user.id)
         .map((c) => c.id);

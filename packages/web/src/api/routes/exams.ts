@@ -8,6 +8,31 @@ function roleOf(userId: string) {
   return db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).then(r => r[0]?.role ?? "teacher");
 }
 
+async function teacherClassIds(userId: string) {
+  const classes = await db.select().from(schema.classes);
+  return classes.filter((cl) => cl.teacherUserId === userId).map((cl) => cl.id);
+}
+
+async function canManageResult(userId: string, role: string, item: any) {
+  if (role === "admin" || role === "principal") return true;
+  if (role !== "teacher") return false;
+
+  const classIds = await teacherClassIds(userId);
+  if (!classIds.length) return false;
+
+  const [exam] = await db.select().from(schema.exams).where(eq(schema.exams.id, item.examId));
+  const [student] = await db.select().from(schema.students).where(eq(schema.students.id, item.studentId));
+  const [subject] = await db.select().from(schema.subjects).where(eq(schema.subjects.id, item.subjectId));
+
+  if (!exam || !student || !subject) return false;
+
+  return (
+    classIds.includes(exam.classId) &&
+    student.classId === exam.classId &&
+    subject.classId === exam.classId
+  );
+}
+
 export const examsRoutes = new Hono()
   .get("/", requireAuth, async (c) => {
     const user = c.get("user")!;
@@ -15,14 +40,13 @@ export const examsRoutes = new Hono()
     const exams = await db.select().from(schema.exams);
     if (role === "admin" || role === "principal") return c.json({ exams }, 200);
 
-    const classes = await db.select().from(schema.classes);
-    const myClassIds = classes.filter((cl) => cl.teacherUserId === user.id).map((cl) => cl.id);
+    const myClassIds = await teacherClassIds(user.id);
     return c.json({ exams: exams.filter((e) => myClassIds.includes(e.classId)) }, 200);
   })
   .post("/", requireAuth, async (c) => {
     const user = c.get("user")!;
     const role = await roleOf(user.id);
-    if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
+    if (!["admin", "principal"].includes(role)) return c.json({ message: "Forbidden" }, 403);
     const body = await c.req.json();
     const [exam] = await db.insert(schema.exams).values(body).returning();
     return c.json({ exam }, 201);
@@ -30,7 +54,7 @@ export const examsRoutes = new Hono()
   .put("/:id", requireAuth, async (c) => {
     const user = c.get("user")!;
     const role = await roleOf(user.id);
-    if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
+    if (!["admin", "principal"].includes(role)) return c.json({ message: "Forbidden" }, 403);
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
     const { id: _id, createdAt, ...safePayload } = body;
@@ -40,7 +64,7 @@ export const examsRoutes = new Hono()
   .delete("/:id", requireAuth, async (c) => {
     const user = c.get("user")!;
     const role = await roleOf(user.id);
-    if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
+    if (!["admin", "principal"].includes(role)) return c.json({ message: "Forbidden" }, 403);
     const id = parseInt(c.req.param("id"));
     await db.delete(schema.exams).where(eq(schema.exams.id, id));
     return c.json({ message: "Deleted" }, 200);
@@ -64,54 +88,56 @@ export const resultsRoutes = new Hono()
   .post("/", requireAuth, async (c) => {
     const user = c.get("user")!;
     const role = await roleOf(user.id);
-    if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
+    if (!["admin", "principal", "teacher"].includes(role)) return c.json({ message: "Forbidden" }, 403);
+
     const body = await c.req.json();
-    if (Array.isArray(body)) {
-      // Upsert each result: update if (examId, studentId, subjectId) exists, else insert
-      const upserted = [];
-      for (const item of body) {
-        const [existing] = await db.select().from(schema.examResults).where(
-          and(
-            eq(schema.examResults.examId, item.examId),
-            eq(schema.examResults.studentId, item.studentId),
-            eq(schema.examResults.subjectId, item.subjectId)
-          )
-        );
-        if (existing) {
-          const [updated] = await db.update(schema.examResults).set(item)
-            .where(eq(schema.examResults.id, existing.id)).returning();
-          upserted.push(updated);
-        } else {
-          const [inserted] = await db.insert(schema.examResults).values(item).returning();
-          upserted.push(inserted);
-        }
+    const items = Array.isArray(body) ? body : [body];
+
+    for (const item of items) {
+      if (!(await canManageResult(user.id, role, item))) {
+        return c.json({ message: "Forbidden: result is outside your assigned class" }, 403);
       }
-      return c.json({ results: upserted }, 201);
     }
-    // Single result upsert
-    const [existing] = await db.select().from(schema.examResults).where(
-      and(
-        eq(schema.examResults.examId, body.examId),
-        eq(schema.examResults.studentId, body.studentId),
-        eq(schema.examResults.subjectId, body.subjectId)
-      )
-    );
-    if (existing) {
-      const { id: _eid, createdAt: _eca, ...safeBody } = body;
-      const [updated] = await db.update(schema.examResults).set(safeBody)
-        .where(eq(schema.examResults.id, existing.id)).returning();
-      return c.json({ result: updated }, 200);
+
+    const upserted = [];
+    for (const item of items) {
+      const { id: _id, createdAt, ...safeItem } = item;
+      const [existing] = await db.select().from(schema.examResults).where(
+        and(
+          eq(schema.examResults.examId, safeItem.examId),
+          eq(schema.examResults.studentId, safeItem.studentId),
+          eq(schema.examResults.subjectId, safeItem.subjectId)
+        )
+      );
+
+      if (existing) {
+        const [updated] = await db.update(schema.examResults).set(safeItem)
+          .where(eq(schema.examResults.id, existing.id)).returning();
+        upserted.push(updated);
+      } else {
+        const [inserted] = await db.insert(schema.examResults).values(safeItem).returning();
+        upserted.push(inserted);
+      }
     }
-    const { id: _eid2, createdAt: _eca2, ...safeInsert } = body;
-    const [result] = await db.insert(schema.examResults).values(safeInsert).returning();
-    return c.json({ result }, 201);
+
+    if (Array.isArray(body)) return c.json({ results: upserted }, 200);
+    return c.json({ result: upserted[0] }, 200);
   })
   .put("/:id", requireAuth, async (c) => {
     const user = c.get("user")!;
     const role = await roleOf(user.id);
-    if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
+    if (!["admin", "principal", "teacher"].includes(role)) return c.json({ message: "Forbidden" }, 403);
+
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
+    const [existing] = await db.select().from(schema.examResults).where(eq(schema.examResults.id, id));
+    if (!existing) return c.json({ message: "Result not found" }, 404);
+
+    const candidate = { ...existing, ...body };
+    if (!(await canManageResult(user.id, role, candidate))) {
+      return c.json({ message: "Forbidden: result is outside your assigned class" }, 403);
+    }
+
     const { id: _id, createdAt, ...safePayload } = body;
     const [result] = await db.update(schema.examResults).set(safePayload).where(eq(schema.examResults.id, id)).returning();
     return c.json({ result }, 200);
