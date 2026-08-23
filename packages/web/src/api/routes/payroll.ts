@@ -4,54 +4,112 @@ import * as schema from "../database/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAdminOrAccountant, requireFinanceAccess } from "../middleware/auth";
 
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] as const;
+const STATUSES = ["pending", "paid"] as const;
+
+function validId(value: unknown) {
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function payrollInput(body: any) {
+  const staffId = validId(body.staffId);
+  const month = String(body.month || "");
+  const year = Number(body.year);
+  const basicSalary = Number(body.basicSalary);
+  const allowances = Number(body.allowances ?? 0);
+  const deductions = Number(body.deductions ?? 0);
+  const status = String(body.status || "pending");
+  const paidDate = body.paidDate ? String(body.paidDate) : null;
+
+  if (!staffId || !MONTHS.includes(month as any)) return null;
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) return null;
+  if (![basicSalary, allowances, deductions].every(Number.isFinite)) return null;
+  if (basicSalary < 0 || allowances < 0 || deductions < 0) return null;
+  if (deductions > basicSalary + allowances) return null;
+  if (!STATUSES.includes(status as any)) return null;
+  if (paidDate && !/^\d{4}-\d{2}-\d{2}$/.test(paidDate)) return null;
+  if (status === "paid" && !paidDate) return null;
+
+  return {
+    staffId,
+    month,
+    year,
+    basicSalary,
+    allowances,
+    deductions,
+    netSalary: basicSalary + allowances - deductions,
+    paidDate: status === "paid" ? paidDate : null,
+    status,
+  };
+}
+
 export const payrollRoutes = new Hono()
-  // Principals can read payroll totals for reports, but cannot modify payroll.
   .get("/", requireFinanceAccess, async (c) => {
     const data = await db.select().from(schema.payroll);
     return c.json({ payroll: data }, 200);
   })
   .post("/", requireAdminOrAccountant, async (c) => {
-    const body = await c.req.json();
-    const net = (body.basicSalary || 0) + (body.allowances || 0) - (body.deductions || 0);
-    // Upsert: if record exists for same staff/month/year, update it instead of inserting duplicate
+    const input = payrollInput(await c.req.json());
+    if (!input) {
+      return c.json({ message: "Valid staff, pay period, non-negative salary values, status, and paid date are required" }, 400);
+    }
+
+    const [staffMember] = await db.select().from(schema.staff).where(eq(schema.staff.id, input.staffId));
+    if (!staffMember) return c.json({ message: "Staff member not found" }, 404);
+
     const [existing] = await db.select().from(schema.payroll).where(
-      and(eq(schema.payroll.staffId, body.staffId), eq(schema.payroll.month, body.month), eq(schema.payroll.year, body.year))
+      and(
+        eq(schema.payroll.staffId, input.staffId),
+        eq(schema.payroll.month, input.month),
+        eq(schema.payroll.year, input.year)
+      )
     );
+
     if (existing) {
-      const [updated] = await db.update(schema.payroll).set({
-        basicSalary: body.basicSalary, allowances: body.allowances ?? 0,
-        deductions: body.deductions ?? 0, netSalary: net,
-        paidDate: body.paidDate ?? existing.paidDate, status: body.status ?? existing.status,
-      }).where(eq(schema.payroll.id, existing.id)).returning();
+      const [updated] = await db.update(schema.payroll).set(input).where(eq(schema.payroll.id, existing.id)).returning();
       return c.json({ payroll: updated }, 200);
     }
-    const [record] = await db.insert(schema.payroll).values({
-      staffId: body.staffId, month: body.month, year: body.year,
-      basicSalary: body.basicSalary, allowances: body.allowances ?? 0,
-      deductions: body.deductions ?? 0, netSalary: net,
-      paidDate: body.paidDate ?? null, status: body.status ?? "pending",
-    }).returning();
+
+    const [record] = await db.insert(schema.payroll).values(input).returning();
     return c.json({ payroll: record }, 201);
   })
   .put("/:id", requireAdminOrAccountant, async (c) => {
-    const id = parseInt(c.req.param("id"));
-    const body = await c.req.json();
-    const net = (body.basicSalary || 0) + (body.allowances || 0) - (body.deductions || 0);
-    const [record] = await db.update(schema.payroll).set({
-      staffId: body.staffId,
-      month: body.month,
-      year: body.year,
-      basicSalary: body.basicSalary,
-      allowances: body.allowances ?? 0,
-      deductions: body.deductions ?? 0,
-      netSalary: net,
-      paidDate: body.paidDate ?? null,
-      status: body.status ?? "pending",
-    }).where(eq(schema.payroll.id, id)).returning();
+    const id = validId(c.req.param("id"));
+    if (!id) return c.json({ message: "Invalid payroll id" }, 400);
+
+    const [existingRecord] = await db.select().from(schema.payroll).where(eq(schema.payroll.id, id));
+    if (!existingRecord) return c.json({ message: "Payroll record not found" }, 404);
+
+    const input = payrollInput(await c.req.json());
+    if (!input) {
+      return c.json({ message: "Valid staff, pay period, non-negative salary values, status, and paid date are required" }, 400);
+    }
+
+    const [staffMember] = await db.select().from(schema.staff).where(eq(schema.staff.id, input.staffId));
+    if (!staffMember) return c.json({ message: "Staff member not found" }, 404);
+
+    const [samePeriod] = await db.select().from(schema.payroll).where(
+      and(
+        eq(schema.payroll.staffId, input.staffId),
+        eq(schema.payroll.month, input.month),
+        eq(schema.payroll.year, input.year)
+      )
+    );
+    if (samePeriod && samePeriod.id !== id) {
+      return c.json({ message: "A payroll record already exists for this staff member and pay period" }, 409);
+    }
+
+    const [record] = await db.update(schema.payroll).set(input).where(eq(schema.payroll.id, id)).returning();
     return c.json({ payroll: record }, 200);
   })
   .delete("/:id", requireAdminOrAccountant, async (c) => {
-    const id = parseInt(c.req.param("id"));
+    const id = validId(c.req.param("id"));
+    if (!id) return c.json({ message: "Invalid payroll id" }, 400);
+
+    const [existing] = await db.select().from(schema.payroll).where(eq(schema.payroll.id, id));
+    if (!existing) return c.json({ message: "Payroll record not found" }, 404);
+
     await db.delete(schema.payroll).where(eq(schema.payroll.id, id));
     return c.json({ message: "Deleted" }, 200);
   });
