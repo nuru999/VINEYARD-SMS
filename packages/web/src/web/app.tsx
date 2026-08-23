@@ -105,13 +105,15 @@ function App() {
         <Route path="/classes" component={() => <ProtectedRoute component={ClassesPage} />} />
         <Route path="/attendance" component={() => <ProtectedRoute component={AttendancePage} />} />
         <Route path="/exams" component={() => <ProtectedRoute component={ExamsPage} />} />
-        <Route path="/certificates" component={() => <ProtectedRoute component={CertificatesPage} />} />
-        <Route path="/report-cards" component={() => <ProtectedRoute component={ReportCardsPage} />} />
         <Route path="/timetable" component={() => <ProtectedRoute component={TimetablePage} />} />
         <Route path="/communication" component={() => <ProtectedRoute component={CommunicationPage} />} />
         <Route path="/transport" component={() => <ProtectedRoute component={TransportPage} />} />
         <Route path="/library" component={() => <ProtectedRoute component={LibraryPage} />} />
         <Route path="/inventory" component={() => <ProtectedRoute component={InventoryPage} />} />
+
+        {/* Academic records: admin + principal + teacher */}
+        <Route path="/certificates" component={() => <ProtectedRoleRoute component={CertificatesPage} allowedRoles={["admin", "principal", "teacher"]} />} />
+        <Route path="/report-cards" component={() => <ProtectedRoleRoute component={ReportCardsPage} allowedRoles={["admin", "principal", "teacher"]} />} />
 
         {/* Admin + Principal */}
         <Route path="/staff" component={() => <ProtectedRoleRoute component={StaffPage} allowedRoles={["admin", "principal"]} />} />
