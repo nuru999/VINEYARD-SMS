@@ -16,6 +16,24 @@ export const requireAuth = createMiddleware(async (c, next) => {
   return next();
 });
 
+/** Require both a valid auth session and a registered school profile. */
+export const requireSchoolUser = createMiddleware(async (c, next) => {
+  const user = c.get("user");
+  if (!user) return c.json({ message: "Unauthorized" }, 401);
+
+  const [profile] = await db
+    .select()
+    .from(schema.userProfiles)
+    .where(eq(schema.userProfiles.userId, user.id));
+
+  if (!profile) {
+    return c.json({ message: "Forbidden: account is not registered with this school" }, 403);
+  }
+
+  c.set("profile", profile);
+  return next();
+});
+
 /** Only admin can access */
 export const requireAdmin = createMiddleware(async (c, next) => {
   const user = c.get("user");
