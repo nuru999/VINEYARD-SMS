@@ -9,12 +9,23 @@ import { Modal } from "../components/ui/modal";
 import { Input, Select } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { api } from "../lib/api";
+import { useRole } from "../lib/use-role";
 
 const emptyExam = { name: "", classId: "", term: "", year: new Date().getFullYear(), startDate: "", endDate: "" };
 const emptyResult = { examId: "", studentId: "", subjectId: "", marks: "", maxMarks: "100", grade: "", remarks: "" };
 
+async function parseResponse(response: Response) {
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error((data as any)?.message || "Request failed");
+  }
+  return data;
+}
+
 export default function ExamsPage() {
   const qc = useQueryClient();
+  const { role } = useRole();
+  const canManageExams = role === "admin" || role === "principal";
   const { success, error: toastError } = useToast();
   const [examModal, setExamModal] = useState(false);
   const [resultModal, setResultModal] = useState(false);
@@ -50,25 +61,49 @@ export default function ExamsPage() {
 
   const exams: any[] = Array.isArray(examsData) ? examsData : (examsData as any)?.exams ?? [];
   const results: any[] = Array.isArray(resultsData) ? resultsData : (resultsData as any)?.results ?? [];
+  const students: any[] = Array.isArray(studentsData) ? studentsData : (studentsData as any)?.students ?? [];
+  const subjects: any[] = Array.isArray(subjectsData) ? subjectsData : (subjectsData as any)?.subjects ?? [];
+
+  const selectedResultExam = exams.find((exam: any) => String(exam.id) === String(rf.examId));
+  const resultStudents = selectedResultExam
+    ? students.filter((student: any) => student.classId === selectedResultExam.classId)
+    : [];
+  const resultSubjects = selectedResultExam
+    ? subjects.filter((subject: any) => subject.classId === selectedResultExam.classId)
+    : [];
 
   const saveExam = useMutation({
     mutationFn: async (f: any) => {
       const payload = { ...f, classId: parseInt(f.classId), year: parseInt(f.year) };
-      if (editingExam) return (await api.exams[":id"].$put({ param: { id: String(editingExam.id) }, json: payload })).json();
-      return (await api.exams.$post({ json: payload })).json();
+      const response = editingExam
+        ? await api.exams[":id"].$put({ param: { id: String(editingExam.id) }, json: payload })
+        : await api.exams.$post({ json: payload });
+      return parseResponse(response);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["exams"] }); setExamModal(false); setEditingExam(null); setEf(emptyExam); success("Exam saved"); },
     onError: (e: any) => toastError("Save failed", e?.message),
   });
 
   const deleteExam = useMutation({
-    mutationFn: async (id: number) => (await api.exams[":id"].$delete({ param: { id: String(id) } })).json(),
+    mutationFn: async (id: number) => parseResponse(await api.exams[":id"].$delete({ param: { id: String(id) } })),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["exams"] }); success("Exam deleted"); },
-    onError: () => toastError("Delete failed"),
+    onError: (e: any) => toastError("Delete failed", e?.message),
   });
 
   const saveResult = useMutation({
-    mutationFn: async (f: any) => (await api.results.$post({ json: { ...f, examId: parseInt(f.examId), studentId: parseInt(f.studentId), subjectId: parseInt(f.subjectId), marks: parseFloat(f.marks), maxMarks: parseFloat(f.maxMarks) } })).json(),
+    mutationFn: async (f: any) => {
+      const response = await api.results.$post({
+        json: {
+          ...f,
+          examId: parseInt(f.examId),
+          studentId: parseInt(f.studentId),
+          subjectId: parseInt(f.subjectId),
+          marks: parseFloat(f.marks),
+          maxMarks: parseFloat(f.maxMarks),
+        },
+      });
+      return parseResponse(response);
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["results"] }); setResultModal(false); setRf(emptyResult); success("Result saved"); },
     onError: (e: any) => toastError("Save failed", e?.message),
   });
@@ -78,8 +113,10 @@ export default function ExamsPage() {
   return (
     <Layout title="Exams & Results" action={
       <div style={{ display: "flex", gap: 8 }}>
-        <Button variant="secondary" size="sm" onClick={() => setResultModal(true)}><Plus size={14} /> Enter Result</Button>
-        <Button onClick={() => { setEditingExam(null); setEf(emptyExam); setExamModal(true); }}><Plus size={15} /> New Exam</Button>
+        <Button variant="secondary" size="sm" onClick={() => { setRf(emptyResult); setResultModal(true); }}><Plus size={14} /> Enter Result</Button>
+        {canManageExams && (
+          <Button onClick={() => { setEditingExam(null); setEf(emptyExam); setExamModal(true); }}><Plus size={15} /> New Exam</Button>
+        )}
       </div>
     }>
       {/* Tabs */}
@@ -107,10 +144,12 @@ export default function ExamsPage() {
                   <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>{exam.name}</div>
                   <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{exam.term} • {exam.year}</div>
                 </div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <Button variant="ghost" size="sm" onClick={() => { setEditingExam(exam); setEf({ ...exam, classId: String(exam.classId) }); setExamModal(true); }}><Pencil size={13} /></Button>
-                  <Button variant="danger" size="sm" onClick={() => { if (confirm("Delete exam?")) deleteExam.mutate(exam.id); }}><Trash2 size={13} /></Button>
-                </div>
+                {canManageExams && (
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <Button variant="ghost" size="sm" onClick={() => { setEditingExam(exam); setEf({ ...exam, classId: String(exam.classId) }); setExamModal(true); }}><Pencil size={13} /></Button>
+                    <Button variant="danger" size="sm" onClick={() => { if (confirm("Delete exam?")) deleteExam.mutate(exam.id); }}><Trash2 size={13} /></Button>
+                  </div>
+                )}
               </div>
               {exam.startDate && <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{exam.startDate} → {exam.endDate}</div>}
             </Card>
@@ -133,8 +172,6 @@ export default function ExamsPage() {
                 <tr><td colSpan={7} style={{ padding: "40px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>No results entered yet</td></tr>
               ) : results?.map((r: any) => {
                 const examName = exams.find((e: any) => e.id === r.examId)?.name ?? `#${r.examId}`;
-                const students: any[] = Array.isArray(studentsData) ? studentsData : (studentsData as any)?.students ?? [];
-                const subjects: any[] = Array.isArray(subjectsData) ? subjectsData : (subjectsData as any)?.subjects ?? [];
                 const studentName = students.find((s: any) => s.id === r.studentId)?.name ?? `#${r.studentId}`;
                 const subjectName = subjects.find((s: any) => s.id === r.subjectId)?.name ?? `#${r.subjectId}`;
                 return (
@@ -175,12 +212,12 @@ export default function ExamsPage() {
       {/* Result Modal */}
       <Modal open={resultModal} onClose={() => setResultModal(false)} title="Enter Result">
         <form onSubmit={e => { e.preventDefault(); saveResult.mutate(rf); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <Select label="Exam" value={rf.examId} onChange={e => setRf({ ...rf, examId: e.target.value })}
+          <Select label="Exam" value={rf.examId} onChange={e => setRf({ ...rf, examId: e.target.value, studentId: "", subjectId: "" })}
             options={(exams || []).map((ex: any) => ({ value: String(ex.id), label: ex.name }))} />
           <Select label="Student" value={rf.studentId} onChange={e => setRf({ ...rf, studentId: e.target.value })}
-            options={(Array.isArray(studentsData) ? studentsData : (studentsData as any)?.students || []).map((s: any) => ({ value: String(s.id), label: `${s.name} (${s.admissionNo})` }))} />
+            options={resultStudents.map((s: any) => ({ value: String(s.id), label: `${s.name} (${s.admissionNo})` }))} />
           <Select label="Subject" value={rf.subjectId} onChange={e => setRf({ ...rf, subjectId: e.target.value })}
-            options={(Array.isArray(subjectsData) ? subjectsData : (subjectsData as any)?.subjects || []).map((s: any) => ({ value: String(s.id), label: s.name }))} />
+            options={resultSubjects.map((s: any) => ({ value: String(s.id), label: s.name }))} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Input label="Marks" type="number" value={rf.marks} onChange={e => setRf({ ...rf, marks: e.target.value })} required />
             <Input label="Max Marks" type="number" value={rf.maxMarks} onChange={e => setRf({ ...rf, maxMarks: e.target.value })} />
@@ -189,7 +226,7 @@ export default function ExamsPage() {
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <Button variant="secondary" type="button" onClick={() => setResultModal(false)}>Cancel</Button>
-            <Button type="submit" loading={saveResult.isPending}>Save Result</Button>
+            <Button type="submit" loading={saveResult.isPending} disabled={!rf.examId || !rf.studentId || !rf.subjectId || !rf.marks}>Save Result</Button>
           </div>
         </form>
       </Modal>
