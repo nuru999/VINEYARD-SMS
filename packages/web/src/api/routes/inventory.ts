@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../database";
 import { inventoryItems } from "../database/schema";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireAdminOrPrincipal } from "../middleware/auth";
 import { eq } from "drizzle-orm";
 
 const app = new Hono();
@@ -12,22 +12,29 @@ app.get("/", async (c) => {
   return c.json(rows);
 });
 
-app.post("/", async (c) => {
+app.post("/", requireAdminOrPrincipal, async (c) => {
   const body = await c.req.json();
   const [row] = await db.insert(inventoryItems).values(body).returning();
   return c.json(row, 201);
 });
 
-app.put("/:id", async (c) => {
+app.put("/:id", requireAdminOrPrincipal, async (c) => {
   const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id)) return c.json({ message: "Invalid inventory id" }, 400);
   const body = await c.req.json();
   const { id: _id, createdAt, ...safePayload } = body;
-  const [row] = await db.update(inventoryItems).set(safePayload).where(eq(inventoryItems.id, id)).returning();
+  const [row] = await db
+    .update(inventoryItems)
+    .set(safePayload)
+    .where(eq(inventoryItems.id, id))
+    .returning();
+  if (!row) return c.json({ message: "Inventory item not found" }, 404);
   return c.json(row);
 });
 
-app.delete("/:id", async (c) => {
+app.delete("/:id", requireAdminOrPrincipal, async (c) => {
   const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id)) return c.json({ message: "Invalid inventory id" }, 400);
   await db.delete(inventoryItems).where(eq(inventoryItems.id, id));
   return c.json({ success: true });
 });
