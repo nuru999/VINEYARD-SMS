@@ -1,63 +1,88 @@
 # Vineyard Primary School — Management System
 
-A full-stack school management platform built for **Vineyard Primary School, Kenya**.  
-Live: [https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/](https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/)
+A full-stack school management platform for Vineyard Primary School, built as a Bun workspace with a React web client and a Hono API.
 
----
+## Core modules
 
-## Features
+- Dashboard and school KPIs
+- Students, classes, sections and subjects
+- Staff records and attendance
+- Student attendance
+- Exams, results and report cards
+- Fees, payments, payroll and accounts
+- Timetable and certificates
+- Communication
+- Transport
+- Library
+- Inventory
+- School settings
+- User and role management
 
-| Module | What it does |
-|--------|-------------|
-| **Dashboard** | KPI overview — students, fees collected, attendance, payroll |
-| **Students** | Enrol, edit, archive students; class assignment |
-| **Staff** | Staff records, contact details (admin-only) |
-| **Classes & Subjects** | Create classes, assign subjects per class |
-| **Attendance** | Daily mark-in by class; weekly summary |
-| **Exams & Results** | Create exams, record scores per student per subject |
-| **Timetable** | Weekly schedule builder by class |
-| **Report Cards** | Auto-generated from exam data; printable |
-| **Certificates** | Issue achievement/completion certificates |
-| **Fees & Payments** | Fee structure per class; record payments; outstanding balance |
-| **Payroll** | Generate monthly payroll for staff |
-| **Accounts** | Income & expense ledger |
-| **Reports** | Aggregate analytics across all modules |
-| **Communication** | Compose notices to parents / staff |
-| **Transport** | Route & vehicle management |
-| **Library** | Book inventory tracking |
-| **Inventory** | School assets management |
-| **User Management** | Add/remove admin & teacher login accounts (max 2 admins) |
+## Tech stack
 
----
+- **Web:** React 19, Vite, Wouter
+- **API:** Hono
+- **Runtime:** Bun
+- **Authentication:** Better Auth
+- **Database:** Turso / libSQL with Drizzle ORM
+- **Monorepo tooling:** Bun workspaces + Turbo
+- **Deployment:** Bun/Node-compatible hosting; a Dockerfile is included
 
-## Tech Stack
+## Role system
 
-- **Frontend**: React 19 + Vite + Wouter (SPA routing)
-- **Backend**: Hono API (Bun runtime)
-- **Auth**: better-auth (email/password, session-based)
-- **Database**: Turso (libSQL / SQLite edge)
-- **Styling**: Inline styles (no CSS framework dependency)
-- **Deployment**: Runable platform (Node/Bun serverless)
+The application currently supports four school roles:
 
----
+| Role | Intended access |
+|---|---|
+| `admin` | Full school administration and user management |
+| `principal` | School leadership access, including staff, attendance, timetable and operational modules |
+| `teacher` | Student-facing modules scoped to the teacher's assigned class where applicable |
+| `accountant` | Finance-focused access to fee structures, payments, payroll and accounts |
 
-## Role System
+Authorization is enforced on the server. A valid Better Auth session alone is **not enough** to use the school API: the account must also have a matching row in `user_profiles`.
 
-| Role | Access |
-|------|--------|
-| `admin` | All modules including Staff, Fees, Payroll, Accounts, Reports, User Management |
-| `teacher` | All student-facing modules: Students, Classes, Attendance, Exams, Timetable, Report Cards, Certificates, Communication, Transport, Library, Inventory |
+This prevents a self-created authentication account from automatically becoming a usable school account.
 
-- Maximum **2 admin accounts** enforced at signup
-- Role stored in `user_profiles` table; checked server-side on every protected API call
+## Security rules currently enforced
 
----
+- All school API routes require an authenticated, registered school user.
+- Maximum of two admin profiles is enforced by user-management logic.
+- Teachers can only read/write attendance for classes assigned to their user account.
+- Teachers can only read report cards for their assigned classes.
+- Staff operations are limited to admin/principal.
+- Finance routes are restricted by finance roles.
+- Transport, certificate, library and inventory mutations are restricted to admin/principal.
+- User creation validates class assignment before related records are persisted.
 
-## Local Development
+## Project structure
 
-### Prerequisites
-- [Bun](https://bun.sh) ≥ 1.1
-- A [Turso](https://turso.tech) database (free tier works)
+```text
+VINEYARD-SMS/
+├── packages/
+│   ├── web/
+│   │   ├── src/api/
+│   │   │   ├── database/       # Drizzle schema and database client
+│   │   │   ├── middleware/     # Authentication and role middleware
+│   │   │   ├── routes/         # Hono route modules
+│   │   │   ├── auth.ts         # Better Auth configuration
+│   │   │   └── index.ts        # API composition
+│   │   ├── src/web/            # React application
+│   │   └── server.ts           # Production Hono + static server
+│   ├── desktop/
+│   └── mobile/
+├── .env.example
+├── Dockerfile
+├── package.json
+├── bun.lock
+└── turbo.json
+```
+
+## Local development
+
+### Requirements
+
+- Bun 1.3.x
+- A Turso/libSQL database
 
 ### Setup
 
@@ -65,106 +90,103 @@ Live: [https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/](https://tev9r78
 git clone https://github.com/nuru999/VINEYARD-SMS.git
 cd VINEYARD-SMS
 
-# Install dependencies
 bun install
-
-# Copy env template
 cp .env.example .env
-# Fill in your Turso DATABASE_URL and DATABASE_AUTH_TOKEN
+```
 
-# Run database migrations
+Edit `.env` and provide your database and auth values.
+
+### Environment variables
+
+```env
+DATABASE_URL=libsql://your-database.turso.io
+DATABASE_AUTH_TOKEN=your-turso-auth-token
+BETTER_AUTH_SECRET=replace-with-a-long-random-secret
+WEBSITE_URL=http://localhost:4200
+REMOTE_URL=
+PORT=3000
+```
+
+`WEBSITE_URL` is the primary application origin used by Better Auth/CORS. `REMOTE_URL` is an optional fallback for hosted environments.
+
+### Database commands
+
+From the repository root:
+
+```bash
+bun run db:generate
+bun run db:migrate
+```
+
+You can also inspect the database with:
+
+```bash
+bun run db:studio
+```
+
+### Run the web application
+
+```bash
+bun run dev
+```
+
+### Production build
+
+```bash
 cd packages/web
-bun src/api/database/migrate.ts
-
-# Start dev server (port 4200)
-bun dev
+bun run build
+bun run start
 ```
 
-### Environment Variables
+The production server uses `PORT` when supplied by the hosting platform.
 
-```
-DATABASE_URL=libsql://your-db.turso.io
-DATABASE_AUTH_TOKEN=your-token-here
-BETTER_AUTH_SECRET=any-long-random-string
-BASE_URL=http://localhost:4200
-```
+## First admin bootstrap
 
----
+Better Auth email/password signup is still enabled for bootstrap compatibility, but an auth account without a `user_profiles` row cannot access the school API.
 
-## First-Time Setup (Production)
+For the initial installation:
 
-1. Deploy to your hosting platform
-2. Set the environment variables above
-3. Run migrations once: `bun src/api/database/migrate.ts`
-4. Create the first admin account via the sign-up API:
-   ```bash
-   curl -X POST https://your-domain.com/api/auth/sign-up/email \
-     -H "Content-Type: application/json" \
-     -d '{"name":"School Admin","email":"admin@yourschool.com","password":"YourSecurePassword"}'
-   ```
-5. Manually set that user as admin in the database:
-   ```sql
-   INSERT INTO user_profiles (user_id, role) VALUES ('<userId-from-above>', 'admin');
-   ```
-6. Sign in at `/sign-in`
+1. Create the first authentication account.
+2. Add its `user.id` to `user_profiles` with role `admin` directly in the database.
+3. Sign in as that admin.
+4. Create all future school users through the application's User Management module.
 
----
+For a future hardening pass, public signup can be disabled entirely after migrating user creation to Better Auth's Admin plugin.
 
-## Project Structure
+## Database overview
 
-```
-packages/
-  web/
-    src/
-      api/
-        database/       # Schema, migrations, DB client
-        middleware/      # Auth, requireAdmin middleware
-        routes/          # All API route handlers
-        auth.ts          # better-auth configuration
-        index.ts         # Hono app entry
-      web/
-        components/      # Sidebar, shared UI
-        lib/             # Auth client
-        pages/           # All 18 page components
-        app.tsx          # Router + ProtectedRoute/AdminRoute
-        main.tsx         # React entry
-```
+Important application tables include:
 
----
+- `user_profiles`
+- `classes`, `sections`, `subjects`
+- `staff`, `staff_attendance`
+- `students`, `attendance`
+- `exams`, `exam_results`
+- `fee_structures`, `fee_payments`
+- `payroll`, `transactions`
+- `timetable_slots`
+- `messages`
+- `transport_routes`, `transport_assignments`
+- `library_books`, `library_borrows`
+- `inventory_items`
+- `certificates`
+- `school_settings`
 
-## Database Schema (key tables)
+Better Auth manages `user`, `session`, `account` and `verification`.
 
-- `user` / `session` / `account` / `verification` — better-auth managed
-- `user_profiles` — `user_id`, `role` (admin|teacher)
-- `students` — full student records
-- `staff` — staff records
-- `classes` — class definitions
-- `subjects` — subjects per class
-- `attendance` / `attendance_records` — daily attendance
-- `exams` / `exam_results` — exam scores
-- `timetable_entries` — weekly schedule
-- `fee_structures` / `fee_payments` — fees
-- `payroll_records` — payroll
-- `transactions` — accounts ledger
-- `messages` — communication
-- `transport_routes` / `vehicles` — transport
-- `books` — library
-- `inventory_items` — inventory
-- `certificates` — issued certificates
+## CI
 
----
+Pull requests to `main` run a GitHub Actions build check for the web package using Bun.
 
-## Handover Notes (for school IT supervisor)
+## Current engineering priorities
 
-- **Login URL**: `/sign-in`  
-- **Admin credentials**: Contact the person who set up the system — passwords are not stored in plain text  
-- **Backups**: Turso provides automatic cloud backups; export via Turso dashboard  
-- **Adding teachers**: Go to **User Management** → **Add User** → select role "Teacher"  
-- **Max admins**: System enforces maximum 2 admin accounts  
-- **Support**: Raise issues on [GitHub](https://github.com/nuru999/VINEYARD-SMS/issues)
-
----
+1. Complete backend authorization hardening.
+2. Add systematic request validation with Zod.
+3. Add database foreign keys/unique constraints where appropriate and generate migrations.
+4. Add API tests for role boundaries and critical flows.
+5. Verify deployment configuration and production environment variables.
+6. Add screenshots/demo information for portfolio presentation.
 
 ## License
 
-Private — Vineyard Primary School, Kenya. All rights reserved.
+Private project for Vineyard Primary School. All rights reserved.
