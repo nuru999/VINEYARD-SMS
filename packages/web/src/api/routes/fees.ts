@@ -2,19 +2,21 @@ import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
 import { eq, gt } from "drizzle-orm";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireAdminOrAccountant, requireFinanceAccess } from "../middleware/auth";
 
 export const feeStructuresRoutes = new Hono()
-  .get("/", requireAuth, async (c) => {
+  // All finance roles need fee structures to display/record payments.
+  .get("/", requireFinanceAccess, async (c) => {
     const data = await db.select().from(schema.feeStructures);
     return c.json({ feeStructures: data }, 200);
   })
-  .post("/", requireAuth, async (c) => {
+  // Only admin/accountant can change the school's fee structure.
+  .post("/", requireAdminOrAccountant, async (c) => {
     const body = await c.req.json();
     const [fs] = await db.insert(schema.feeStructures).values(body).returning();
     return c.json({ feeStructure: fs }, 201);
   })
-  .put("/:id", requireAuth, async (c) => {
+  .put("/:id", requireAdminOrAccountant, async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
     const { id: _id, createdAt, ...safePayload } = body;
@@ -22,7 +24,7 @@ export const feeStructuresRoutes = new Hono()
     if (!fs) return c.json({ message: "Fee structure not found" }, 404);
     return c.json({ feeStructure: fs }, 200);
   })
-  .delete("/:id", requireAuth, async (c) => {
+  .delete("/:id", requireAdminOrAccountant, async (c) => {
     const id = parseInt(c.req.param("id"));
     await db.delete(schema.feeStructures).where(eq(schema.feeStructures.id, id));
     return c.json({ message: "Deleted" }, 200);
