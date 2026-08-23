@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "./auth";
-import { authMiddleware, requireAdmin, requireAdminOrPrincipal, requireAdminOrAccountant, requireFinanceAccess } from "./middleware/auth";
+import {
+  authMiddleware,
+  requireAuth,
+  requireAdminOrPrincipal,
+  requireAdminOrAccountant,
+  requireFinanceAccess,
+} from "./middleware/auth";
 import { userManagementRoutes } from "./routes/user-management";
 import { students } from "./routes/students";
 import { staffRoutes } from "./routes/staff";
@@ -59,6 +65,9 @@ const app = new Hono()
   .basePath("api")
   .use("*", authMiddleware)
   .get("/health", (c) => c.json({ status: "ok" }, 200))
+  // Everything below health requires a valid authenticated session.
+  // Route-level role middleware still decides what each user is allowed to do.
+  .use("*", requireAuth)
 
   // ── Routes open to all authenticated users (teachers + admins) ──
   .route("/students", students)
