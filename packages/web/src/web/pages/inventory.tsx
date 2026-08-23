@@ -1,40 +1,75 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "../components/layout";
+import { useToast } from "../components/ui/toast";
 import { api } from "../lib/api";
+import { useRole } from "../lib/use-role";
 
 const CATEGORIES = ["Furniture", "Electronics", "Sports", "Stationery", "Kitchen", "Cleaning", "Books", "Laboratory", "Other"];
 const CONDITIONS = ["good", "fair", "poor", "damaged"];
 const CONDITION_COLORS: Record<string, string> = { good: "#3FB950", fair: "#E3B341", poor: "#E91E8C", damaged: "#F85149" };
+const EMPTY_FORM = { name: "", category: "Furniture", quantity: "1", condition: "good", location: "", purchaseDate: "", notes: "" };
+
+async function parseResponse(response: Response) {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error((data as any)?.message || "Request failed");
+  return data;
+}
 
 export default function InventoryPage() {
   const qc = useQueryClient();
+  const { isAdmin, isPrincipal } = useRole();
+  const canManageInventory = isAdmin || isPrincipal;
+  const { error: toastError } = useToast();
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<any>(null);
   const [filterCat, setFilterCat] = useState("");
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({ name: "", category: "Furniture", quantity: "1", condition: "good", location: "", purchaseDate: "", notes: "" });
+  const [form, setForm] = useState(EMPTY_FORM);
 
-  const { data: items = [], isLoading } = useQuery({ queryKey: ["inventory"], queryFn: async () => (await api.inventory.$get()).json() });
+  const { data: itemsData = [], isLoading } = useQuery({
+    queryKey: ["inventory"],
+    queryFn: async () => parseResponse(await api.inventory.$get()),
+  });
+  const items = Array.isArray(itemsData) ? itemsData as any[] : [];
+
+  const showMutationError = (title: string) => (err: unknown) =>
+    toastError(title, err instanceof Error ? err.message : "Request failed");
 
   const saveItem = useMutation({
     mutationFn: async () => {
-      if (editItem) {
-        return (await api.inventory[":id"].$put({ param: { id: String(editItem.id) }, json: { ...form, quantity: Number(form.quantity) } })).json();
-      }
-      return (await api.inventory.$post({ json: { ...form, quantity: Number(form.quantity) } })).json();
+      const json = { ...form, quantity: Number(form.quantity) };
+      const response = editItem
+        ? await api.inventory[":id"].$put({ param: { id: String(editItem.id) }, json })
+        : await api.inventory.$post({ json });
+      return parseResponse(response);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["inventory"] }); setShowModal(false); setEditItem(null); setForm({ name: "", category: "Furniture", quantity: "1", condition: "good", location: "", purchaseDate: "", notes: "" }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["inventory"] });
+      setShowModal(false);
+      setEditItem(null);
+      setForm(EMPTY_FORM);
+    },
+    onError: showMutationError("Could not save inventory item"),
   });
 
   const deleteItem = useMutation({
-    mutationFn: async (id: number) => (await api.inventory[":id"].$delete({ param: { id: String(id) } })).json(),
+    mutationFn: async (id: number) => parseResponse(await api.inventory[":id"].$delete({ param: { id: String(id) } })),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["inventory"] }),
+    onError: showMutationError("Could not delete inventory item"),
   });
 
   const openEdit = (item: any) => {
     setEditItem(item);
-    setForm({ name: item.name, category: item.category, quantity: item.quantity?.toString(), condition: item.condition, location: item.location || "", purchaseDate: item.purchaseDate || "", notes: item.notes || "" });
+    setForm({
+      name: item.name,
+      category: item.category,
+      quantity: String(item.quantity ?? 0),
+      condition: item.condition,
+      location: item.location || "",
+      purchaseDate: item.purchaseDate || "",
+      notes: item.notes || "",
+    });
     setShowModal(true);
   };
 
@@ -42,15 +77,21 @@ export default function InventoryPage() {
     (!filterCat || i.category === filterCat) &&
     (!search || i.name.toLowerCase().includes(search.toLowerCase()) || (i.location || "").toLowerCase().includes(search.toLowerCase()))
   );
-
-  const totalItems = items.reduce((s: number, i: any) => s + (i.quantity || 0), 0);
+  const totalItems = items.reduce((s: number, i: any) => s + Number(i.quantity || 0), 0);
   const needsAttention = items.filter((i: any) => i.condition === "poor" || i.condition === "damaged").length;
 
-  if (isLoading) return <Layout title="Inventory & Assets"><div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 300, color: "#64748B", fontSize: 16 }}>Loading inventory...</div></Layout>;
+  if (isLoading) {
+    return <Layout title="Inventory & Assets"><div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 300, color: "#64748B", fontSize: 16 }}>Loading inventory...</div></Layout>;
+  }
 
   return (
     <Layout title="Inventory & Assets">
-      {/* Stats */}
+      {!canManageInventory && (
+        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", color: "#64748B", fontSize: 13 }}>
+          Inventory is read-only for your role. Administrators and principals manage asset records.
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
         {[
           { label: "Total Items", value: items.length, color: "#E91E8C" },
@@ -65,7 +106,6 @@ export default function InventoryPage() {
         ))}
       </div>
 
-      {/* Controls */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search items..."
           style={{ flex: 1, minWidth: 180, padding: "8px 14px", background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 }} />
@@ -74,16 +114,18 @@ export default function InventoryPage() {
           <option value="">All Categories</option>
           {CATEGORIES.map(c => <option key={c}>{c}</option>)}
         </select>
-        <button onClick={() => { setEditItem(null); setForm({ name: "", category: "Furniture", quantity: "1", condition: "good", location: "", purchaseDate: "", notes: "" }); setShowModal(true); }}
-          style={{ padding: "8px 18px", background: "#E91E8C", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600 }}>+ Add Item</button>
+        {canManageInventory && (
+          <button onClick={() => { setEditItem(null); setForm(EMPTY_FORM); setShowModal(true); }}
+            style={{ padding: "8px 18px", background: "#E91E8C", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600 }}>+ Add Item</button>
+        )}
       </div>
 
       <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#1B4D4D" }}>
-              {["Item Name", "Category", "Qty", "Condition", "Location", "Purchase Date", ""].map(h => (
-                <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 12, color: "#fff", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
+              {["Item Name", "Category", "Qty", "Condition", "Location", "Purchase Date", ...(canManageInventory ? [""] : [])].map((h, i) => (
+                <th key={`${h}-${i}`} style={{ padding: "12px 16px", textAlign: "left", fontSize: 12, color: "#fff", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -98,31 +140,32 @@ export default function InventoryPage() {
                 <td style={tdI}><span style={{ fontWeight: 700, color: "#1E293B" }}>{item.quantity}</span></td>
                 <td style={tdI}>
                   <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
-                    background: `${CONDITION_COLORS[item.condition]}22`, color: CONDITION_COLORS[item.condition] }}>
+                    background: `${CONDITION_COLORS[item.condition] || "#64748B"}22`, color: CONDITION_COLORS[item.condition] || "#64748B" }}>
                     {item.condition}
                   </span>
                 </td>
                 <td style={tdI}>{item.location || "—"}</td>
                 <td style={tdI}>{item.purchaseDate || "—"}</td>
-                <td style={tdI}>
-                  <button onClick={() => openEdit(item)} style={{ fontSize: 12, color: "#64748B", background: "none", border: "none", cursor: "pointer", marginRight: 8 }}>Edit</button>
-                  <button onClick={() => deleteItem.mutate(item.id)} style={{ fontSize: 12, color: "#F85149", background: "none", border: "none", cursor: "pointer" }}>Delete</button>
-                </td>
+                {canManageInventory && (
+                  <td style={tdI}>
+                    <button onClick={() => openEdit(item)} style={{ fontSize: 12, color: "#64748B", background: "none", border: "none", cursor: "pointer", marginRight: 8 }}>Edit</button>
+                    <button onClick={() => { if (confirm("Delete this inventory item?")) deleteItem.mutate(item.id); }} style={{ fontSize: 12, color: "#F85149", background: "none", border: "none", cursor: "pointer" }}>Delete</button>
+                  </td>
+                )}
               </tr>
             ))}
-            {filtered.length === 0 && <tr><td colSpan={7} style={{ padding: 40, textAlign: "center", color: "#64748B" }}>No items found</td></tr>}
+            {filtered.length === 0 && <tr><td colSpan={canManageInventory ? 7 : 6} style={{ padding: 40, textAlign: "center", color: "#64748B" }}>No items found</td></tr>}
           </tbody>
         </table>
       </div>
 
-      {showModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
-          <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, padding: 28, width: 420, maxHeight: "90vh", overflowY: "auto" }}>
+      {canManageInventory && showModal && (
+        <div style={overlay}>
+          <div style={modal}>
             <h3 style={{ margin: "0 0 20px", color: "#1E293B" }}>{editItem ? "Edit Item" : "Add Item"}</h3>
             <div style={{ marginBottom: 12 }}>
               <label style={lbl}>Item Name *</label>
-              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                style={inp} placeholder="e.g. Student Desk" />
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={inp} placeholder="e.g. Student Desk" />
             </div>
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
               <div style={{ flex: 2 }}>
@@ -133,7 +176,7 @@ export default function InventoryPage() {
               </div>
               <div style={{ flex: 1 }}>
                 <label style={lbl}>Quantity</label>
-                <input type="number" min="0" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} style={inp} />
+                <input type="number" min="0" step="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} style={inp} />
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
@@ -157,10 +200,10 @@ export default function InventoryPage() {
               <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={inp} placeholder="Optional notes" />
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => saveItem.mutate()} disabled={!form.name}
-                style={{ flex: 1, padding: "10px", background: "#E91E8C", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600 }}>Save</button>
-              <button onClick={() => { setShowModal(false); setEditItem(null); }}
-                style={{ flex: 1, padding: "10px", background: "#F1F5F9", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", cursor: "pointer" }}>Cancel</button>
+              <button onClick={() => saveItem.mutate()} disabled={!form.name.trim() || saveItem.isPending} style={primaryButton}>
+                {saveItem.isPending ? "Saving..." : "Save"}
+              </button>
+              <button onClick={() => { setShowModal(false); setEditItem(null); }} style={secondaryButton}>Cancel</button>
             </div>
           </div>
         </div>
@@ -171,4 +214,8 @@ export default function InventoryPage() {
 
 const tdI: React.CSSProperties = { padding: "12px 16px", fontSize: 14, color: "#64748B" };
 const lbl: React.CSSProperties = { display: "block", marginBottom: 5, fontSize: 13, color: "#64748B" };
-const inp: React.CSSProperties = { width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14 };
+const inp: React.CSSProperties = { width: "100%", padding: "8px 12px", background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14, boxSizing: "border-box" };
+const overlay: React.CSSProperties = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 };
+const modal: React.CSSProperties = { background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 12, padding: 28, width: 420, maxHeight: "90vh", overflowY: "auto" };
+const primaryButton: React.CSSProperties = { flex: 1, padding: "10px", background: "#E91E8C", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600 };
+const secondaryButton: React.CSSProperties = { flex: 1, padding: "10px", background: "#F1F5F9", border: "1px solid #E2E8F0", borderRadius: 8, color: "#1E293B", cursor: "pointer" };
