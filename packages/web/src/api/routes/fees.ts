@@ -2,7 +2,17 @@ import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
 import { eq, gt } from "drizzle-orm";
-import { requireAuth, requireAdminOrAccountant, requireFinanceAccess } from "../middleware/auth";
+import { requireAdminOrAccountant, requireFinanceAccess } from "../middleware/auth";
+
+const financeStudent = (student: any) => ({
+  id: student.id,
+  admissionNo: student.admissionNo,
+  name: student.name,
+  classId: student.classId,
+  parentName: student.parentName,
+  parentPhone: student.parentPhone,
+  status: student.status,
+});
 
 export const feeStructuresRoutes = new Hono()
   // All finance roles need fee structures to display/record payments.
@@ -13,14 +23,33 @@ export const feeStructuresRoutes = new Hono()
   // Only admin/accountant can change the school's fee structure.
   .post("/", requireAdminOrAccountant, async (c) => {
     const body = await c.req.json();
-    const [fs] = await db.insert(schema.feeStructures).values(body).returning();
+    const classId = Number(body.classId);
+    const amount = Number(body.amount);
+    if (!body.name?.trim() || !Number.isInteger(classId) || classId <= 0 || !Number.isFinite(amount) || amount <= 0) {
+      return c.json({ message: "Fee name, class, and a positive amount are required" }, 400);
+    }
+    const [fs] = await db.insert(schema.feeStructures).values({
+      name: body.name.trim(),
+      classId,
+      amount,
+      frequency: body.frequency || "termly",
+    }).returning();
     return c.json({ feeStructure: fs }, 201);
   })
   .put("/:id", requireAdminOrAccountant, async (c) => {
     const id = parseInt(c.req.param("id"));
     const body = await c.req.json();
-    const { id: _id, createdAt, ...safePayload } = body;
-    const [fs] = await db.update(schema.feeStructures).set(safePayload).where(eq(schema.feeStructures.id, id)).returning();
+    const classId = Number(body.classId);
+    const amount = Number(body.amount);
+    if (!body.name?.trim() || !Number.isInteger(classId) || classId <= 0 || !Number.isFinite(amount) || amount <= 0) {
+      return c.json({ message: "Fee name, class, and a positive amount are required" }, 400);
+    }
+    const [fs] = await db.update(schema.feeStructures).set({
+      name: body.name.trim(),
+      classId,
+      amount,
+      frequency: body.frequency || "termly",
+    }).where(eq(schema.feeStructures.id, id)).returning();
     if (!fs) return c.json({ message: "Fee structure not found" }, 404);
     return c.json({ feeStructure: fs }, 200);
   })
@@ -31,45 +60,101 @@ export const feeStructuresRoutes = new Hono()
   });
 
 export const feePaymentsRoutes = new Hono()
-  .get("/defaulters", requireAuth, async (c) => {
-    // All students with any outstanding balance
+  // Minimal student details needed by finance workflows. This avoids granting
+  // accountants access to the full academic student record endpoint.
+  .get("/students", requireFinanceAccess, async (c) => {
+    const students = await db.select().from(schema.students);
+    return c.json({ students: students.map(financeStudent) }, 200);
+  })
+  .get("/defaulters", requireFinanceAccess, async (c) => {
     const payments = await db.select().from(schema.feePayments).where(gt(schema.feePayments.balance, 0));
     const students = await db.select().from(schema.students);
     const classes = await db.select().from(schema.classes);
 
-    // Group by student, sum outstanding
     const map: Record<number, { student: any; class: any; totalOwed: number; totalPaid: number; entries: any[] }> = {};
     for (const p of payments) {
       if (!map[p.studentId]) {
         const student = students.find(s => s.id === p.studentId);
         const cls = classes.find(c => c.id === student?.classId);
-        map[p.studentId] = { student, class: cls, totalOwed: 0, totalPaid: 0, entries: [] };
+        map[p.studentId] = {
+          student: student ? financeStudent(student) : null,
+          class: cls ? { id: cls.id, name: cls.name } : null,
+          totalOwed: 0,
+          totalPaid: 0,
+          entries: [],
+        };
       }
-      map[p.studentId].totalOwed += p.balance || 0;
-      map[p.studentId].totalPaid += p.paidAmount || 0;
+      map[p.studentId].totalOwed += Number(p.balance || 0);
+      map[p.studentId].totalPaid += Number(p.paidAmount || 0);
       map[p.studentId].entries.push(p);
     }
 
     const defaulters = Object.values(map).sort((a, b) => b.totalOwed - a.totalOwed);
     return c.json({ defaulters, count: defaulters.length }, 200);
   })
-  .get("/", requireAuth, async (c) => {
+  .get("/", requireFinanceAccess, async (c) => {
     const data = await db.select().from(schema.feePayments);
     return c.json({ payments: data }, 200);
   })
-  .post("/", requireAuth, async (c) => {
+  .post("/", requireFinanceAccess, async (c) => {
     const body = await c.req.json();
-    const receiptNo = `RCP-${Date.now()}`;
-    const [payment] = await db.insert(schema.feePayments).values({ ...body, receiptNo }).returning();
+    const studentId = Number(body.studentId);
+    const feeStructureId = body.feeStructureId ? Number(body.feeStructureId) : null;
+    const amount = Number(body.amount);
+    const paidAmount = Number(body.paidAmount);
+    const discount = Number(body.discount || 0);
+
+    if (!Number.isInteger(studentId) || studentId <= 0 || !body.paymentDate) {
+      return c.json({ message: "Student and payment date are required" }, 400);
+    }
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(paidAmount) || paidAmount < 0 || !Number.isFinite(discount) || discount < 0) {
+      return c.json({ message: "Payment amounts must be valid non-negative numbers" }, 400);
+    }
+    if (paidAmount + discount > amount) {
+      return c.json({ message: "Paid amount plus discount cannot exceed the total fee amount" }, 400);
+    }
+
+    const [student] = await db.select().from(schema.students).where(eq(schema.students.id, studentId));
+    if (!student) return c.json({ message: "Student not found" }, 404);
+
+    if (feeStructureId !== null) {
+      if (!Number.isInteger(feeStructureId) || feeStructureId <= 0) {
+        return c.json({ message: "Invalid fee structure" }, 400);
+      }
+      const [feeStructure] = await db.select().from(schema.feeStructures).where(eq(schema.feeStructures.id, feeStructureId));
+      if (!feeStructure) return c.json({ message: "Fee structure not found" }, 404);
+      if (student.classId !== feeStructure.classId) {
+        return c.json({ message: "Fee structure does not apply to the selected student's class" }, 400);
+      }
+    }
+
+    const balance = amount - paidAmount - discount;
+    const receiptNo = `RCP-${Date.now()}-${Math.floor(Math.random() * 1000).toString().padStart(3, "0")}`;
+    const [payment] = await db.insert(schema.feePayments).values({
+      studentId,
+      feeStructureId,
+      amount,
+      discount,
+      paidAmount,
+      balance,
+      paymentDate: String(body.paymentDate),
+      paymentMethod: body.paymentMethod || "cash",
+      term: body.term || null,
+      receiptNo,
+      notes: body.notes || null,
+      collectedBy: body.collectedBy ? Number(body.collectedBy) : null,
+    }).returning();
     return c.json({ payment }, 201);
   })
-  .get("/:id", requireAuth, async (c) => {
+  .get("/:id", requireFinanceAccess, async (c) => {
     const id = parseInt(c.req.param("id"));
     const [payment] = await db.select().from(schema.feePayments).where(eq(schema.feePayments.id, id));
     if (!payment) return c.json({ message: "Not found" }, 404);
     return c.json({ payment }, 200);
   })
-  .delete("/:id", requireAuth, async (c) => {
+  // Deleting financial records is limited to admin/accountant. Principals can
+  // view and record payments but cannot erase the audit trail.
+  .delete("/:id", requireAdminOrAccountant, async (c) => {
     const id = parseInt(c.req.param("id"));
     await db.delete(schema.feePayments).where(eq(schema.feePayments.id, id));
     return c.json({ message: "Deleted" }, 200);
