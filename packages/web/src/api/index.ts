@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import { auth } from "./auth";
 import {
   authMiddleware,
-  requireAuth,
+  requireSchoolUser,
   requireAdminOrPrincipal,
   requireAdminOrAccountant,
   requireFinanceAccess,
@@ -65,11 +65,11 @@ const app = new Hono()
   .basePath("api")
   .use("*", authMiddleware)
   .get("/health", (c) => c.json({ status: "ok" }, 200))
-  // Everything below health requires a valid authenticated session.
-  // Route-level role middleware still decides what each user is allowed to do.
-  .use("*", requireAuth)
+  // Everything below health requires a valid session plus a registered school profile.
+  // This blocks self-created auth accounts that have not been provisioned by the school.
+  .use("*", requireSchoolUser)
 
-  // ── Routes open to all authenticated users (teachers + admins) ──
+  // ── Routes open to all registered school users ──
   .route("/students", students)
   .route("/classes", classesRoutes)
   .route("/sections", sectionsRoutes)
@@ -92,11 +92,11 @@ const app = new Hono()
   .use("/staff/*", requireAdminOrPrincipal)
   .route("/staff", staffRoutes)
 
-  // Fee structures: admin + accountant (accountants need to view/add structures)
+  // Fee structures: admin + accountant
   .use("/fee-structures/*", requireAdminOrAccountant)
   .route("/fee-structures", feeStructuresRoutes)
 
-  // Fee payments: admin + accountant + principal (all finance roles)
+  // Fee payments: admin + accountant + principal
   .use("/fee-payments/*", requireFinanceAccess)
   .route("/fee-payments", feePaymentsRoutes)
 
