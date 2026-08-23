@@ -110,6 +110,7 @@ export const feePayments = sqliteTable("fee_payments", {
   balance: real("balance").default(0),
   paymentDate: text("payment_date").notNull(),
   paymentMethod: text("payment_method").default("cash"), // cash | mpesa | bank
+  term: text("term"),
   receiptNo: text("receipt_no"),
   notes: text("notes"),
   collectedBy: integer("staff_id"),
