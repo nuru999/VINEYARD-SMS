@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "./auth";
-import { authMiddleware, requireAdmin, requireAdminOrPrincipal, requireAdminOrAccountant, requireFinanceAccess } from "./middleware/auth";
+import { authMiddleware, requireAdminOrPrincipal, requireFinanceAccess } from "./middleware/auth";
 import { userManagementRoutes } from "./routes/user-management";
 import { students } from "./routes/students";
 import { staffRoutes } from "./routes/staff";
@@ -83,20 +83,17 @@ const app = new Hono()
   .use("/staff/*", requireAdminOrPrincipal)
   .route("/staff", staffRoutes)
 
-  // Fee structures: admin + accountant (accountants need to view/add structures)
-  .use("/fee-structures/*", requireAdminOrAccountant)
+  // Fee structures: finance roles can read; admin/accountant writes are enforced inside the route.
   .route("/fee-structures", feeStructuresRoutes)
 
   // Fee payments: admin + accountant + principal (all finance roles)
   .use("/fee-payments/*", requireFinanceAccess)
   .route("/fee-payments", feePaymentsRoutes)
 
-  // Payroll: admin + accountant
-  .use("/payroll/*", requireAdminOrAccountant)
+  // Payroll: finance roles can read; admin/accountant writes are enforced inside the route.
   .route("/payroll", payrollRoutes)
 
-  // Accounts/transactions: admin + accountant
-  .use("/accounts/*", requireAdminOrAccountant)
+  // Accounts/transactions: finance roles can read; admin/accountant writes are enforced inside the route.
   .route("/accounts", accountsRoutes)
 
   // ── User management (admin only, handled inside the route) ──
