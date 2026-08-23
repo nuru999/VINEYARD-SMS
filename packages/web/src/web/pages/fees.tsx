@@ -4,13 +4,9 @@ import { useToast } from "../components/ui/toast";
 import { Plus, Trash2, MessageCircle, CheckCircle, Printer, Download, FileSpreadsheet } from "lucide-react";
 import { Layout } from "../components/layout";
 import { exportExcel, exportCSV } from "../lib/export";
-import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
 import { Modal } from "../components/ui/modal";
 import { Input, Select } from "../components/ui/input";
-import { Card, StatCard } from "../components/ui/card";
-import { api } from "../lib/api";
-import { DollarSign, TrendingDown, AlertCircle } from "lucide-react";
+import { useRole } from "../lib/use-role";
 
 const SCHOOL_NAME = "Vineyard Primary School";
 const SCHOOL_MOTTO = "Fruitful Development";
@@ -21,6 +17,12 @@ const emptyPayment = { studentId: "", feeStructureId: "", amount: "", paidAmount
 type Tab = "payments" | "defaulters" | "structures" | "summary";
 
 const fmt = (n: number) => `KES ${(n || 0).toLocaleString("en-KE")}`;
+
+async function parseResponse(response: Response) {
+  const data = await response.json();
+  if (!response.ok) throw new Error((data as any)?.message || "Request failed");
+  return data;
+}
 
 function printHTML(html: string, title: string) {
   const win = window.open("", "_blank", "width=800,height=900");
@@ -53,6 +55,9 @@ function printHTML(html: string, title: string) {
 
 export default function FeesPage() {
   const qc = useQueryClient();
+  const { role } = useRole();
+  const canManageStructures = role === "admin" || role === "accountant";
+  const canDeletePayments = role === "admin" || role === "accountant";
   const { success, error: toastError } = useToast();
   const [tab, setTab] = useState<Tab>("payments");
   const [structureModal, setStructureModal] = useState(false);
@@ -93,12 +98,12 @@ export default function FeesPage() {
   });
 
   const { data: studentsData } = useQuery({
-    queryKey: ["students"],
+    queryKey: ["fee-students"],
     queryFn: async () => {
-      const r = await fetch("/api/students?limit=1000", { credentials: "include" });
+      const r = await fetch("/api/fee-payments/students", { credentials: "include" });
       if (!r.ok) return [];
       const j = await r.json();
-      return Array.isArray(j.students) ? j.students : Array.isArray(j) ? j : [];
+      return Array.isArray(j.students) ? j.students : [];
     },
   });
 
@@ -114,14 +119,22 @@ export default function FeesPage() {
 
   const saveStructure = useMutation({
     mutationFn: async (f: any) => {
+      if (!canManageStructures) throw new Error("You do not have permission to change fee structures");
+      if (!f.classId) throw new Error("Select a class for this fee structure");
       const r = await fetch("/api/fee-structures", {
-        method: "POST", credentials: "include",
+        method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...f, amount: parseFloat(f.amount), classId: f.classId ? parseInt(f.classId) : null }),
+        body: JSON.stringify({ ...f, amount: parseFloat(f.amount), classId: parseInt(f.classId) }),
       });
-      return r.json();
+      return parseResponse(r);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["fee-structures"] }); setStructureModal(false); setSf(emptyStructure); success("Fee structure saved"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["fee-structures"] });
+      setStructureModal(false);
+      setSf(emptyStructure);
+      success("Fee structure saved");
+    },
     onError: (e: any) => toastError("Save failed", e?.message),
   });
 
@@ -130,19 +143,28 @@ export default function FeesPage() {
       const amt = parseFloat(f.amount);
       const paid = parseFloat(f.paidAmount);
       const disc = parseFloat(f.discount || "0");
-      const bal = amt - paid - disc;
+      if (paid + disc > amt) throw new Error("Paid amount plus discount cannot exceed the total amount");
       const r = await fetch("/api/fee-payments", {
-        method: "POST", credentials: "include",
+        method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...f, studentId: parseInt(f.studentId), amount: amt, paidAmount: paid, discount: disc, balance: bal, feeStructureId: f.feeStructureId ? parseInt(f.feeStructureId) : null }),
+        body: JSON.stringify({
+          ...f,
+          studentId: parseInt(f.studentId),
+          amount: amt,
+          paidAmount: paid,
+          discount: disc,
+          feeStructureId: f.feeStructureId ? parseInt(f.feeStructureId) : null,
+        }),
       });
-      return r.json();
+      return parseResponse(r);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fee-payments"] });
       qc.invalidateQueries({ queryKey: ["fee-defaulters"] });
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      setPaymentModal(false); setPf(emptyPayment);
+      setPaymentModal(false);
+      setPf(emptyPayment);
       success("Payment recorded");
     },
     onError: (e: any) => toastError("Payment failed", e?.message),
@@ -150,15 +172,16 @@ export default function FeesPage() {
 
   const deletePayment = useMutation({
     mutationFn: async (id: number) => {
+      if (!canDeletePayments) throw new Error("You do not have permission to delete payment records");
       const r = await fetch(`/api/fee-payments/${id}`, { method: "DELETE", credentials: "include" });
-      return r.json();
+      return parseResponse(r);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fee-payments"] });
       qc.invalidateQueries({ queryKey: ["fee-defaulters"] });
       success("Payment deleted");
     },
-    onError: () => toastError("Delete failed"),
+    onError: (e: any) => toastError("Delete failed", e?.message),
   });
 
   const payments: any[] = Array.isArray(paymentsData) ? paymentsData : [];
@@ -170,11 +193,15 @@ export default function FeesPage() {
   const getClass = (classId: number) => classes.find(c => c.id === classId);
   const getStructure = (id: number) => structures.find(s => s.id === id);
 
-  const totalCollected = payments.reduce((s, p) => s + (p.paidAmount || 0), 0);
-  const totalBalance = payments.reduce((s, p) => s + (p.balance || 0), 0);
+  const selectedPaymentStudent = students.find(s => s.id === parseInt(pf.studentId));
+  const applicableStructures = selectedPaymentStudent
+    ? structures.filter(fs => fs.classId === selectedPaymentStudent.classId)
+    : [];
+
+  const totalCollected = payments.reduce((s, p) => s + Number(p.paidAmount || 0), 0);
+  const totalBalance = payments.reduce((s, p) => s + Number(p.balance || 0), 0);
   const defaulterCount = defaultersData?.count || 0;
 
-  // Filtered payments for summary
   const filteredPayments = payments.filter(p => {
     const student = getStudent(p.studentId);
     if (filterClass && student?.classId !== parseInt(filterClass)) return false;
@@ -182,20 +209,18 @@ export default function FeesPage() {
     return true;
   });
 
-  // Class summary
   const classSummary = classes.map(cls => {
     const classStudents = students.filter(s => s.classId === cls.id);
     const classPayments = payments.filter(p => classStudents.some(s => s.id === p.studentId));
     return {
       class: cls,
       studentCount: classStudents.length,
-      totalCollected: classPayments.reduce((s, p) => s + (p.paidAmount || 0), 0),
-      totalOutstanding: classPayments.reduce((s, p) => s + (p.balance || 0), 0),
+      totalCollected: classPayments.reduce((s, p) => s + Number(p.paidAmount || 0), 0),
+      totalOutstanding: classPayments.reduce((s, p) => s + Number(p.balance || 0), 0),
       paymentCount: classPayments.length,
     };
   }).filter(c => c.studentCount > 0);
 
-  // ── Export fees to Excel / CSV
   const exportFeesExcel = () => {
     const rows = filteredPayments.map(p => {
       const student = getStudent(p.studentId);
@@ -250,7 +275,6 @@ export default function FeesPage() {
     exportCSV(rows, `VineyardSMS_FeePayments${label}`);
   };
 
-  // ── Print receipt for a single payment
   const printReceipt = (p: any) => {
     const student = getStudent(p.studentId);
     const structure = getStructure(p.feeStructureId);
@@ -299,7 +323,6 @@ export default function FeesPage() {
     `, `Receipt ${p.receiptNo}`);
   };
 
-  // ── Print all payments (filtered)
   const printPaymentsReport = () => {
     const rows = filteredPayments.map(p => {
       const student = getStudent(p.studentId);
@@ -329,8 +352,8 @@ export default function FeesPage() {
         </div>
         <div style="text-align:right;font-size:12px;color:#64748b">
           <div>Total Records: <strong>${filteredPayments.length}</strong></div>
-          <div>Total Collected: <strong style="color:#166534">${fmt(filteredPayments.reduce((s,p)=>s+p.paidAmount,0))}</strong></div>
-          <div>Outstanding: <strong style="color:#991b1b">${fmt(filteredPayments.reduce((s,p)=>s+p.balance,0))}</strong></div>
+          <div>Total Collected: <strong style="color:#166534">${fmt(filteredPayments.reduce((s,p)=>s+Number(p.paidAmount || 0),0))}</strong></div>
+          <div>Outstanding: <strong style="color:#991b1b">${fmt(filteredPayments.reduce((s,p)=>s+Number(p.balance || 0),0))}</strong></div>
         </div>
       </div>
       <table>
@@ -338,14 +361,13 @@ export default function FeesPage() {
         <tbody>${rows}</tbody>
         <tr class="total-row">
           <td colspan="7">TOTAL</td>
-          <td>${fmt(filteredPayments.reduce((s,p)=>s+p.paidAmount,0))}</td>
-          <td>${fmt(filteredPayments.reduce((s,p)=>s+p.balance,0))}</td>
+          <td>${fmt(filteredPayments.reduce((s,p)=>s+Number(p.paidAmount || 0),0))}</td>
+          <td>${fmt(filteredPayments.reduce((s,p)=>s+Number(p.balance || 0),0))}</td>
         </tr>
       </table>
     `, "Fee Payments Report");
   };
 
-  // ── Export defaulters
   const exportDefaultersExcel = () => {
     const defaulters = defaultersData?.defaulters || [];
     const rows = defaulters.map((d: any) => ({
@@ -360,7 +382,6 @@ export default function FeesPage() {
     exportExcel(rows, "VineyardSMS_FeeDefaulters", "Defaulters");
   };
 
-  // ── Print defaulters
   const printDefaulters = () => {
     const defaulters = defaultersData?.defaulters || [];
     const rows = defaulters.map((d: any) => `<tr>
@@ -397,7 +418,6 @@ export default function FeesPage() {
     `, "Fee Defaulters Report");
   };
 
-  // ── Export class summary
   const exportSummaryExcel = () => {
     const rows = classSummary.map(c => ({
       "Class": c.class.name,
@@ -409,7 +429,6 @@ export default function FeesPage() {
     exportExcel(rows, "VineyardSMS_FeeSummaryByClass", "Class Summary");
   };
 
-  // ── Print class summary
   const printClassSummary = () => {
     const rows = classSummary.map(c => `<tr>
       <td style="font-weight:600">${c.class.name}</td>
@@ -456,20 +475,21 @@ export default function FeesPage() {
   ];
 
   const TERMS = ["Term 1", "Term 2", "Term 3"];
+  const balancePreview = Number(pf.amount || 0) - Number(pf.paidAmount || 0) - Number(pf.discount || 0);
 
   return (
     <Layout title="Fees & Payments" action={
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={() => setStructureModal(true)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#F1F5F9", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#374151" }}>
-          <Plus size={14} /> Fee Structure
-        </button>
+        {canManageStructures && (
+          <button onClick={() => setStructureModal(true)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#F1F5F9", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#374151" }}>
+            <Plus size={14} /> Fee Structure
+          </button>
+        )}
         <button onClick={() => setPaymentModal(true)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#E91E8C", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#fff" }}>
           <Plus size={15} /> Record Payment
         </button>
       </div>
     }>
-
-      {/* Summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: "18px 20px" }}>
           <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>Total Collected</div>
@@ -489,7 +509,6 @@ export default function FeesPage() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid #E2E8F0" }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={{
@@ -507,46 +526,29 @@ export default function FeesPage() {
         ))}
       </div>
 
-      {/* TAB: Payment Records */}
       {tab === "payments" && (
         <div>
-          {/* Filters + Print */}
           <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center" }}>
-            <select value={filterClass} onChange={e => setFilterClass(e.target.value)}
-              style={{ padding: "8px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, color: "#374151", background: "#fff" }}>
+            <select value={filterClass} onChange={e => setFilterClass(e.target.value)} style={{ padding: "8px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, color: "#374151", background: "#fff" }}>
               <option value="">All Classes</option>
               {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <select value={filterTerm} onChange={e => setFilterTerm(e.target.value)}
-              style={{ padding: "8px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, color: "#374151", background: "#fff" }}>
+            <select value={filterTerm} onChange={e => setFilterTerm(e.target.value)} style={{ padding: "8px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, color: "#374151", background: "#fff" }}>
               <option value="">All Terms</option>
               {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
             <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
-              <button onClick={exportFeesCSV}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#F0FDF4", color: "#166534", border: "1px solid #BBF7D0", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                <Download size={13} /> CSV
-              </button>
-              <button onClick={exportFeesExcel}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                <FileSpreadsheet size={13} /> Excel
-              </button>
-              <button onClick={printPaymentsReport}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1B4D4D", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                <Printer size={14} /> Print
-              </button>
+              <button onClick={exportFeesCSV} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#F0FDF4", color: "#166534", border: "1px solid #BBF7D0", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}><Download size={13} /> CSV</button>
+              <button onClick={exportFeesExcel} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}><FileSpreadsheet size={13} /> Excel</button>
+              <button onClick={printPaymentsReport} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1B4D4D", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}><Printer size={14} /> Print</button>
             </div>
           </div>
 
           <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
-                  {["Receipt No", "Student", "Class", "Term", "Amount", "Paid", "Balance", "Method", "Date", "Actions"].map(h => (
-                    <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
+              <thead><tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
+                {["Receipt No", "Student", "Class", "Term", "Amount", "Paid", "Balance", "Method", "Date", "Actions"].map(h => <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>{h}</th>)}
+              </tr></thead>
               <tbody>
                 {isLoading ? (
                   <tr><td colSpan={10} style={{ padding: "32px", textAlign: "center", color: "#94A3B8" }}>Loading...</td></tr>
@@ -558,31 +560,20 @@ export default function FeesPage() {
                   return (
                     <tr key={p.id} style={{ borderBottom: "1px solid #F1F5F9" }}>
                       <td style={{ padding: "10px 14px", fontSize: 12, color: "#E91E8C", fontWeight: 700 }}>{p.receiptNo}</td>
-                      <td style={{ padding: "10px 14px" }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{student?.name || `Student #${p.studentId}`}</div>
-                        <div style={{ fontSize: 11, color: "#94A3B8" }}>{student?.admissionNo || ""}</div>
-                      </td>
+                      <td style={{ padding: "10px 14px" }}><div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{student?.name || `Student #${p.studentId}`}</div><div style={{ fontSize: 11, color: "#94A3B8" }}>{student?.admissionNo || ""}</div></td>
                       <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748B" }}>{cls?.name || "—"}</td>
                       <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748B" }}>{p.term || "—"}</td>
                       <td style={{ padding: "10px 14px", fontSize: 13, color: "#1E293B" }}>{fmt(p.amount)}</td>
                       <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 600, color: "#22C55E" }}>{fmt(p.paidAmount)}</td>
                       <td style={{ padding: "10px 14px", fontSize: 13, color: p.balance > 0 ? "#EF4444" : "#22C55E", fontWeight: p.balance > 0 ? 700 : 400 }}>{fmt(p.balance)}</td>
-                      <td style={{ padding: "10px 14px" }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, textTransform: "capitalize", padding: "3px 8px", borderRadius: 12, background: p.paymentMethod === "mpesa" ? "#dcfce7" : p.paymentMethod === "bank" ? "#dbeafe" : "#f3f4f6", color: p.paymentMethod === "mpesa" ? "#166534" : p.paymentMethod === "bank" ? "#1e40af" : "#374151" }}>
-                          {p.paymentMethod}
-                        </span>
-                      </td>
+                      <td style={{ padding: "10px 14px" }}><span style={{ fontSize: 11, fontWeight: 600, textTransform: "capitalize", padding: "3px 8px", borderRadius: 12, background: p.paymentMethod === "mpesa" ? "#dcfce7" : p.paymentMethod === "bank" ? "#dbeafe" : "#f3f4f6", color: p.paymentMethod === "mpesa" ? "#166534" : p.paymentMethod === "bank" ? "#1e40af" : "#374151" }}>{p.paymentMethod}</span></td>
                       <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748B" }}>{p.paymentDate}</td>
                       <td style={{ padding: "10px 14px" }}>
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button onClick={() => printReceipt(p)}
-                            style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 9px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer", color: "#1D4ED8" }}>
-                            <Printer size={11} /> Receipt
-                          </button>
-                          <button onClick={() => { if (confirm("Delete this payment record?")) deletePayment.mutate(p.id); }}
-                            style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 9px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, fontSize: 11, cursor: "pointer", color: "#EF4444" }}>
-                            <Trash2 size={11} />
-                          </button>
+                          <button onClick={() => printReceipt(p)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 9px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer", color: "#1D4ED8" }}><Printer size={11} /> Receipt</button>
+                          {canDeletePayments && (
+                            <button onClick={() => { if (confirm("Delete this payment record?")) deletePayment.mutate(p.id); }} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 9px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, fontSize: 11, cursor: "pointer", color: "#EF4444" }}><Trash2 size={11} /></button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -590,101 +581,60 @@ export default function FeesPage() {
                 })}
               </tbody>
               {filteredPayments.length > 0 && (
-                <tfoot>
-                  <tr style={{ background: "#F8FAFC", borderTop: "2px solid #E2E8F0" }}>
-                    <td colSpan={5} style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#1E293B" }}>TOTALS ({filteredPayments.length} records)</td>
-                    <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "#22C55E" }}>{fmt(filteredPayments.reduce((s, p) => s + p.paidAmount, 0))}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "#EF4444" }}>{fmt(filteredPayments.reduce((s, p) => s + p.balance, 0))}</td>
-                    <td colSpan={3} />
-                  </tr>
-                </tfoot>
+                <tfoot><tr style={{ background: "#F8FAFC", borderTop: "2px solid #E2E8F0" }}>
+                  <td colSpan={5} style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#1E293B" }}>TOTALS ({filteredPayments.length} records)</td>
+                  <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "#22C55E" }}>{fmt(filteredPayments.reduce((s, p) => s + Number(p.paidAmount || 0), 0))}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "#EF4444" }}>{fmt(filteredPayments.reduce((s, p) => s + Number(p.balance || 0), 0))}</td>
+                  <td colSpan={3} />
+                </tr></tfoot>
               )}
             </table>
           </div>
         </div>
       )}
 
-      {/* TAB: Defaulters */}
       {tab === "defaulters" && (
         <div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 14 }}>
-            <button onClick={exportDefaultersExcel}
-              style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              <FileSpreadsheet size={13} /> Export Excel
-            </button>
-            <button onClick={printDefaulters}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1B4D4D", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              <Printer size={14} /> Print List
-            </button>
+            <button onClick={exportDefaultersExcel} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}><FileSpreadsheet size={13} /> Export Excel</button>
+            <button onClick={printDefaulters} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1B4D4D", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}><Printer size={14} /> Print List</button>
           </div>
           {defaultersLoading ? (
             <div style={{ padding: 40, textAlign: "center", color: "#94A3B8" }}>Loading...</div>
           ) : defaultersData?.defaulters?.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 0" }}>
-              <CheckCircle size={48} style={{ marginBottom: 12, color: "#22C55E" }} />
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#1E293B", marginBottom: 4 }}>All clear!</div>
-              <div style={{ fontSize: 13, color: "#64748B" }}>No fee defaulters.</div>
-            </div>
+            <div style={{ textAlign: "center", padding: "60px 0" }}><CheckCircle size={48} style={{ marginBottom: 12, color: "#22C55E" }} /><div style={{ fontSize: 15, fontWeight: 600, color: "#1E293B", marginBottom: 4 }}>All clear!</div><div style={{ fontSize: 13, color: "#64748B" }}>No fee defaulters.</div></div>
           ) : (
             <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
-                    {["Student", "Adm No.", "Class", "Parent / Phone", "Total Paid", "Outstanding", "Action"].map(h => (
-                      <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>{h}</th>
-                    ))}
+                <thead><tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>{["Student", "Adm No.", "Class", "Parent / Phone", "Total Paid", "Outstanding", "Action"].map(h => <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>{h}</th>)}</tr></thead>
+                <tbody>{defaultersData.defaulters.map((d: any) => (
+                  <tr key={d.student?.id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                    <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{d.student?.name || "Unknown"}</td>
+                    <td style={{ padding: "12px 14px", fontSize: 12, color: "#64748B" }}>{d.student?.admissionNo || "—"}</td>
+                    <td style={{ padding: "12px 14px", fontSize: 12, color: "#64748B" }}>{d.class?.name || "—"}</td>
+                    <td style={{ padding: "12px 14px" }}><div style={{ fontSize: 12, fontWeight: 600, color: "#1E293B" }}>{d.student?.parentName || "—"}</div><div style={{ fontSize: 11, color: "#64748B" }}>{d.student?.parentPhone || ""}</div></td>
+                    <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 600, color: "#22C55E" }}>{fmt(d.totalPaid)}</td>
+                    <td style={{ padding: "12px 14px" }}><span style={{ fontSize: 13, fontWeight: 800, color: "#EF4444", background: "#FEF2F2", padding: "3px 10px", borderRadius: 8 }}>{fmt(d.totalOwed)}</span></td>
+                    <td style={{ padding: "12px 14px" }}>{d.student?.parentPhone ? (
+                      <a href={`https://wa.me/${d.student.parentPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Dear ${d.student?.parentName || "Parent"}, your child ${d.student?.name} has an outstanding fee balance of KES ${d.totalOwed?.toLocaleString()} at ${SCHOOL_NAME}. Please settle at your earliest convenience. Thank you.`)}`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#25D366", color: "#fff", fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 8, textDecoration: "none" }}><MessageCircle size={13} /> WhatsApp</a>
+                    ) : <span style={{ fontSize: 12, color: "#94A3B8" }}>No phone</span>}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {defaultersData.defaulters.map((d: any) => (
-                    <tr key={d.student?.id} style={{ borderBottom: "1px solid #F1F5F9" }}>
-                      <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{d.student?.name || "Unknown"}</td>
-                      <td style={{ padding: "12px 14px", fontSize: 12, color: "#64748B" }}>{d.student?.admissionNo || "—"}</td>
-                      <td style={{ padding: "12px 14px", fontSize: 12, color: "#64748B" }}>{d.class?.name || "—"}</td>
-                      <td style={{ padding: "12px 14px" }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: "#1E293B" }}>{d.student?.parentName || "—"}</div>
-                        <div style={{ fontSize: 11, color: "#64748B" }}>{d.student?.parentPhone || ""}</div>
-                      </td>
-                      <td style={{ padding: "12px 14px", fontSize: 13, fontWeight: 600, color: "#22C55E" }}>{fmt(d.totalPaid)}</td>
-                      <td style={{ padding: "12px 14px" }}>
-                        <span style={{ fontSize: 13, fontWeight: 800, color: "#EF4444", background: "#FEF2F2", padding: "3px 10px", borderRadius: 8 }}>{fmt(d.totalOwed)}</span>
-                      </td>
-                      <td style={{ padding: "12px 14px" }}>
-                        {d.student?.parentPhone ? (
-                          <a href={`https://wa.me/${d.student.parentPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Dear ${d.student?.parentName || "Parent"}, your child ${d.student?.name} has an outstanding fee balance of KES ${d.totalOwed?.toLocaleString()} at ${SCHOOL_NAME}. Please settle at your earliest convenience. Thank you.`)}`}
-                            target="_blank" rel="noopener noreferrer"
-                            style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#25D366", color: "#fff", fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 8, textDecoration: "none" }}>
-                            <MessageCircle size={13} /> WhatsApp
-                          </a>
-                        ) : (
-                          <span style={{ fontSize: 12, color: "#94A3B8" }}>No phone</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr style={{ background: "#FEF2F2", borderTop: "2px solid #FECACA" }}>
-                    <td colSpan={6} style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#1E293B" }}>
-                      TOTAL OUTSTANDING — {defaulterCount} student{defaulterCount !== 1 ? "s" : ""}
-                    </td>
-                    <td style={{ padding: "10px 14px", fontSize: 14, fontWeight: 800, color: "#EF4444" }}>
-                      {fmt(defaultersData.defaulters.reduce((s: number, d: any) => s + d.totalOwed, 0))}
-                    </td>
-                  </tr>
-                </tfoot>
+                ))}</tbody>
+                <tfoot><tr style={{ background: "#FEF2F2", borderTop: "2px solid #FECACA" }}>
+                  <td colSpan={6} style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#1E293B" }}>TOTAL OUTSTANDING — {defaulterCount} student{defaulterCount !== 1 ? "s" : ""}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 14, fontWeight: 800, color: "#EF4444" }}>{fmt(defaultersData.defaulters.reduce((s: number, d: any) => s + d.totalOwed, 0))}</td>
+                </tr></tfoot>
               </table>
             </div>
           )}
         </div>
       )}
 
-      {/* TAB: Fee Structures */}
       {tab === "structures" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14 }}>
           {structures.length === 0 ? (
             <div style={{ gridColumn: "1/-1", padding: "40px", textAlign: "center", color: "#94A3B8", fontSize: 13 }}>
-              No fee structures yet. Click "Fee Structure" to add one.
+              {canManageStructures ? "No fee structures yet. Click Fee Structure to add one." : "No fee structures configured yet."}
             </div>
           ) : structures.map((fs: any) => (
             <div key={fs.id} style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: "20px" }}>
@@ -692,156 +642,104 @@ export default function FeesPage() {
               <div style={{ fontSize: 26, fontWeight: 800, color: "#E91E8C", marginBottom: 8 }}>{fmt(fs.amount)}</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <span style={{ fontSize: 11, fontWeight: 600, textTransform: "capitalize", padding: "3px 10px", borderRadius: 12, background: "#F0FDF4", color: "#166534" }}>{fs.frequency}</span>
-                {fs.classId && <span style={{ fontSize: 11, color: "#64748B" }}>{classes.find(c => c.id === fs.classId)?.name || `Class #${fs.classId}`}</span>}
+                <span style={{ fontSize: 11, color: "#64748B" }}>{classes.find(c => c.id === fs.classId)?.name || `Class #${fs.classId}`}</span>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* TAB: Class Summary */}
       {tab === "summary" && (
         <div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 14 }}>
-            <button onClick={exportSummaryExcel}
-              style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              <FileSpreadsheet size={13} /> Export Excel
-            </button>
-            <button onClick={printClassSummary}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1B4D4D", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              <Printer size={14} /> Print Summary
-            </button>
+            <button onClick={exportSummaryExcel} style={{ display: "flex", alignItems: "center", gap: 5, padding: "8px 12px", background: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}><FileSpreadsheet size={13} /> Export Excel</button>
+            <button onClick={printClassSummary} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1B4D4D", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}><Printer size={14} /> Print Summary</button>
           </div>
           <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
-                  {["Class", "Students", "Transactions", "Total Collected", "Outstanding"].map(h => (
-                    <th key={h} style={{ padding: "11px 16px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>{h}</th>
-                  ))}
+              <thead><tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>{["Class", "Students", "Transactions", "Total Collected", "Outstanding"].map(h => <th key={h} style={{ padding: "11px 16px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>{h}</th>)}</tr></thead>
+              <tbody>{classSummary.length === 0 ? (
+                <tr><td colSpan={5} style={{ padding: "40px", textAlign: "center", color: "#94A3B8", fontSize: 13 }}>No data yet</td></tr>
+              ) : classSummary.map(c => (
+                <tr key={c.class.id} style={{ borderBottom: "1px solid #F1F5F9" }}>
+                  <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: "#1B4D4D" }}>{c.class.name}</td>
+                  <td style={{ padding: "12px 16px", fontSize: 13, color: "#1E293B" }}>{c.studentCount}</td>
+                  <td style={{ padding: "12px 16px", fontSize: 13, color: "#64748B" }}>{c.paymentCount}</td>
+                  <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: "#22C55E" }}>{fmt(c.totalCollected)}</td>
+                  <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: c.totalOutstanding > 0 ? "#EF4444" : "#22C55E" }}>{fmt(c.totalOutstanding)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {classSummary.length === 0 ? (
-                  <tr><td colSpan={5} style={{ padding: "40px", textAlign: "center", color: "#94A3B8", fontSize: 13 }}>No data yet</td></tr>
-                ) : classSummary.map(c => (
-                  <tr key={c.class.id} style={{ borderBottom: "1px solid #F1F5F9" }}>
-                    <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: "#1B4D4D" }}>{c.class.name}</td>
-                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#1E293B" }}>{c.studentCount}</td>
-                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#64748B" }}>{c.paymentCount}</td>
-                    <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: "#22C55E" }}>{fmt(c.totalCollected)}</td>
-                    <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 700, color: c.totalOutstanding > 0 ? "#EF4444" : "#22C55E" }}>{fmt(c.totalOutstanding)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              {classSummary.length > 0 && (
-                <tfoot>
-                  <tr style={{ background: "#F8FAFC", borderTop: "2px solid #E2E8F0" }}>
-                    <td style={{ padding: "11px 16px", fontSize: 13, fontWeight: 700, color: "#1E293B" }}>TOTALS</td>
-                    <td style={{ padding: "11px 16px", fontSize: 13, fontWeight: 700 }}>{classSummary.reduce((s, c) => s + c.studentCount, 0)}</td>
-                    <td style={{ padding: "11px 16px", fontSize: 13, fontWeight: 700 }}>{classSummary.reduce((s, c) => s + c.paymentCount, 0)}</td>
-                    <td style={{ padding: "11px 16px", fontSize: 14, fontWeight: 800, color: "#22C55E" }}>{fmt(totalCollected)}</td>
-                    <td style={{ padding: "11px 16px", fontSize: 14, fontWeight: 800, color: "#EF4444" }}>{fmt(totalBalance)}</td>
-                  </tr>
-                </tfoot>
-              )}
+              ))}</tbody>
+              {classSummary.length > 0 && <tfoot><tr style={{ background: "#F8FAFC", borderTop: "2px solid #E2E8F0" }}>
+                <td style={{ padding: "11px 16px", fontSize: 13, fontWeight: 700, color: "#1E293B" }}>TOTALS</td>
+                <td style={{ padding: "11px 16px", fontSize: 13, fontWeight: 700 }}>{classSummary.reduce((s, c) => s + c.studentCount, 0)}</td>
+                <td style={{ padding: "11px 16px", fontSize: 13, fontWeight: 700 }}>{classSummary.reduce((s, c) => s + c.paymentCount, 0)}</td>
+                <td style={{ padding: "11px 16px", fontSize: 14, fontWeight: 800, color: "#22C55E" }}>{fmt(totalCollected)}</td>
+                <td style={{ padding: "11px 16px", fontSize: 14, fontWeight: 800, color: "#EF4444" }}>{fmt(totalBalance)}</td>
+              </tr></tfoot>}
             </table>
           </div>
         </div>
       )}
 
-      {/* Fee Structure Modal */}
-      <Modal open={structureModal} onClose={() => setStructureModal(false)} title="Add Fee Structure">
-        <form onSubmit={e => { e.preventDefault(); saveStructure.mutate(sf); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <Input label="Fee Name" value={sf.name} onChange={e => setSf({ ...sf, name: e.target.value })} placeholder="e.g. Tuition Fee — Term 1" required />
-          <Input label="Amount (KES)" type="number" value={sf.amount} onChange={e => setSf({ ...sf, amount: e.target.value })} required />
-          <Select label="Class (optional — leave blank for all)" value={sf.classId} onChange={e => setSf({ ...sf, classId: e.target.value })}
-            options={[{ value: "", label: "All Classes" }, ...classes.map((c: any) => ({ value: String(c.id), label: c.name }))]} />
-          <Select label="Frequency" value={sf.frequency} onChange={e => setSf({ ...sf, frequency: e.target.value })}
-            options={[{ value: "termly", label: "Termly" }, { value: "monthly", label: "Monthly" }, { value: "annual", label: "Annual" }, { value: "once", label: "One-time" }]} />
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-            <button type="button" onClick={() => setStructureModal(false)} style={{ padding: "9px 16px", background: "#F1F5F9", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>Cancel</button>
-            <button type="submit" style={{ padding: "9px 18px", background: "#E91E8C", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Add Structure</button>
-          </div>
-        </form>
-      </Modal>
+      {canManageStructures && (
+        <Modal open={structureModal} onClose={() => setStructureModal(false)} title="Add Fee Structure">
+          <form onSubmit={e => { e.preventDefault(); saveStructure.mutate(sf); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Input label="Fee Name" value={sf.name} onChange={e => setSf({ ...sf, name: e.target.value })} placeholder="e.g. Tuition Fee — Term 1" required />
+            <Input label="Amount (KES)" type="number" value={sf.amount} onChange={e => setSf({ ...sf, amount: e.target.value })} required />
+            <Select label="Class" value={sf.classId} onChange={e => setSf({ ...sf, classId: e.target.value })}
+              options={[{ value: "", label: "Select class..." }, ...classes.map((c: any) => ({ value: String(c.id), label: c.name }))]} />
+            <Select label="Frequency" value={sf.frequency} onChange={e => setSf({ ...sf, frequency: e.target.value })}
+              options={[{ value: "termly", label: "Termly" }, { value: "monthly", label: "Monthly" }, { value: "annual", label: "Annual" }, { value: "once", label: "One-time" }]} />
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button type="button" onClick={() => setStructureModal(false)} style={{ padding: "9px 16px", background: "#F1F5F9", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>Cancel</button>
+              <button type="submit" disabled={!sf.classId || saveStructure.isPending} style={{ padding: "9px 18px", background: "#E91E8C", color: "#fff", border: "none", borderRadius: 8, cursor: !sf.classId ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, opacity: !sf.classId ? 0.6 : 1 }}>{saveStructure.isPending ? "Saving..." : "Add Structure"}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
 
-      {/* Payment Modal */}
       <Modal open={paymentModal} onClose={() => setPaymentModal(false)} title="Record Fee Payment" width={560}>
         <form onSubmit={e => { e.preventDefault(); savePayment.mutate(pf); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Student</label>
             <select value={pf.studentId} onChange={e => {
-              const s = students.find(st => st.id === parseInt(e.target.value));
-              const classStructures = structures.filter(fs => !fs.classId || fs.classId === s?.classId);
-              setPf({ ...pf, studentId: e.target.value, feeStructureId: classStructures[0]?.id ? String(classStructures[0].id) : "", amount: classStructures[0]?.amount ? String(classStructures[0].amount) : pf.amount });
+              const studentId = parseInt(e.target.value);
+              const s = students.find(st => st.id === studentId);
+              const classStructures = structures.filter(fs => fs.classId === s?.classId);
+              setPf({ ...pf, studentId: e.target.value, feeStructureId: classStructures[0]?.id ? String(classStructures[0].id) : "", amount: classStructures[0]?.amount ? String(classStructures[0].amount) : "" });
             }} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }} required>
               <option value="">Select student...</option>
-              {students.map(s => {
-                const cls = getClass(s.classId);
-                return <option key={s.id} value={s.id}>{s.name} ({s.admissionNo}) — {cls?.name || "No class"}</option>;
-              })}
+              {students.map(s => { const cls = getClass(s.classId); return <option key={s.id} value={s.id}>{s.name} ({s.admissionNo}) — {cls?.name || "No class"}</option>; })}
             </select>
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Fee Type</label>
             <select value={pf.feeStructureId} onChange={e => {
-              const fs = structures.find(s => s.id === parseInt(e.target.value));
+              const fs = applicableStructures.find(s => s.id === parseInt(e.target.value));
               setPf({ ...pf, feeStructureId: e.target.value, amount: fs?.amount ? String(fs.amount) : pf.amount });
-            }} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }}>
-              <option value="">Select fee type...</option>
-              {structures.map(fs => <option key={fs.id} value={fs.id}>{fs.name} — {fmt(fs.amount)}</option>)}
+            }} disabled={!pf.studentId} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }}>
+              <option value="">{pf.studentId ? "Select fee type..." : "Select a student first"}</option>
+              {applicableStructures.map(fs => <option key={fs.id} value={fs.id}>{fs.name} — {fmt(fs.amount)}</option>)}
             </select>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Total Amount (KES)</label>
-              <input type="number" value={pf.amount} onChange={e => setPf({ ...pf, amount: e.target.value })} required style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Amount Paid (KES)</label>
-              <input type="number" value={pf.paidAmount} onChange={e => setPf({ ...pf, paidAmount: e.target.value })} required style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Discount (KES)</label>
-              <input type="number" value={pf.discount} onChange={e => setPf({ ...pf, discount: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Payment Date</label>
-              <input type="date" value={pf.paymentDate} onChange={e => setPf({ ...pf, paymentDate: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Payment Method</label>
-              <select value={pf.paymentMethod} onChange={e => setPf({ ...pf, paymentMethod: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }}>
-                <option value="cash">Cash</option>
-                <option value="mpesa">M-Pesa</option>
-                <option value="bank">Bank Transfer</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Term</label>
-              <select value={pf.term} onChange={e => setPf({ ...pf, term: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }}>
-                <option value="">Select term...</option>
-                {TERMS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
+            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Total Amount (KES)</label><input type="number" min="0" value={pf.amount} onChange={e => setPf({ ...pf, amount: e.target.value })} required style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Amount Paid (KES)</label><input type="number" min="0" value={pf.paidAmount} onChange={e => setPf({ ...pf, paidAmount: e.target.value })} required style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Discount (KES)</label><input type="number" min="0" value={pf.discount} onChange={e => setPf({ ...pf, discount: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Payment Date</label><input type="date" value={pf.paymentDate} onChange={e => setPf({ ...pf, paymentDate: e.target.value })} required style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Payment Method</label><select value={pf.paymentMethod} onChange={e => setPf({ ...pf, paymentMethod: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }}><option value="cash">Cash</option><option value="mpesa">M-Pesa</option><option value="bank">Bank Transfer</option></select></div>
+            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Term</label><select value={pf.term} onChange={e => setPf({ ...pf, term: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }}><option value="">Select term...</option>{TERMS.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
           </div>
-          {/* Balance preview */}
           {pf.amount && pf.paidAmount && (
-            <div style={{ padding: "12px 16px", borderRadius: 8, background: parseFloat(pf.amount) - parseFloat(pf.paidAmount) - parseFloat(pf.discount || "0") > 0 ? "#FEF2F2" : "#F0FDF4", border: `1px solid ${parseFloat(pf.amount) - parseFloat(pf.paidAmount) - parseFloat(pf.discount || "0") > 0 ? "#FECACA" : "#BBF7D0"}` }}>
-              <span style={{ fontSize: 12, color: "#64748B" }}>Balance: </span>
-              <span style={{ fontSize: 16, fontWeight: 800, color: parseFloat(pf.amount) - parseFloat(pf.paidAmount) - parseFloat(pf.discount || "0") > 0 ? "#EF4444" : "#22C55E" }}>
-                {fmt(parseFloat(pf.amount || "0") - parseFloat(pf.paidAmount || "0") - parseFloat(pf.discount || "0"))}
-              </span>
+            <div style={{ padding: "12px 16px", borderRadius: 8, background: balancePreview > 0 ? "#FEF2F2" : balancePreview < 0 ? "#FFF7ED" : "#F0FDF4", border: `1px solid ${balancePreview > 0 ? "#FECACA" : balancePreview < 0 ? "#FED7AA" : "#BBF7D0"}` }}>
+              <span style={{ fontSize: 12, color: "#64748B" }}>{balancePreview < 0 ? "Overpayment: " : "Balance: "}</span>
+              <span style={{ fontSize: 16, fontWeight: 800, color: balancePreview > 0 ? "#EF4444" : balancePreview < 0 ? "#C2410C" : "#22C55E" }}>{fmt(Math.abs(balancePreview))}</span>
             </div>
           )}
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Notes (optional)</label>
-            <input value={pf.notes} onChange={e => setPf({ ...pf, notes: e.target.value })} placeholder="e.g. M-Pesa ref: QX123..." style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} />
-          </div>
+          <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Notes (optional)</label><input value={pf.notes} onChange={e => setPf({ ...pf, notes: e.target.value })} placeholder="e.g. M-Pesa ref: QX123..." style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} /></div>
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button type="button" onClick={() => setPaymentModal(false)} style={{ padding: "9px 16px", background: "#F1F5F9", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>Cancel</button>
-            <button type="submit" style={{ padding: "9px 20px", background: "#E91E8C", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Record Payment</button>
+            <button type="submit" disabled={savePayment.isPending || balancePreview < 0} style={{ padding: "9px 20px", background: "#E91E8C", color: "#fff", border: "none", borderRadius: 8, cursor: balancePreview < 0 ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, opacity: balancePreview < 0 ? 0.6 : 1 }}>{savePayment.isPending ? "Recording..." : "Record Payment"}</button>
           </div>
         </form>
       </Modal>
