@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "../components/layout";
 import { api } from "../lib/api";
+import { useRole } from "../lib/use-role";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -10,41 +11,89 @@ const PERIOD_TIMES: Record<number, string> = {
   5: "10:45–11:30", 6: "11:30–12:15", 7: "13:00–13:45", 8: "13:45–14:30",
 };
 
+async function parseResponse(response: Response) {
+  const data = await response.json();
+  if (!response.ok) throw new Error((data as any)?.message || "Request failed");
+  return data;
+}
+
 export default function TimetablePage() {
   const qc = useQueryClient();
+  const { user, role } = useRole();
+  const canEdit = role === "admin" || role === "principal";
+  const canViewAllClasses = canEdit;
+
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ day: string; period: number } | null>(null);
   const [form, setForm] = useState({ subject: "", teacherId: "" });
 
-  const { data: classes = [], isLoading } = useQuery({ queryKey: ["classes"], queryFn: async () => { const r = await (await api.classes.$get()).json(); return (r as any).classes ?? r; } });
-  const { data: staff = [] } = useQuery({ queryKey: ["staff"], queryFn: async () => { const r = await (await api.staff.$get()).json(); return (r as any).staff ?? r; } });
+  const { data: classesData = [], isLoading } = useQuery({
+    queryKey: ["classes"],
+    queryFn: async () => {
+      const r = await (await api.classes.$get()).json();
+      return (r as any).classes ?? r;
+    },
+  });
+
+  const classes: any[] = Array.isArray(classesData) ? classesData : [];
+  const visibleClasses = canViewAllClasses
+    ? classes
+    : classes.filter((c: any) => c.teacherUserId === user?.id);
+
+  // Staff is only needed by admin/principal when editing timetable slots.
+  // Teachers must not request /api/staff because that endpoint is role-restricted.
+  const { data: staffData = [] } = useQuery({
+    queryKey: ["staff", "timetable-editor"],
+    queryFn: async () => {
+      const response = await api.staff.$get();
+      if (!response.ok) return [];
+      const r = await response.json();
+      return (r as any).staff ?? r;
+    },
+    enabled: canEdit,
+  });
+  const staff: any[] = Array.isArray(staffData) ? staffData : [];
+
   const { data: slotsData = [] } = useQuery({
     queryKey: ["timetable", selectedClass],
     queryFn: async () => {
       const r = await api.timetable.$get({ query: selectedClass ? { classId: String(selectedClass) } : {} });
-      const d = await r.json();
+      const d: any = await r.json();
+      if (!r.ok) throw new Error(d?.message || "Could not load timetable");
       return Array.isArray(d) ? d : (d?.slots ?? d?.timetable ?? []);
     },
     enabled: !!selectedClass,
   });
-  const slots = Array.isArray(slotsData) ? slotsData : [];
+  const slots: any[] = Array.isArray(slotsData) ? slotsData : [];
 
   const saveSlot = useMutation({
     mutationFn: async () => {
+      if (!canEdit) throw new Error("You do not have permission to edit the timetable");
       if (!editing || !selectedClass) return;
-      const existing = (slots as any[]).find((s: any) => s.day === editing.day && s.period === editing.period);
+      const existing = slots.find((s: any) => s.day === editing.day && s.period === editing.period);
       const payload = {
-        classId: selectedClass, day: editing.day, period: editing.period,
-        subject: form.subject, teacherId: form.teacherId ? Number(form.teacherId) : null,
+        classId: selectedClass,
+        day: editing.day,
+        period: editing.period,
+        subject: form.subject,
+        teacherId: form.teacherId ? Number(form.teacherId) : null,
       };
-      if (existing) return (await api.timetable[":id"].$put({ param: { id: String(existing.id) }, json: payload })).json();
-      return (await api.timetable.$post({ json: payload })).json();
+      const response = existing
+        ? await api.timetable[":id"].$put({ param: { id: String(existing.id) }, json: payload })
+        : await api.timetable.$post({ json: payload });
+      return parseResponse(response);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["timetable"] }); setEditing(null); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["timetable"] });
+      setEditing(null);
+    },
   });
 
   const deleteSlot = useMutation({
-    mutationFn: async (id: number) => (await api.timetable[":id"].$delete({ param: { id: String(id) } })).json(),
+    mutationFn: async (id: number) => {
+      if (!canEdit) throw new Error("You do not have permission to edit the timetable");
+      return parseResponse(await api.timetable[":id"].$delete({ param: { id: String(id) } }));
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["timetable"] }),
   });
 
@@ -52,6 +101,7 @@ export default function TimetablePage() {
     slots.find((s: any) => s.day === day && s.period === period);
 
   const openEdit = (day: string, period: number) => {
+    if (!canEdit) return;
     const existing = getSlot(day, period);
     setForm({ subject: existing?.subject || "", teacherId: existing?.teacherId?.toString() || "" });
     setEditing({ day, period });
@@ -69,32 +119,53 @@ export default function TimetablePage() {
     <h2>Vineyard Primary School</h2><h3 style="text-align:center">Timetable — ${cls?.name}</h3>
     <table><tr><th>Period</th>${DAYS.map(d => `<th>${d}</th>`).join("")}</tr>
     ${PERIODS.map(p => `<tr><td><b>Period ${p}</b><br><span class="period-time">${PERIOD_TIMES[p]}</span></td>
-    ${DAYS.map(d => { const s = getSlot(d, p); return `<td>${s ? `<b>${s.subject}</b>` : ""}</td>`; }).join("")}</tr>`).join("")}
+    ${DAYS.map(d => { const s = getSlot(d, p); return `<td>${s ? `<b>${s.subject}</b>${s.teacherName ? `<br><span class="period-time">${s.teacherName}</span>` : ""}` : ""}</td>`; }).join("")}</tr>`).join("")}
     </table></body></html>`);
-    win.document.close(); win.print();
+    win.document.close();
+    win.print();
   };
 
-  if (isLoading) return <Layout title="Timetable"><div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 300, color: "#64748B", fontSize: 16 }}>Loading timetable...</div></Layout>;
+  if (isLoading) {
+    return (
+      <Layout title="Timetable">
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 300, color: "#64748B", fontSize: 16 }}>
+          Loading timetable...
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Timetable">
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
-        <select value={selectedClass || ""} onChange={e => setSelectedClass(Number(e.target.value) || null)}
-          style={{ padding: "8px 14px", background: "#fff", border: "1.5px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14, fontFamily: "'Poppins', sans-serif" }}>
-          <option value="">Select Class</option>
-          {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        <select
+          value={selectedClass || ""}
+          onChange={e => setSelectedClass(Number(e.target.value) || null)}
+          style={{ padding: "8px 14px", background: "#fff", border: "1.5px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14, fontFamily: "'Poppins', sans-serif" }}
+        >
+          <option value="">{visibleClasses.length ? "Select Class" : "No assigned class"}</option>
+          {visibleClasses.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         {selectedClass && (
-          <button onClick={printTimetable}
-            style={{ padding: "8px 16px", background: "#1B4D4D", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 14 }}>
+          <button
+            onClick={printTimetable}
+            style={{ padding: "8px 16px", background: "#1B4D4D", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 14 }}
+          >
             🖨️ Print Timetable
           </button>
+        )}
+        {!canEdit && visibleClasses.length > 0 && (
+          <span style={{ fontSize: 12, color: "#64748B" }}>View only</span>
         )}
       </div>
 
       {!selectedClass ? (
         <div style={{ textAlign: "center", padding: 80, color: "#94A3B8", fontSize: 15 }}>
-          Select a class to view or edit its timetable
+          {visibleClasses.length === 0
+            ? "No class is assigned to your account"
+            : canEdit
+              ? "Select a class to view or edit its timetable"
+              : "Select your assigned class to view its timetable"}
         </div>
       ) : (
         <div style={{ overflowX: "auto" }}>
@@ -115,24 +186,27 @@ export default function TimetablePage() {
                   {DAYS.map(d => {
                     const slot = getSlot(d, p);
                     return (
-                      <td key={d} style={{ ...tdStyle, cursor: "pointer", transition: "background 0.15s" }}
+                      <td
+                        key={d}
+                        style={{ ...tdStyle, cursor: canEdit ? "pointer" : "default", transition: "background 0.15s" }}
                         onClick={() => openEdit(d, p)}
-                        onMouseEnter={e => (e.currentTarget.style.background = "#F0FDF4")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                        onMouseEnter={e => { if (canEdit) e.currentTarget.style.background = "#F0FDF4"; }}
+                        onMouseLeave={e => { if (canEdit) e.currentTarget.style.background = ""; }}
+                      >
                         {slot ? (
                           <div style={{ textAlign: "center" }}>
                             <div style={{ color: "#E91E8C", fontWeight: 600, fontSize: 13 }}>{slot.subject}</div>
-                            <div style={{ fontSize: 11, color: "#64748B" }}>
-                              {staff.find((s: any) => s.id === slot.teacherId)?.firstName || ""}
-                            </div>
+                            <div style={{ fontSize: 11, color: "#64748B" }}>{slot.teacherName || ""}</div>
                           </div>
                         ) : (
-                          <div style={{ textAlign: "center", color: "#CBD5E1", fontSize: 12 }}>+ Add</div>
+                          <div style={{ textAlign: "center", color: "#CBD5E1", fontSize: 12 }}>{canEdit ? "+ Add" : "—"}</div>
                         )}
-                        {slot && (
+                        {slot && canEdit && (
                           <div style={{ textAlign: "center", marginTop: 4 }}>
-                            <button onClick={e => { e.stopPropagation(); deleteSlot.mutate(slot.id); }}
-                              style={{ fontSize: 10, color: "#EF4444", background: "none", border: "none", cursor: "pointer" }}>
+                            <button
+                              onClick={e => { e.stopPropagation(); deleteSlot.mutate(slot.id); }}
+                              style={{ fontSize: 10, color: "#EF4444", background: "none", border: "none", cursor: "pointer" }}
+                            >
                               remove
                             </button>
                           </div>
@@ -147,8 +221,8 @@ export default function TimetablePage() {
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editing && (
+      {/* Edit Modal — admin/principal only */}
+      {editing && canEdit && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
           <div style={{ background: "#FFFFFF", border: "1px solid #E2E8F0", borderRadius: 16, padding: 28, width: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
             <h3 style={{ margin: "0 0 16px", color: "#1E293B", fontSize: 16 }}>
@@ -157,25 +231,37 @@ export default function TimetablePage() {
             </h3>
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600, color: "#374151" }}>Subject</label>
-              <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-                placeholder="e.g. Mathematics" autoFocus
-                style={{ width: "100%", padding: "9px 12px", background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14, fontFamily: "'Poppins', sans-serif", outline: "none" }} />
+              <input
+                value={form.subject}
+                onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
+                placeholder="e.g. Mathematics"
+                autoFocus
+                style={{ width: "100%", padding: "9px 12px", background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14, fontFamily: "'Poppins', sans-serif", outline: "none" }}
+              />
             </div>
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600, color: "#374151" }}>Teacher</label>
-              <select value={form.teacherId} onChange={e => setForm(f => ({ ...f, teacherId: e.target.value }))}
-                style={{ width: "100%", padding: "9px 12px", background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14, fontFamily: "'Poppins', sans-serif" }}>
+              <select
+                value={form.teacherId}
+                onChange={e => setForm(f => ({ ...f, teacherId: e.target.value }))}
+                style={{ width: "100%", padding: "9px 12px", background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 8, color: "#1E293B", fontSize: 14, fontFamily: "'Poppins', sans-serif" }}
+              >
                 <option value="">None</option>
-                {staff.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName}</option>)}
+                {staff.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => saveSlot.mutate()} disabled={!form.subject}
-                style={{ flex: 1, padding: "10px", background: "linear-gradient(135deg, #E91E8C, #c0166d)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600, fontFamily: "'Poppins', sans-serif" }}>
-                Save
+              <button
+                onClick={() => saveSlot.mutate()}
+                disabled={!form.subject || saveSlot.isPending}
+                style={{ flex: 1, padding: "10px", background: "linear-gradient(135deg, #E91E8C, #c0166d)", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 600, fontFamily: "'Poppins', sans-serif" }}
+              >
+                {saveSlot.isPending ? "Saving..." : "Save"}
               </button>
-              <button onClick={() => setEditing(null)}
-                style={{ flex: 1, padding: "10px", background: "#F1F5F9", border: "1px solid #E2E8F0", borderRadius: 8, color: "#374151", cursor: "pointer", fontFamily: "'Poppins', sans-serif" }}>
+              <button
+                onClick={() => setEditing(null)}
+                style={{ flex: 1, padding: "10px", background: "#F1F5F9", border: "1px solid #E2E8F0", borderRadius: 8, color: "#374151", cursor: "pointer", fontFamily: "'Poppins', sans-serif" }}
+              >
                 Cancel
               </button>
             </div>

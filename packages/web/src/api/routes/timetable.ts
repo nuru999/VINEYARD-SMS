@@ -19,8 +19,15 @@ app.get("/", async (c) => {
   const filterClassId = classIdParam ? parseInt(classIdParam) : null;
 
   const rows = await db.select().from(schema.timetableSlots);
+  const staff = await db.select().from(schema.staff);
+  const teacherNames = new Map(staff.map((member) => [member.id, member.name]));
 
-  let filtered = filterClassId ? rows.filter((r) => r.classId === filterClassId) : rows;
+  const enrichedRows = rows.map((row) => ({
+    ...row,
+    teacherName: row.teacherId ? teacherNames.get(row.teacherId) ?? null : null,
+  }));
+
+  let filtered = filterClassId ? enrichedRows.filter((r) => r.classId === filterClassId) : enrichedRows;
 
   if (role === "admin" || role === "principal") {
     return c.json(filtered, 200);
@@ -39,7 +46,7 @@ app.post("/", async (c) => {
     .from(schema.userProfiles)
     .where(eq(schema.userProfiles.userId, user.id));
   const role = profile?.role ?? "teacher";
-  if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
+  if (!["admin", "principal"].includes(role)) return c.json({ message: "Forbidden" }, 403);
   const body = await c.req.json();
   const [row] = await db.insert(schema.timetableSlots).values(body).returning();
   return c.json({ slot: row }, 201);
@@ -52,10 +59,10 @@ app.put("/:id", async (c) => {
     .from(schema.userProfiles)
     .where(eq(schema.userProfiles.userId, user.id));
   const role = profile?.role ?? "teacher";
-  if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
+  if (!["admin", "principal"].includes(role)) return c.json({ message: "Forbidden" }, 403);
   const id = Number(c.req.param("id"));
   const body = await c.req.json();
-  const { id: _id, createdAt, ...safePayload } = body;
+  const { id: _id, createdAt, teacherName, ...safePayload } = body;
   const [row] = await db.update(schema.timetableSlots).set(safePayload).where(eq(schema.timetableSlots.id, id)).returning();
   return c.json({ slot: row }, 200);
 });
@@ -67,7 +74,7 @@ app.delete("/:id", async (c) => {
     .from(schema.userProfiles)
     .where(eq(schema.userProfiles.userId, user.id));
   const role = profile?.role ?? "teacher";
-  if (!['admin','principal'].includes(role)) return c.json({ message: "Forbidden" }, 403);
+  if (!["admin", "principal"].includes(role)) return c.json({ message: "Forbidden" }, 403);
   const id = Number(c.req.param("id"));
   await db.delete(schema.timetableSlots).where(eq(schema.timetableSlots.id, id));
   return c.json({ success: true }, 200);
