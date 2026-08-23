@@ -25,10 +25,19 @@ const emptyStudent = {
   status: "active",
 };
 
+async function parseResponse(response: Response) {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error((data as any)?.message || "Request failed");
+  }
+  return data;
+}
+
 export default function StudentsPage() {
   const qc = useQueryClient();
   const [, navigate] = useLocation();
-  const { isAdmin } = useRole();
+  const { isAdmin, isPrincipal } = useRole();
+  const canViewAllStudents = isAdmin || isPrincipal;
   const { success, error: toastError } = useToast();
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(false);
@@ -40,7 +49,7 @@ export default function StudentsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["students"],
     queryFn: async () => {
-      const r = await (await api.students.$get()).json();
+      const r = await parseResponse(await api.students.$get());
       return (r as any).students ?? r;
     },
   });
@@ -48,7 +57,7 @@ export default function StudentsPage() {
   const { data: classesData } = useQuery({
     queryKey: ["classes"],
     queryFn: async () => {
-      const r = await (await api.classes.$get()).json();
+      const r = await parseResponse(await api.classes.$get());
       return (r as any).classes ?? r;
     },
   });
@@ -56,14 +65,13 @@ export default function StudentsPage() {
   const save = useMutation({
     mutationFn: async (f: any) => {
       const payload = { ...f, classId: f.classId ? parseInt(f.classId) : null };
-      if (editing)
-        return (
-          await api.students[":id"].$put({
+      const response = editing
+        ? await api.students[":id"].$put({
             param: { id: String(editing.id) },
             json: payload,
           })
-        ).json();
-      return (await api.students.$post({ json: payload })).json();
+        : await api.students.$post({ json: payload });
+      return parseResponse(response);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["students"] });
@@ -72,19 +80,19 @@ export default function StudentsPage() {
       setForm(emptyStudent);
       success(editing ? "Student updated" : "Student added", editing ? "Record saved successfully." : "New student registered.");
     },
-    onError: () => toastError("Save failed", "Could not save student. Try again."),
+    onError: (err) =>
+      toastError("Save failed", err instanceof Error ? err.message : "Could not save student. Try again."),
   });
 
   const remove = useMutation({
     mutationFn: async (id: number) =>
-      (
-        await api.students[":id"].$delete({ param: { id: String(id) } })
-      ).json(),
+      parseResponse(await api.students[":id"].$delete({ param: { id: String(id) } })),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["students"] });
       success("Student removed", "Record deleted.");
     },
-    onError: () => toastError("Delete failed", "Could not remove student."),
+    onError: (err) =>
+      toastError("Delete failed", err instanceof Error ? err.message : "Could not remove student."),
   });
 
   const openEdit = (s: any) => {
@@ -164,7 +172,7 @@ export default function StudentsPage() {
 
   return (
     <Layout
-      title={isAdmin ? "All Students" : "My Class — Students"}
+      title={canViewAllStudents ? "All Students" : "My Class — Students"}
       action={
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={exportStudentsCSV}
@@ -199,7 +207,7 @@ export default function StudentsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={
-            isAdmin
+            canViewAllStudents
               ? "Search by name, admission no, parent, class..."
               : "Search students..."
           }
@@ -318,7 +326,7 @@ export default function StudentsPage() {
                 >
                   {search
                     ? `No students found matching "${search}"`
-                    : isAdmin
+                    : canViewAllStudents
                     ? "No students yet"
                     : "No students in your class yet"}
                 </td>
