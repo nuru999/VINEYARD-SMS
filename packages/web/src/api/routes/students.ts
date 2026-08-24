@@ -3,6 +3,7 @@ import { db } from "../database";
 import * as schema from "../database/schema";
 import { and, eq } from "drizzle-orm";
 import { requireAuth, requireAdmin } from "../middleware/auth";
+import { buildFeeLedger } from "../lib/fee-ledger";
 
 const GENDERS = ["male", "female"] as const;
 const STATUSES = ["active", "inactive", "graduated", "transferred"] as const;
@@ -192,13 +193,14 @@ export const students = new Hono()
     }
 
     const cls = allClasses.find((item) => item.id === student.classId) ?? null;
-    const payments = await db.select().from(schema.feePayments).where(eq(schema.feePayments.studentId, id));
+    const rawPayments = await db.select().from(schema.feePayments).where(eq(schema.feePayments.studentId, id));
     const feeStructures = await db.select().from(schema.feeStructures);
+    const ledger = buildFeeLedger(rawPayments, feeStructures);
     const attendanceRecords = await db.select().from(schema.attendance).where(eq(schema.attendance.studentId, id));
 
-    const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.paidAmount ?? 0), 0);
-    const totalBalance = payments.reduce((sum, payment) => sum + Number(payment.balance ?? 0), 0);
-    const totalAmount = payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+    const totalPaid = ledger.summary.totalCollected;
+    const totalBalance = ledger.summary.totalOutstanding;
+    const totalAmount = ledger.obligations.reduce((sum, obligation) => sum + obligation.amount, 0);
     const attendanceSummary = {
       total: attendanceRecords.length,
       present: attendanceRecords.filter((record) => record.status === "present").length,
@@ -210,11 +212,18 @@ export const students = new Hono()
     return c.json({
       student: { ...normalizedStudent(student), className: cls?.name ?? null },
       class: cls,
-      payments: payments.map((payment) => ({
+      payments: ledger.payments.map((payment) => ({
         ...payment,
         feeStructureName: feeStructures.find((fee) => fee.id === payment.feeStructureId)?.name ?? null,
       })),
-      feeSummary: { totalPaid, totalBalance, totalAmount, count: payments.length },
+      feeSummary: {
+        totalPaid,
+        totalBalance,
+        totalAmount,
+        totalDiscount: ledger.summary.totalDiscount,
+        obligationCount: ledger.summary.obligationCount,
+        count: ledger.payments.length,
+      },
       attendanceSummary,
       attendanceRecords,
     }, 200);
