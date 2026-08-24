@@ -47,7 +47,8 @@ const app = new Hono()
         if (!requestOrigin || requestOrigin === "null" || requestOrigin.startsWith("file://")) {
           return requestOrigin || "null";
         }
-        // Allow any listed origin
+        // Allow any listed origin. An unlisted browser origin receives a non-matching
+        // Access-Control-Allow-Origin value and is therefore rejected by the browser.
         return allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0];
       },
       credentials: true,
@@ -57,8 +58,14 @@ const app = new Hono()
   )
   .on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw))
   .basePath("api")
-  .use("*", authMiddleware)
+
+  // Public liveness endpoint for Render/uptime probes. Keep this before the
+  // authentication middleware so infrastructure can verify the process without
+  // receiving a 401. It intentionally exposes no school or user data.
   .get("/health", (c) => c.json({ status: "ok" }, 200))
+
+  // Every application route below this point requires an authenticated session.
+  .use("*", authMiddleware)
 
   // ── Routes open to all authenticated users (teachers + admins) ──
   .route("/students", students)
