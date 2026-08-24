@@ -5,6 +5,12 @@ import { useRole } from "../lib/use-role";
 import { Link } from "wouter";
 import { DollarSign, Wallet, FileText, BarChart3, TrendingUp, TrendingDown } from "lucide-react";
 
+async function parseResponse(response: Response) {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error((data as any)?.message || "Request failed");
+  return data;
+}
+
 function StatCard({ label, value, icon, color = "#34D399" }: { label: string; value: any; icon: React.ReactNode; color?: string }) {
   return (
     <div style={{
@@ -47,49 +53,50 @@ export default function AccountantDashboard() {
   const { user } = useRole();
   const fullDate = new Date().toLocaleDateString("en-KE", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-  const { data: feesData } = useQuery({
-    queryKey: ["fees-summary"],
-    queryFn: async () => {
-      const res = await fetch("/api/fees", { credentials: "include" });
-      if (!res.ok) return null;
-      return res.json();
-    },
+  const { data: feesData, isError: feesError } = useQuery({
+    queryKey: ["fee-payments"],
+    queryFn: async () => parseResponse(await fetch("/api/fee-payments", { credentials: "include" })),
   });
 
-  const { data: payrollData } = useQuery({
-    queryKey: ["payroll-summary"],
-    queryFn: async () => {
-      const res = await fetch("/api/payroll", { credentials: "include" });
-      if (!res.ok) return null;
-      return res.json();
-    },
+  const { data: payrollData, isError: payrollError } = useQuery({
+    queryKey: ["payroll"],
+    queryFn: async () => parseResponse(await fetch("/api/payroll", { credentials: "include" })),
   });
 
-  const { data: accountsData } = useQuery({
-    queryKey: ["accounts-summary"],
-    queryFn: async () => {
-      const res = await fetch("/api/accounts", { credentials: "include" });
-      if (!res.ok) return null;
-      return res.json();
-    },
+  const { data: accountsData, isError: accountsError } = useQuery({
+    queryKey: ["accounts"],
+    queryFn: async () => parseResponse(await fetch("/api/accounts", { credentials: "include" })),
   });
 
-  const payments = (feesData as any)?.payments ?? [];
-  const totalCollected = payments.reduce((s: number, p: any) => s + (p.amountPaid ?? 0), 0);
-  const totalBalance = payments.reduce((s: number, p: any) => s + (p.balance ?? 0), 0);
+  const payments: any[] = (feesData as any)?.payments ?? [];
+  const obligations: any[] = (feesData as any)?.obligations ?? [];
+  const totalCollected = Number(
+    (feesData as any)?.summary?.totalCollected ??
+    payments.reduce((sum: number, payment: any) => sum + Number(payment.paidAmount || 0), 0)
+  );
+  const totalBalance = Number(
+    (feesData as any)?.summary?.totalOutstanding ??
+    obligations.reduce((sum: number, obligation: any) => sum + Number(obligation.balance || 0), 0)
+  );
 
-  const payrollList = (payrollData as any)?.payroll ?? [];
+  const payrollList: any[] = (payrollData as any)?.payroll ?? [];
   const totalPayroll = payrollList
-    .filter((p: any) => p.status === "paid")
-    .reduce((s: number, p: any) => s + (p.netPay ?? 0), 0);
+    .filter((record: any) => record.status === "paid")
+    .reduce((sum: number, record: any) => sum + Number(record.netSalary || 0), 0);
 
-  const transactions = (accountsData as any)?.transactions ?? [];
-  const totalIncome = transactions.filter((t: any) => t.type === "income").reduce((s: number, t: any) => s + (t.amount ?? 0), 0);
-  const totalExpense = transactions.filter((t: any) => t.type === "expense").reduce((s: number, t: any) => s + (t.amount ?? 0), 0);
+  const transactions: any[] = (accountsData as any)?.transactions ?? [];
+  const totalIncome = Number(
+    (accountsData as any)?.summary?.totalIncome ??
+    transactions.filter((transaction: any) => transaction.type === "income").reduce((sum: number, transaction: any) => sum + Number(transaction.amount || 0), 0)
+  );
+  const totalExpense = Number(
+    (accountsData as any)?.summary?.totalExpense ??
+    transactions.filter((transaction: any) => transaction.type === "expense").reduce((sum: number, transaction: any) => sum + Number(transaction.amount || 0), 0)
+  );
+  const hasFinanceError = feesError || payrollError || accountsError;
 
   return (
     <Layout title="Accountant Dashboard">
-      {/* Full-page background photo */}
       <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none" }}>
         <img src={accountantPic} alt="" style={{
           width: "100%", height: "100%", objectFit: "cover", objectPosition: "center",
@@ -97,14 +104,12 @@ export default function AccountantDashboard() {
         }} />
       </div>
       <div style={{ position: "relative", zIndex: 1 }}>
-      {/* Welcome banner */}
       <div style={{
         background: "linear-gradient(135deg, #065f46, #047857)",
         borderRadius: 16, padding: "20px 24px", marginBottom: 24,
         display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12,
         position: "relative", overflow: "hidden",
       }}>
-        {/* School photo */}
         <img src={accountantPic} alt="School" style={{
           position: "absolute", top: 0, right: 0, height: "100%", width: 260,
           objectFit: "cover", objectPosition: "center", opacity: 0.22,
@@ -129,7 +134,12 @@ export default function AccountantDashboard() {
         </div>
       </div>
 
-      {/* Stats */}
+      {hasFinanceError && (
+        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 12 }}>
+          Some finance data could not be loaded. Open the relevant finance page to retry or review the error.
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 }}>
         <StatCard label="Fees Collected" value={fmt(totalCollected)} icon={<DollarSign size={20} />} color="#34D399" />
         <StatCard label="Outstanding Balance" value={fmt(totalBalance)} icon={<TrendingDown size={20} />} color="#F87171" />
@@ -137,7 +147,6 @@ export default function AccountantDashboard() {
         <StatCard label="Total Income" value={fmt(totalIncome)} icon={<TrendingUp size={20} />} color="#A78BFA" />
       </div>
 
-      {/* Quick Links */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#1E293B", marginBottom: 12 }}>Quick Access</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
@@ -148,26 +157,25 @@ export default function AccountantDashboard() {
         </div>
       </div>
 
-      {/* Recent transactions */}
       {transactions.length > 0 && (
         <div style={{ background: "#FFFFFF", borderRadius: 14, border: "1px solid #E2E8F0", padding: "20px 24px" }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#1E293B", marginBottom: 14 }}>Recent Transactions</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {transactions.slice(0, 5).map((t: any) => (
-              <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 10, borderBottom: "1px solid #F1F5F9" }}>
+            {[...transactions].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 5).map((transaction: any) => (
+              <div key={transaction.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 10, borderBottom: "1px solid #F1F5F9" }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{t.description || t.category}</div>
-                  <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>{t.category} · {t.date?.slice(0, 10)}</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{transaction.description || transaction.category}</div>
+                  <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>{transaction.category} · {transaction.date?.slice(0, 10)}</div>
                 </div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: t.type === "income" ? "#10B981" : "#EF4444" }}>
-                  {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
+                <div style={{ fontWeight: 700, fontSize: 14, color: transaction.type === "income" ? "#10B981" : "#EF4444" }}>
+                  {transaction.type === "income" ? "+" : "-"}{fmt(Number(transaction.amount || 0))}
                 </div>
               </div>
             ))}
           </div>
         </div>
       )}
-      </div>{/* end zIndex wrapper */}
+      </div>
     </Layout>
   );
 }
