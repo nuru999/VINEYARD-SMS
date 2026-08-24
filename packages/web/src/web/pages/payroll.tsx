@@ -13,6 +13,14 @@ const SCHOOL_NAME = "Vineyard Primary School";
 const SCHOOL_MOTTO = "Fruitful Development";
 const fmt = (n: number) => `KES ${(n || 0).toLocaleString("en-KE")}`;
 
+async function parseResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.message || fallbackMessage);
+  }
+  return payload as T;
+}
+
 function printHTML(html: string, title: string) {
   const win = window.open("", "_blank", "width=800,height=900");
   if (!win) return;
@@ -141,28 +149,31 @@ export default function PayrollPage() {
   const [filterMonth, setFilterMonth] = useState("");
   const [filterYear, setFilterYear] = useState(String(new Date().getFullYear()));
 
-  const { data: payrollData, isLoading } = useQuery({
+  const { data: payrollData, isLoading, error: payrollError } = useQuery({
     queryKey: ["payroll"],
     queryFn: async () => {
-      const r = await fetch("/api/payroll", { credentials: "include" });
-      if (!r.ok) return [];
-      const d = await r.json();
-      return d.payroll ?? d;
+      const response = await fetch("/api/payroll", { credentials: "include" });
+      const data = await parseResponse<any>(response, "Failed to load payroll");
+      return data.payroll ?? data;
     },
   });
 
-  const { data: staffData } = useQuery({
+  const { data: staffData, error: staffError } = useQuery({
     queryKey: ["staff"],
     queryFn: async () => {
-      const r = await fetch("/api/staff", { credentials: "include" });
-      if (!r.ok) return [];
-      const d = await r.json();
-      return d.staff ?? d;
+      const response = await fetch("/api/staff", { credentials: "include" });
+      const data = await parseResponse<any>(response, "Failed to load staff");
+      return data.staff ?? data;
     },
   });
 
   const payrollList: any[] = Array.isArray(payrollData) ? payrollData : [];
   const staffList: any[] = Array.isArray(staffData) ? staffData : [];
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from(new Set([
+    ...payrollList.map((p: any) => Number(p.year)).filter((year: number) => Number.isInteger(year)),
+    ...Array.from({ length: 9 }, (_, index) => currentYear - 3 + index),
+  ])).sort((a, b) => b - a);
 
   const filtered = payrollList.filter(p =>
     (!filterMonth || p.month === filterMonth) &&
@@ -171,42 +182,39 @@ export default function PayrollPage() {
 
   const save = useMutation({
     mutationFn: async (f: any) => {
-      const r = await fetch("/api/payroll", {
+      const response = await fetch("/api/payroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ ...f, staffId: parseInt(f.staffId), basicSalary: parseFloat(f.basicSalary), allowances: parseFloat(f.allowances || "0"), deductions: parseFloat(f.deductions || "0"), year: parseInt(f.year) }),
       });
-      if (!r.ok) throw new Error("Failed");
-      return r.json();
+      return parseResponse(response, "Failed to save payroll record");
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); setModal(false); setForm(empty); success("Payroll record saved"); },
-    onError: (e: any) => toastError("Save failed", e?.message),
+    onError: (e: Error) => toastError("Save failed", e.message),
   });
 
   const markPaid = useMutation({
     mutationFn: async (p: any) => {
-      const r = await fetch(`/api/payroll/${p.id}`, {
+      const response = await fetch(`/api/payroll/${p.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ ...p, status: "paid", paidDate: new Date().toISOString().slice(0, 10) }),
       });
-      if (!r.ok) throw new Error("Failed");
-      return r.json();
+      return parseResponse(response, "Failed to mark payroll as paid");
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); success("Marked as paid"); },
-    onError: () => toastError("Failed to mark paid"),
+    onError: (e: Error) => toastError("Failed to mark paid", e.message),
   });
 
   const remove = useMutation({
     mutationFn: async (id: number) => {
-      const r = await fetch(`/api/payroll/${id}`, { method: "DELETE", credentials: "include" });
-      if (!r.ok) throw new Error("Failed");
-      return r.json();
+      const response = await fetch(`/api/payroll/${id}`, { method: "DELETE", credentials: "include" });
+      return parseResponse(response, "Failed to delete payroll record");
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); success("Record deleted"); },
-    onError: () => toastError("Delete failed"),
+    onError: (e: Error) => toastError("Delete failed", e.message),
   });
 
   const totalNet = filtered.reduce((s: number, p: any) => s + (p.netSalary || 0), 0);
@@ -214,24 +222,29 @@ export default function PayrollPage() {
   const pendingCount = filtered.filter((p: any) => p.status === "pending").length;
 
   const getStaffName = (id: number) => staffList.find((s: any) => s.id === id)?.name || `Staff #${id}`;
+  const loadError = payrollError || staffError;
 
   return (
     <Layout title="Payroll" action={
       <div style={{ display: "flex", gap: 8 }}>
-        <Button variant="secondary" onClick={() => printPayrollReport(payrollList, staffList, filterMonth, filterYear)}>
+        <Button variant="secondary" onClick={() => printPayrollReport(payrollList, staffList, filterMonth, filterYear)} disabled={Boolean(payrollError)}>
           <Printer size={14} /> Print Report
         </Button>
-        <Button onClick={() => setModal(true)}><Plus size={15} /> Generate Payroll</Button>
+        <Button onClick={() => setModal(true)} disabled={Boolean(staffError)}><Plus size={15} /> Generate Payroll</Button>
       </div>
     }>
-      {/* Stats */}
+      {loadError && (
+        <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.35)", background: "rgba(248,113,113,0.08)", color: "var(--danger)", fontSize: 13 }}>
+          {loadError instanceof Error ? loadError.message : "Payroll data could not be loaded. Refresh the page and try again."}
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
         <StatCard label="Total Payroll" value={fmt(totalNet)} icon={<Wallet size={20} />} />
         <StatCard label="Paid" value={paidCount} icon={<Wallet size={20} />} color="#3FB950" />
         <StatCard label="Pending" value={pendingCount} icon={<Wallet size={20} />} color="#E3B341" />
       </div>
 
-      {/* Filters */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
         <select
           value={filterMonth}
@@ -246,7 +259,8 @@ export default function PayrollPage() {
           onChange={e => setFilterYear(e.target.value)}
           style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)", borderRadius: 6, padding: "8px 12px", fontSize: 13 }}
         >
-          {[2023, 2024, 2025, 2026].map(y => <option key={y} value={String(y)}>{y}</option>)}
+          <option value="">All Years</option>
+          {yearOptions.map(y => <option key={y} value={String(y)}>{y}</option>)}
         </select>
         {(filterMonth || filterYear) && (
           <button onClick={() => { setFilterMonth(""); setFilterYear(""); }}
@@ -257,7 +271,6 @@ export default function PayrollPage() {
         <span style={{ fontSize: 12, color: "var(--text-secondary)", marginLeft: 4 }}>{filtered.length} record{filtered.length !== 1 ? "s" : ""}</span>
       </div>
 
-      {/* Table */}
       <div style={{ background: "var(--bg-secondary)", borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -270,6 +283,8 @@ export default function PayrollPage() {
           <tbody>
             {isLoading ? (
               <tr><td colSpan={8} style={{ padding: "24px", textAlign: "center", color: "var(--text-secondary)" }}>Loading...</td></tr>
+            ) : payrollError ? (
+              <tr><td colSpan={8} style={{ padding: "40px", textAlign: "center", color: "var(--danger)", fontSize: 13 }}>Payroll records could not be loaded.</td></tr>
             ) : filtered.length === 0 ? (
               <tr><td colSpan={8} style={{ padding: "40px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>No payroll records found</td></tr>
             ) : filtered.map((p: any) => (
@@ -300,7 +315,6 @@ export default function PayrollPage() {
         </table>
       </div>
 
-      {/* Modal */}
       <Modal open={modal} onClose={() => setModal(false)} title="Generate Payroll" width={520}>
         <form onSubmit={e => { e.preventDefault(); save.mutate(form); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <Select label="Staff Member" value={form.staffId} onChange={e => {
