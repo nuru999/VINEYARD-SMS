@@ -20,9 +20,15 @@ const emptyStudent = {
   classId: "",
   parentName: "",
   parentPhone: "",
+  parentEmail: "",
   address: "",
   admissionDate: new Date().toISOString().slice(0, 10),
   status: "active",
+};
+
+const displayGender = (value: unknown) => {
+  const gender = String(value || "").trim().toLowerCase();
+  return gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : "";
 };
 
 async function parseResponse(response: Response) {
@@ -97,7 +103,12 @@ export default function StudentsPage() {
 
   const openEdit = (s: any) => {
     setEditing(s);
-    setForm({ ...s, classId: String(s.classId || "") });
+    setForm({
+      ...s,
+      gender: String(s.gender || "").toLowerCase(),
+      classId: String(s.classId || ""),
+      parentEmail: s.parentEmail || "",
+    });
     setModal(true);
   };
   const openNew = () => {
@@ -114,7 +125,6 @@ export default function StudentsPage() {
     ? data
     : (data as any)?.students ?? [];
 
-  // Search: match name, admission no, parent name, phone, class name
   const filtered = allStudents.filter((s: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -141,7 +151,7 @@ export default function StudentsPage() {
       "Admission No": s.admissionNo,
       "Full Name": s.name,
       "Class": s.className ?? getClass(s.classId),
-      "Gender": s.gender || "",
+      "Gender": displayGender(s.gender),
       "Date of Birth": s.dob || "",
       "Admission Date": s.admissionDate || "",
       "Status": s.status,
@@ -158,7 +168,7 @@ export default function StudentsPage() {
       "Admission No": s.admissionNo,
       "Full Name": s.name,
       "Class": s.className ?? getClass(s.classId),
-      "Gender": s.gender || "",
+      "Gender": displayGender(s.gender),
       "Date of Birth": s.dob || "",
       "Admission Date": s.admissionDate || "",
       "Status": s.status,
@@ -191,7 +201,6 @@ export default function StudentsPage() {
         </div>
       }
     >
-      {/* Search bar */}
       <div style={{ marginBottom: 16, position: "relative", maxWidth: 400 }}>
         <Search
           size={14}
@@ -245,7 +254,6 @@ export default function StudentsPage() {
         )}
       </div>
 
-      {/* Count */}
       <div
         style={{
           fontSize: 12,
@@ -257,7 +265,6 @@ export default function StudentsPage() {
         {search ? ` matching "${search}"` : ""}
       </div>
 
-      {/* Table */}
       <div
         style={{
           background: "var(--bg-secondary)",
@@ -384,7 +391,7 @@ export default function StudentsPage() {
                       color: "var(--text-secondary)",
                     }}
                   >
-                    {s.gender || "—"}
+                    {displayGender(s.gender) || "—"}
                   </td>
                   <td
                     style={{
@@ -447,7 +454,6 @@ export default function StudentsPage() {
         </table>
       </div>
 
-      {/* ── Student Detail Modal (click any row) ── */}
       <Modal
         open={detailModal}
         onClose={() => setDetailModal(false)}
@@ -456,7 +462,6 @@ export default function StudentsPage() {
       >
         {viewStudent && (
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-            {/* Header */}
             <div
               style={{
                 display: "flex",
@@ -502,7 +507,6 @@ export default function StudentsPage() {
               </div>
             </div>
 
-            {/* Details grid */}
             <div
               style={{
                 display: "grid",
@@ -512,7 +516,7 @@ export default function StudentsPage() {
             >
               {[
                 { label: "Class", value: viewStudent.className ?? getClass(viewStudent.classId) },
-                { label: "Gender", value: viewStudent.gender },
+                { label: "Gender", value: displayGender(viewStudent.gender) },
                 { label: "Date of Birth", value: viewStudent.dob },
                 { label: "Admission Date", value: viewStudent.admissionDate },
                 { label: "Parent / Guardian", value: viewStudent.parentName },
@@ -585,7 +589,6 @@ export default function StudentsPage() {
         )}
       </Modal>
 
-      {/* ── Add / Edit Modal (admin only) ── */}
       {isAdmin && (
         <Modal
           open={modal}
@@ -632,8 +635,8 @@ export default function StudentsPage() {
                 value={form.gender}
                 onChange={(e) => setForm({ ...form, gender: e.target.value })}
                 options={[
-                  { value: "Male", label: "Male" },
-                  { value: "Female", label: "Female" },
+                  { value: "male", label: "Male" },
+                  { value: "female", label: "Female" },
                 ]}
               />
               <Select
@@ -670,6 +673,14 @@ export default function StudentsPage() {
                 value={form.parentPhone}
                 onChange={(e) =>
                   setForm({ ...form, parentPhone: e.target.value })
+                }
+              />
+              <Input
+                label="Parent Email"
+                type="email"
+                value={form.parentEmail || ""}
+                onChange={(e) =>
+                  setForm({ ...form, parentEmail: e.target.value })
                 }
               />
               <Input
