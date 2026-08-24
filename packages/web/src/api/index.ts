@@ -35,6 +35,11 @@ const allowedOrigins = [
   "http://localhost:5173",
 ].filter(Boolean) as string[];
 
+function deployedCommit() {
+  const sha = String(process.env.RENDER_GIT_COMMIT || "").trim();
+  return sha ? sha.slice(0, 12) : null;
+}
+
 const app = new Hono()
   .onError((err, c) => {
     console.error("[API Error]", err);
@@ -61,8 +66,9 @@ const app = new Hono()
 
   // Public liveness endpoint for Render/uptime probes. Keep this before the
   // authentication middleware so infrastructure can verify the process without
-  // receiving a 401. It intentionally exposes no school or user data.
-  .get("/health", (c) => c.json({ status: "ok" }, 200))
+  // receiving a 401. The commit is a public Git SHA only; no secrets or school
+  // data are exposed.
+  .get("/health", (c) => c.json({ status: "ok", commit: deployedCommit() }, 200))
 
   // Every application route below this point requires an authenticated session.
   .use("*", authMiddleware)
