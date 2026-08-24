@@ -6,6 +6,57 @@ import { requireAuth, requireAdmin } from "../middleware/auth";
 import { auth } from "../auth";
 import { user as userTable } from "../database/auth-schema";
 
+const ROLES = ["admin", "principal", "teacher", "accountant"] as const;
+type AppRole = typeof ROLES[number];
+
+const DESIGNATION_BY_ROLE: Record<AppRole, string> = {
+  admin: "Admin",
+  principal: "Principal",
+  teacher: "Teacher",
+  accountant: "Accountant",
+};
+
+function validRole(value: unknown): value is AppRole {
+  return typeof value === "string" && ROLES.includes(value as AppRole);
+}
+
+function validEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+async function ensureTeacherStaffLink(user: any) {
+  const [linked] = await db.select().from(schema.staff).where(eq(schema.staff.userId, user.id));
+  if (linked) {
+    if (linked.designation !== "Teacher") {
+      await db.update(schema.staff)
+        .set({ designation: "Teacher" })
+        .where(eq(schema.staff.id, linked.id));
+    }
+    return linked.id;
+  }
+
+  const allStaff = await db.select().from(schema.staff);
+  const matchingUnlinked = allStaff.find((member) =>
+    !member.userId && member.email?.trim().toLowerCase() === String(user.email || "").trim().toLowerCase()
+  );
+
+  if (matchingUnlinked) {
+    await db.update(schema.staff)
+      .set({ userId: user.id, designation: "Teacher" })
+      .where(eq(schema.staff.id, matchingUnlinked.id));
+    return matchingUnlinked.id;
+  }
+
+  const [created] = await db.insert(schema.staff).values({
+    userId: user.id,
+    name: String(user.name || user.email || "Teacher").trim(),
+    email: String(user.email || "").trim().toLowerCase() || null,
+    designation: "Teacher",
+    status: "active",
+  }).returning();
+  return created.id;
+}
+
 export const userManagementRoutes = new Hono()
   .get("/", requireAuth, async (c) => {
     const user = c.get("user")!;
@@ -48,16 +99,20 @@ export const userManagementRoutes = new Hono()
 
   .post("/users", requireAdmin, async (c) => {
     const body = await c.req.json();
-    const { name, email, password, role } = body;
+    const name = String(body.name || "").trim();
+    const email = String(body.email || "").trim().toLowerCase();
+    const password = String(body.password || "");
+    const targetRole: AppRole = validRole(body.role ?? "teacher") ? body.role ?? "teacher" : "teacher";
 
-    if (!name || !email || !password) {
-      return c.json({ message: "name, email, password required" }, 400);
+    if (!name || name.length > 160 || !email || !validEmail(email) || password.length < 8) {
+      return c.json({ message: "Valid name, email, and a password of at least 8 characters are required" }, 400);
     }
-    if (!["admin", "principal", "teacher", "accountant"].includes(role ?? "teacher")) {
+    if (!validRole(body.role ?? "teacher")) {
       return c.json({ message: "role must be admin, principal, teacher or accountant" }, 400);
     }
 
-    const targetRole = (role ?? "teacher") as "admin" | "principal" | "teacher" | "accountant";
+    const [duplicateUser] = await db.select().from(userTable).where(eq(userTable.email, email));
+    if (duplicateUser) return c.json({ message: "A user with this email already exists" }, 409);
 
     if (targetRole === "admin") {
       const admins = await db
@@ -95,10 +150,7 @@ export const userManagementRoutes = new Hono()
       if (!targetClass) return c.json({ message: "Selected class not found" }, 404);
     }
 
-    const result = await auth.api.signUpEmail({
-      body: { name: String(name).trim(), email: String(email).trim().toLowerCase(), password },
-    });
-
+    const result = await auth.api.signUpEmail({ body: { name, email, password } });
     if (!result || result.error) {
       return c.json({ message: (result as any)?.error?.message ?? "Failed to create user" }, 400);
     }
@@ -118,33 +170,22 @@ export const userManagementRoutes = new Hono()
         await db.update(schema.staff)
           .set({
             userId: newUser.id,
-            name: String(name).trim(),
-            email: String(email).trim().toLowerCase(),
+            name,
+            email,
             designation: "Teacher",
             status: "active",
           })
           .where(eq(schema.staff.id, targetStaffId));
       } else {
-        const existing = await db
-          .select()
-          .from(schema.staff)
-          .where(eq(schema.staff.userId, newUser.id));
-
-        if (!existing.length) {
-          await db.insert(schema.staff).values({
-            userId: newUser.id,
-            name: String(name).trim(),
-            email: String(email).trim().toLowerCase(),
-            designation: "Teacher",
-            status: "active",
-          });
-        }
+        await ensureTeacherStaffLink({ ...newUser, name, email });
       }
     }
 
     if (targetRole === "teacher" && classId) {
-      await db
-        .update(schema.classes)
+      await db.update(schema.classes)
+        .set({ teacherUserId: null })
+        .where(eq(schema.classes.teacherUserId, newUser.id));
+      await db.update(schema.classes)
         .set({ teacherUserId: newUser.id })
         .where(eq(schema.classes.id, classId));
     }
@@ -179,27 +220,49 @@ export const userManagementRoutes = new Hono()
 
   .put("/users/:id/role", requireAdmin, async (c) => {
     const id = c.req.param("id");
+    const adminUser = c.get("user")!;
     const { role } = await c.req.json();
 
-    if (!["admin", "principal", "teacher", "accountant"].includes(role)) {
+    if (!validRole(role)) {
       return c.json({ message: "role must be admin, principal, teacher or accountant" }, 400);
     }
 
     const [existingUser] = await db.select().from(userTable).where(eq(userTable.id, id));
     if (!existingUser) return c.json({ message: "User not found" }, 404);
 
+    const [currentProfile] = await db
+      .select()
+      .from(schema.userProfiles)
+      .where(eq(schema.userProfiles.userId, id));
+    const currentRole = (currentProfile?.role && validRole(currentProfile.role)) ? currentProfile.role : "teacher";
+
+    if (id === adminUser.id && currentRole === "admin" && role !== "admin") {
+      return c.json({ message: "You cannot remove your own admin access" }, 400);
+    }
+
     if (role === "admin") {
       const admins = await db
         .select()
         .from(schema.userProfiles)
         .where(eq(schema.userProfiles.role, "admin"));
-      const [currentProfile] = await db
-        .select()
-        .from(schema.userProfiles)
-        .where(eq(schema.userProfiles.userId, id));
-      if (currentProfile?.role !== "admin" && admins.length >= 2) {
+      if (currentRole !== "admin" && admins.length >= 2) {
         return c.json({ message: "Maximum 2 admin accounts allowed" }, 400);
       }
+    }
+
+    if (role !== "teacher") {
+      await db.update(schema.classes)
+        .set({ teacherUserId: null })
+        .where(eq(schema.classes.teacherUserId, id));
+    }
+
+    const [linkedStaff] = await db.select().from(schema.staff).where(eq(schema.staff.userId, id));
+    if (role === "teacher") {
+      await ensureTeacherStaffLink(existingUser);
+    } else if (linkedStaff && linkedStaff.designation !== DESIGNATION_BY_ROLE[role]) {
+      await db.update(schema.staff)
+        .set({ designation: DESIGNATION_BY_ROLE[role] })
+        .where(eq(schema.staff.id, linkedStaff.id));
     }
 
     await db
@@ -210,5 +273,9 @@ export const userManagementRoutes = new Hono()
         set: { role },
       });
 
-    return c.json({ message: "Role updated" });
+    return c.json({
+      message: "Role updated",
+      role,
+      classAssignmentsCleared: currentRole === "teacher" && role !== "teacher",
+    });
   });

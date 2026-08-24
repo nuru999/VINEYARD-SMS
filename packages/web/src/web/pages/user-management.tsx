@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../components/ui/toast";
 import { useRole } from "../lib/use-role";
 import { useLocation } from "wouter";
-import { useEffect } from "react";
 import {
-  Shield, ShieldCheck, Plus, Trash2, RefreshCw, User, Eye, EyeOff, BookOpen
+  ShieldCheck, Plus, Trash2, RefreshCw, User, Eye, EyeOff, BookOpen
 } from "lucide-react";
 import { Layout } from "../components/layout";
 
@@ -18,8 +17,14 @@ interface UserRecord {
   assignedClass?: { id: number; name: string } | null;
 }
 
+async function parseResponse(response: Response) {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error((data as any)?.message || "Request failed");
+  return data;
+}
+
 export default function UserManagementPage() {
-  const { isAdmin, isLoading: roleLoading } = useRole();
+  const { isAdmin, isLoading: roleLoading, user } = useRole();
   const [, navigate] = useLocation();
   const qc = useQueryClient();
   const { success, error: toastError } = useToast();
@@ -28,62 +33,37 @@ export default function UserManagementPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "teacher" as "admin" | "principal" | "teacher" | "accountant", classId: "" });
   const [showPw, setShowPw] = useState(false);
   const [formError, setFormError] = useState("");
-
-  // For reassigning class to existing teacher
   const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
   const [assignClassId, setAssignClassId] = useState("");
 
-  // Redirect non-admins away
   useEffect(() => {
     if (!roleLoading && !isAdmin) navigate("/");
   }, [isAdmin, roleLoading, navigate]);
 
-  const { data, isLoading } = useQuery<{ users: UserRecord[] }>({
+  const { data, isLoading, isError, error: usersError } = useQuery<{ users: UserRecord[] }>({
     queryKey: ["admin-users"],
-    queryFn: async () => {
-      const r = await fetch("/api/me/users", { credentials: "include" });
-      if (!r.ok) return { users: [] };
-      return r.json();
-    },
+    queryFn: async () => parseResponse(await fetch("/api/me/users", { credentials: "include" })),
     enabled: isAdmin,
   });
 
-  // Load classes for the dropdown
   const { data: classesData } = useQuery({
     queryKey: ["classes"],
-    queryFn: async () => {
-      const r = await fetch("/api/classes", { credentials: "include" });
-      if (!r.ok) return { classes: [] };
-      return r.json();
-    },
+    queryFn: async () => parseResponse(await fetch("/api/classes", { credentials: "include" })),
     enabled: isAdmin,
   });
-  const allClasses: any[] = classesData?.classes ?? classesData ?? [];
+  const allClasses: any[] = (classesData as any)?.classes ?? classesData ?? [];
 
   const createMutation = useMutation({
-    mutationFn: async (body: typeof form) => {
-      const r = await fetch("/api/me/users", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const json = await r.json();
-      if (!r.ok) throw new Error(json.message || "Failed to create user");
-      return json;
-    },
-    onSuccess: async (data, variables) => {
-      // If a class was selected, auto-assign right after creation
-      if (variables.role === "teacher" && variables.classId) {
-        await fetch(`/api/classes/${variables.classId}/assign-teacher`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ teacherUserId: data.user.id }),
-        });
-      }
+    mutationFn: async (body: typeof form) => parseResponse(await fetch("/api/me/users", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-users"] });
       qc.invalidateQueries({ queryKey: ["classes"] });
+      qc.invalidateQueries({ queryKey: ["staff"] });
       setShowForm(false);
       setForm({ name: "", email: "", password: "", role: "teacher", classId: "" });
       setFormError("");
@@ -93,51 +73,54 @@ export default function UserManagementPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const r = await fetch(`/api/me/users/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!r.ok) throw new Error("Failed to delete");
+    mutationFn: async (id: string) => parseResponse(await fetch(`/api/me/users/${id}`, {
+      method: "DELETE",
+      credentials: "include",
+    })),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["classes"] });
+      qc.invalidateQueries({ queryKey: ["staff"] });
+      success("User deleted");
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-users"] }); success("User deleted"); },
-    onError: () => toastError("Delete failed"),
+    onError: (e: any) => toastError("Delete failed", e?.message || "Could not delete user"),
   });
 
   const changeRoleMutation = useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: string }) => {
-      const r = await fetch(`/api/me/users/${id}/role`, {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
-      });
-      const json = await r.json();
-      if (!r.ok) throw new Error(json.message);
-      return json;
+    mutationFn: async ({ id, role }: { id: string; role: string }) => parseResponse(await fetch(`/api/me/users/${id}/role`, {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role }),
+    })),
+    onSuccess: (result: any) => {
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      qc.invalidateQueries({ queryKey: ["classes"] });
+      qc.invalidateQueries({ queryKey: ["staff"] });
+      success(result?.classAssignmentsCleared ? "Role updated; teacher class assignment cleared" : "Role updated");
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-users"] }); success("Role updated"); },
     onError: (e: any) => toastError("Role change failed", e?.message),
   });
 
   const assignClassMutation = useMutation({
-    mutationFn: async ({ classId, userId }: { classId: string; userId: string }) => {
-      const r = await fetch(`/api/classes/${classId}/assign-teacher`, {
+    mutationFn: async ({ classId, userId, currentClassId }: { classId: string; userId: string; currentClassId?: number | null }) => {
+      const targetClassId = classId || (currentClassId ? String(currentClassId) : "");
+      if (!targetClassId) throw new Error("Select a class to assign");
+      return parseResponse(await fetch(`/api/classes/${targetClassId}/assign-teacher`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teacherUserId: userId || null }),
-      });
-      if (!r.ok) throw new Error("Failed to assign");
+        body: JSON.stringify({ teacherUserId: classId ? userId : null }),
+      }));
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-users"] });
       qc.invalidateQueries({ queryKey: ["classes"] });
       setAssigningUserId(null);
       setAssignClassId("");
-      success("Class assigned");
+      success("Class assignment updated");
     },
-    onError: () => toastError("Assign failed"),
+    onError: (e: any) => toastError("Assign failed", e?.message || "Could not update class assignment"),
   });
 
   const users = data?.users ?? [];
@@ -168,7 +151,6 @@ export default function UserManagementPage() {
     }>
     <div style={{ fontFamily: "'Poppins', sans-serif" }}>
 
-      {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24, maxWidth: 720 }}>
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, padding: "16px 20px" }}>
           <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Admins</div>
@@ -184,7 +166,6 @@ export default function UserManagementPage() {
         </div>
       </div>
 
-      {/* Create User Form */}
       {showForm && (
         <div style={{
           background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14,
@@ -225,6 +206,7 @@ export default function UserManagementPage() {
                 <input
                   type={showPw ? "text" : "password"}
                   value={form.password}
+                  minLength={8}
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                   placeholder="Minimum 8 characters"
                   style={{ width: "100%", padding: "10px 40px 10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
@@ -255,7 +237,6 @@ export default function UserManagementPage() {
               )}
             </div>
 
-            {/* Class assignment — only shown for teachers */}
             {form.role === "teacher" && (
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>
@@ -284,11 +265,11 @@ export default function UserManagementPage() {
           <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
             <button
               onClick={() => createMutation.mutate(form)}
-              disabled={createMutation.isPending || !form.name || !form.email || !form.password}
+              disabled={createMutation.isPending || !form.name.trim() || !form.email.trim() || form.password.length < 8}
               style={{
                 padding: "10px 20px", background: "#E91E8C", color: "#fff",
                 border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600,
-                opacity: (createMutation.isPending || !form.name || !form.email || !form.password) ? 0.6 : 1,
+                opacity: (createMutation.isPending || !form.name.trim() || !form.email.trim() || form.password.length < 8) ? 0.6 : 1,
               }}>
               {createMutation.isPending ? "Creating..." : "Create User"}
             </button>
@@ -301,11 +282,10 @@ export default function UserManagementPage() {
         </div>
       )}
 
-      {/* Users Table */}
       <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, overflow: "hidden" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid #F1F5F9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: "#1B4D4D" }}>All Users</span>
-          <button onClick={() => qc.invalidateQueries({ queryKey: ["admin-users"] })}
+          <button onClick={() => { qc.invalidateQueries({ queryKey: ["admin-users"] }); qc.invalidateQueries({ queryKey: ["classes"] }); }}
             style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8" }}>
             <RefreshCw size={14} />
           </button>
@@ -313,6 +293,10 @@ export default function UserManagementPage() {
 
         {isLoading ? (
           <div style={{ padding: 40, textAlign: "center", color: "#94A3B8" }}>Loading...</div>
+        ) : isError ? (
+          <div style={{ padding: 40, textAlign: "center", color: "#DC2626", fontSize: 13 }}>
+            {usersError instanceof Error ? usersError.message : "Could not load users"}
+          </div>
         ) : users.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>No users found</div>
         ) : (
@@ -328,9 +312,9 @@ export default function UserManagementPage() {
             </thead>
             <tbody>
               {users.map((u, i) => {
-                // Find assigned class for this teacher
                 const assignedClass = allClasses.find((c: any) => c.teacherUserId === u.id);
                 const isAssigning = assigningUserId === u.id;
+                const isCurrentUser = u.id === user?.id;
 
                 return (
                   <tr key={u.id} style={{ borderTop: i > 0 ? "1px solid #F1F5F9" : "none" }}>
@@ -343,21 +327,34 @@ export default function UserManagementPage() {
                         }}>
                           {u.role === "admin" ? <ShieldCheck size={15} color="#E91E8C" /> : <User size={15} color="#1B4D4D" />}
                         </div>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{u.name}</span>
+                        <div>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{u.name}</span>
+                          {isCurrentUser && <span style={{ marginLeft: 6, fontSize: 10, color: "#64748B" }}>(you)</span>}
+                        </div>
                       </div>
                     </td>
                     <td style={{ padding: "12px 20px", fontSize: 13, color: "#64748B" }}>{u.email}</td>
                     <td style={{ padding: "12px 20px" }}>
                       <select
                         value={u.role}
-                        onChange={e => changeRoleMutation.mutate({ id: u.id, role: e.target.value })}
+                        disabled={isCurrentUser || changeRoleMutation.isPending}
+                        onChange={e => {
+                          const nextRole = e.target.value;
+                          if (u.role === "teacher" && nextRole !== "teacher" && assignedClass) {
+                            const ok = confirm(`Changing ${u.name} from Teacher will unassign them from ${assignedClass.name}. Continue?`);
+                            if (!ok) return;
+                          }
+                          changeRoleMutation.mutate({ id: u.id, role: nextRole });
+                        }}
+                        title={isCurrentUser ? "You cannot change your own admin role here" : undefined}
                         style={{
                           padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
                           border: "1px solid",
                           borderColor: u.role === "admin" ? "#FBCFE8" : "#BBF7D0",
                           background: u.role === "admin" ? "#FDF2F8" : "#F0FDF4",
                           color: u.role === "admin" ? "#E91E8C" : "#166534",
-                          cursor: "pointer", outline: "none",
+                          cursor: isCurrentUser ? "not-allowed" : "pointer", outline: "none",
+                          opacity: isCurrentUser ? 0.65 : 1,
                         }}>
                         <option value="teacher">Teacher</option>
                         <option value="principal">Principal</option>
@@ -381,8 +378,8 @@ export default function UserManagementPage() {
                               ))}
                             </select>
                             <button
-                              onClick={() => assignClassMutation.mutate({ classId: assignClassId, userId: u.id })}
-                              disabled={assignClassMutation.isPending}
+                              onClick={() => assignClassMutation.mutate({ classId: assignClassId, userId: u.id, currentClassId: assignedClass?.id ?? null })}
+                              disabled={assignClassMutation.isPending || (!assignClassId && !assignedClass)}
                               style={{ padding: "5px 10px", background: "#16A34A", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>
                               Save
                             </button>
@@ -415,15 +412,18 @@ export default function UserManagementPage() {
                     </td>
                     <td style={{ padding: "12px 20px" }}>
                       <button
+                        disabled={isCurrentUser || deleteMutation.isPending}
+                        title={isCurrentUser ? "You cannot delete your own account" : undefined}
                         onClick={() => {
-                          if (confirm(`Delete ${u.name}? This cannot be undone.`)) {
+                          if (confirm(`Delete ${u.name}? This removes login access but preserves linked school history.`)) {
                             deleteMutation.mutate(u.id);
                           }
                         }}
                         style={{
                           background: "none", border: "1px solid #FECACA", borderRadius: 6,
-                          padding: "5px 8px", cursor: "pointer", color: "#EF4444",
+                          padding: "5px 8px", cursor: isCurrentUser ? "not-allowed" : "pointer", color: "#EF4444",
                           display: "flex", alignItems: "center", gap: 4, fontSize: 12,
+                          opacity: isCurrentUser ? 0.45 : 1,
                         }}>
                         <Trash2 size={12} /> Delete
                       </button>
@@ -436,7 +436,6 @@ export default function UserManagementPage() {
         )}
       </div>
 
-      {/* Role explanation */}
       <div style={{ marginTop: 20, padding: "16px 20px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #E2E8F0" }}>
         <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#1B4D4D" }}>Role Permissions</p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -453,11 +452,10 @@ export default function UserManagementPage() {
           <div>
             <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 600, color: "#1B4D4D" }}>Teacher (unlimited)</p>
             <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#64748B", lineHeight: 1.8 }}>
-              <li>Dashboard &amp; Students</li>
-              <li>Classes, Attendance</li>
-              <li>Exams, Timetable</li>
-              <li>Report Cards, Certificates</li>
-              <li>Library, Transport, Inventory</li>
+              <li>Assigned-class students &amp; attendance</li>
+              <li>Exams, timetable &amp; academic records</li>
+              <li>Parent communication for assigned pupils</li>
+              <li>Library loans; Transport/Inventory read-only</li>
             </ul>
           </div>
         </div>
