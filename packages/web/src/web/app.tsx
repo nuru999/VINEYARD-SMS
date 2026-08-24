@@ -4,7 +4,6 @@ import { Provider } from "./components/provider";
 import { AgentFeedback } from "@runablehq/website-runtime";
 import { useRole } from "./lib/use-role";
 
-// Pages
 import SignIn from "./pages/sign-in";
 const Dashboard = lazy(() => import("./pages/index"));
 const PrincipalDashboard = lazy(() => import("./pages/principal-dashboard"));
@@ -27,6 +26,7 @@ const TransportPage = lazy(() => import("./pages/transport"));
 const LibraryPage = lazy(() => import("./pages/library"));
 const InventoryPage = lazy(() => import("./pages/inventory"));
 const UserManagementPage = lazy(() => import("./pages/user-management"));
+const AdminSecurityPage = lazy(() => import("./pages/admin-security"));
 const ProfilePage = lazy(() => import("./pages/profile"));
 const StudentProfilePage = lazy(() => import("./pages/student-profile"));
 const SettingsPage = lazy(() => import("./pages/settings"));
@@ -48,7 +48,6 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   }
 
   if (!user) return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}><div style={{ color: "#64748B" }}>Redirecting...</div></div>;
-
   return <Component />;
 }
 
@@ -77,7 +76,6 @@ function ProtectedRoleRoute({
 
   const allowed = role && allowedRoles.includes(role);
   if (!user || !allowed) return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}><div style={{ color: "#64748B" }}>Redirecting...</div></div>;
-
   return <Component />;
 }
 
@@ -98,7 +96,6 @@ function App() {
         <Switch>
         <Route path="/sign-in" component={SignIn} />
 
-        {/* Dashboard — admin sees full dashboard, teacher sees teacher dashboard */}
         <Route path="/" component={() => <ProtectedRoute component={RoleDashboard} />} />
         <Route path="/students" component={() => <ProtectedRoute component={StudentsPage} />} />
         <Route path="/students/:id" component={() => <ProtectedRoute component={StudentProfilePage} />} />
@@ -111,25 +108,20 @@ function App() {
         <Route path="/library" component={() => <ProtectedRoute component={LibraryPage} />} />
         <Route path="/inventory" component={() => <ProtectedRoute component={InventoryPage} />} />
 
-        {/* Academic records: admin + principal + teacher */}
         <Route path="/certificates" component={() => <ProtectedRoleRoute component={CertificatesPage} allowedRoles={["admin", "principal", "teacher"]} />} />
         <Route path="/report-cards" component={() => <ProtectedRoleRoute component={ReportCardsPage} allowedRoles={["admin", "principal", "teacher"]} />} />
 
-        {/* Admin + Principal */}
         <Route path="/staff" component={() => <ProtectedRoleRoute component={StaffPage} allowedRoles={["admin", "principal"]} />} />
 
-        {/* Admin + Principal + Accountant */}
         <Route path="/fees" component={() => <ProtectedRoleRoute component={FeesPage} allowedRoles={["admin", "principal", "accountant"]} />} />
         <Route path="/reports" component={() => <ProtectedRoleRoute component={ReportsPage} allowedRoles={["admin", "principal", "accountant"]} />} />
 
-        {/* Admin + Accountant */}
         <Route path="/payroll" component={() => <ProtectedRoleRoute component={PayrollPage} allowedRoles={["admin", "accountant"]} />} />
         <Route path="/accounts" component={() => <ProtectedRoleRoute component={AccountsPage} allowedRoles={["admin", "accountant"]} />} />
 
-        {/* Admin only */}
         <Route path="/user-management" component={() => <ProtectedRoleRoute component={UserManagementPage} allowedRoles={["admin"]} />} />
+        <Route path="/admin-security" component={() => <ProtectedRoleRoute component={AdminSecurityPage} allowedRoles={["admin"]} />} />
 
-        {/* All roles — profile page */}
         <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
         <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
 
