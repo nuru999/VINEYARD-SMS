@@ -27,6 +27,7 @@ const TransportPage = lazy(() => import("./pages/transport"));
 const LibraryPage = lazy(() => import("./pages/library"));
 const InventoryPage = lazy(() => import("./pages/inventory"));
 const UserManagementPage = lazy(() => import("./pages/user-management"));
+const AdminSecurityPage = lazy(() => import("./pages/admin-security"));
 const ProfilePage = lazy(() => import("./pages/profile"));
 const StudentProfilePage = lazy(() => import("./pages/student-profile"));
 const SettingsPage = lazy(() => import("./pages/settings"));
@@ -128,6 +129,7 @@ function App() {
 
         {/* Admin only */}
         <Route path="/user-management" component={() => <ProtectedRoleRoute component={UserManagementPage} allowedRoles={["admin"]} />} />
+        <Route path="/admin-security" component={() => <ProtectedRoleRoute component={AdminSecurityPage} allowedRoles={["admin"]} />} />
 
         {/* All roles — profile page */}
         <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
