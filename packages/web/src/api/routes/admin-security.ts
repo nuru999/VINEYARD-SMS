@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { Scrypt } from "better-auth";
 import { and, eq } from "drizzle-orm";
 import { db } from "../database";
 import { account, session, user as userTable } from "../database/auth-schema";
+import { hashPassword } from "../lib/auth-password";
 import { requireAdmin } from "../middleware/auth";
 
 export const adminSecurityRoutes = new Hono()
@@ -23,8 +23,7 @@ export const adminSecurityRoutes = new Hono()
     const [targetUser] = await db.select().from(userTable).where(eq(userTable.id, targetUserId));
     if (!targetUser) return c.json({ message: "User not found" }, 404);
 
-    const scrypt = new Scrypt();
-    const passwordHash = await scrypt.hash(newPassword);
+    const passwordHash = await hashPassword(newPassword);
     const updated = await db
       .update(account)
       .set({ password: passwordHash })
@@ -35,8 +34,6 @@ export const adminSecurityRoutes = new Hono()
       return c.json({ message: "This user does not have an email/password credential account" }, 409);
     }
 
-    // A forced reset is a security action: invalidate every active login for the
-    // target account so the new password is required on all devices.
     await db.delete(session).where(eq(session.userId, targetUserId));
 
     return c.json({ message: "Password reset; all sessions revoked" }, 200);
