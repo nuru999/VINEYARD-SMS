@@ -79,14 +79,39 @@ function scoreSubjectRows(subjectRows: any[]) {
   const attempted = subjectRows.filter((row) => row.marks !== null);
   const totalMarks = attempted.reduce((sum, row) => sum + Number(row.marks || 0), 0);
   const totalMax = attempted.reduce((sum, row) => sum + Number(row.maxMarks || 100), 0);
-  const overallPercentage = totalMax > 0 ? Math.round((totalMarks / totalMax) * 100) : 0;
+  const hasResults = attempted.length > 0 && totalMax > 0;
+  const overallPercentage = hasResults ? Math.round((totalMarks / totalMax) * 100) : null;
+
   return {
     totalMarks,
     totalMax,
+    attemptedSubjects: attempted.length,
+    hasResults,
     overallPercentage,
-    overallGrade: gradeFromPercent(overallPercentage),
-    overallRemarks: remarksFromPercent(overallPercentage),
+    overallGrade: overallPercentage !== null ? gradeFromPercent(overallPercentage) : "—",
+    overallRemarks: overallPercentage !== null ? remarksFromPercent(overallPercentage) : "No results entered",
   };
+}
+
+function buildCompetitionPositions<T extends { student: { id: number }; overallPercentage: number | null; hasResults: boolean }>(reports: T[]) {
+  const ranked = reports
+    .filter((report) => report.hasResults && report.overallPercentage !== null)
+    .sort((a, b) => Number(b.overallPercentage) - Number(a.overallPercentage));
+
+  const positionByStudent = new Map<number, number>();
+  let previousPercentage: number | null = null;
+  let previousPosition = 0;
+
+  ranked.forEach((report, index) => {
+    const percentage = Number(report.overallPercentage);
+    if (previousPercentage === null || percentage !== previousPercentage) {
+      previousPosition = index + 1;
+      previousPercentage = percentage;
+    }
+    positionByStudent.set(report.student.id, previousPosition);
+  });
+
+  return { positionByStudent, rankedCount: ranked.length };
 }
 
 export const reportCardsRoutes = new Hono()
@@ -97,7 +122,7 @@ export const reportCardsRoutes = new Hono()
     if (!["admin", "principal", "teacher"].includes(role)) return c.json({ message: "Forbidden" }, 403);
 
     const examId = parseInt(c.req.query("examId") || "0");
-    if (!examId) return c.json({ message: "examId required" }, 400);
+    if (!Number.isInteger(examId) || examId <= 0) return c.json({ message: "Valid examId required" }, 400);
 
     const [exam] = await db.select().from(schema.exams).where(eq(schema.exams.id, examId));
     if (!exam) return c.json({ message: "Exam not found" }, 404);
@@ -122,17 +147,23 @@ export const reportCardsRoutes = new Hono()
       };
     });
 
-    const ranked = [...reports].sort((a, b) => b.overallPercentage - a.overallPercentage);
-    const positionByStudent = new Map(ranked.map((report, index) => [report.student.id, index + 1]));
+    const { positionByStudent, rankedCount } = buildCompetitionPositions(reports);
     const classSize = students.length;
 
     const finalReports = reports.map((report) => ({
       ...report,
-      position: positionByStudent.get(report.student.id) ?? 0,
+      position: positionByStudent.get(report.student.id) ?? null,
+      rankedCount,
       classSize,
     }));
 
-    return c.json({ reportCards: finalReports, exam: reportExam(exam), class: reportClass(cls) }, 200);
+    return c.json({
+      reportCards: finalReports,
+      exam: reportExam(exam),
+      class: reportClass(cls),
+      classSize,
+      rankedCount,
+    }, 200);
   })
 
   // GET /report-cards/:studentId?examId=X — single student in that exam's class.
@@ -143,7 +174,7 @@ export const reportCardsRoutes = new Hono()
 
     const examId = parseInt(c.req.query("examId") || "0");
     const studentId = parseInt(c.req.param("studentId"));
-    if (!examId || !Number.isInteger(studentId) || studentId <= 0) {
+    if (!Number.isInteger(examId) || examId <= 0 || !Number.isInteger(studentId) || studentId <= 0) {
       return c.json({ message: "Valid examId and studentId are required" }, 400);
     }
 
@@ -164,24 +195,33 @@ export const reportCardsRoutes = new Hono()
     const allStudents = await db.select().from(schema.students).where(eq(schema.students.classId, exam.classId));
     const [cls] = await db.select().from(schema.classes).where(eq(schema.classes.id, exam.classId));
 
-    const subjectRows = buildSubjectRows(subjects, allResults.filter((row) => row.studentId === studentId));
-    const score = scoreSubjectRows(subjectRows);
-
-    const allScores = allStudents.map((classStudent) => {
+    const allReports = allStudents.map((classStudent) => {
       const rows = buildSubjectRows(subjects, allResults.filter((result) => result.studentId === classStudent.id));
-      return { studentId: classStudent.id, percentage: scoreSubjectRows(rows).overallPercentage };
-    }).sort((a, b) => b.percentage - a.percentage);
+      return {
+        student: reportStudent(classStudent),
+        subjects: rows,
+        ...scoreSubjectRows(rows),
+      };
+    });
 
-    const position = allScores.findIndex((row) => row.studentId === studentId) + 1;
+    const selectedReport = allReports.find((report) => report.student.id === studentId)!;
+    const { positionByStudent, rankedCount } = buildCompetitionPositions(allReports);
 
     return c.json({
       reportCard: {
-        student: reportStudent(student),
+        student: selectedReport.student,
         class: reportClass(cls),
         exam: reportExam(exam),
-        subjects: subjectRows,
-        ...score,
-        position,
+        subjects: selectedReport.subjects,
+        totalMarks: selectedReport.totalMarks,
+        totalMax: selectedReport.totalMax,
+        attemptedSubjects: selectedReport.attemptedSubjects,
+        hasResults: selectedReport.hasResults,
+        overallPercentage: selectedReport.overallPercentage,
+        overallGrade: selectedReport.overallGrade,
+        overallRemarks: selectedReport.overallRemarks,
+        position: positionByStudent.get(studentId) ?? null,
+        rankedCount,
         classSize: allStudents.length,
       },
     }, 200);

@@ -4,11 +4,18 @@ import { Printer, FileText, ChevronLeft, Award } from "lucide-react";
 import { Layout } from "../components/layout";
 import { Button } from "../components/ui/button";
 import { Select } from "../components/ui/input";
+import { useToast } from "../components/ui/toast";
 import { api } from "../lib/api";
 
 const GRADE_COLOR: Record<string, string> = {
   A: "#3FB950", B: "#58A6FF", C: "#E3B341", D: "#F0883E", E: "#F85149",
 };
+
+async function parseResponse(response: Response) {
+  const data = await response.json();
+  if (!response.ok) throw new Error((data as any)?.message || "Request failed");
+  return data;
+}
 
 function ordinal(n: number) {
   const s = ["th", "st", "nd", "rd"];
@@ -16,13 +23,22 @@ function ordinal(n: number) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+function rankLabel(card: any) {
+  if (!card?.hasResults || card?.position === null || card?.position === undefined) return "Not ranked";
+  const denominator = card.rankedCount || card.classSize || 0;
+  return `${ordinal(card.position)}${denominator ? ` out of ${denominator}` : ""}`;
+}
+
 function PrintableCard({ card }: { card: any }) {
+  const overallPercentage = card.overallPercentage !== null && card.overallPercentage !== undefined
+    ? `${card.overallPercentage}%`
+    : "—";
+
   return (
     <div className="report-card-print" style={{
       background: "#fff", color: "#111", width: "100%", maxWidth: 740, margin: "0 auto",
       fontFamily: "Georgia, serif", padding: "32px 40px", boxSizing: "border-box",
     }}>
-      {/* Header */}
       <div style={{ textAlign: "center", borderBottom: "3px solid #1B4D4D", paddingBottom: 16, marginBottom: 20 }}>
         <div style={{ fontSize: 26, fontWeight: 700, color: "#1B4D4D", letterSpacing: 1 }}>VINEYARD PRIMARY SCHOOL</div>
         <div style={{ fontSize: 13, color: "#555", marginTop: 2 }}>Fruitful Development • Nairobi, Kenya</div>
@@ -32,17 +48,15 @@ function PrintableCard({ card }: { card: any }) {
         <div style={{ fontSize: 13, color: "#555", marginTop: 4 }}>{card.exam?.name} — {card.exam?.term} {card.exam?.year}</div>
       </div>
 
-      {/* Student info */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20, fontSize: 13 }}>
         <div><strong>Student Name:</strong> {card.student?.name}</div>
         <div><strong>Admission No:</strong> {card.student?.admissionNo}</div>
         <div><strong>Class:</strong> {card.class?.name}</div>
         <div><strong>Gender:</strong> {card.student?.gender || "—"}</div>
-        <div><strong>Position in Class:</strong> <span style={{ color: "#E91E8C", fontWeight: 700 }}>{ordinal(card.position)} out of {card.classSize}</span></div>
+        <div><strong>Position in Class:</strong> <span style={{ color: "#E91E8C", fontWeight: 700 }}>{rankLabel(card)}</span></div>
         <div><strong>Overall Grade:</strong> <span style={{ color: GRADE_COLOR[card.overallGrade] || "#111", fontWeight: 700 }}>{card.overallGrade}</span></div>
       </div>
 
-      {/* Subjects table */}
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginBottom: 20 }}>
         <thead>
           <tr style={{ background: "#1B4D4D", color: "#fff" }}>
@@ -66,16 +80,15 @@ function PrintableCard({ card }: { card: any }) {
         <tfoot>
           <tr style={{ background: "#1B4D4D", color: "#fff", fontWeight: 700 }}>
             <td style={{ padding: "9px 12px" }}>TOTAL</td>
-            <td style={{ padding: "9px 12px" }}>{card.totalMarks}</td>
-            <td style={{ padding: "9px 12px" }}>{card.totalMax}</td>
-            <td style={{ padding: "9px 12px" }}>{card.overallPercentage}%</td>
+            <td style={{ padding: "9px 12px" }}>{card.hasResults ? card.totalMarks : "—"}</td>
+            <td style={{ padding: "9px 12px" }}>{card.hasResults ? card.totalMax : "—"}</td>
+            <td style={{ padding: "9px 12px" }}>{overallPercentage}</td>
             <td style={{ padding: "9px 12px" }}>{card.overallGrade}</td>
             <td style={{ padding: "9px 12px" }}>{card.overallRemarks}</td>
           </tr>
         </tfoot>
       </table>
 
-      {/* Grade key */}
       <div style={{ display: "flex", gap: 20, fontSize: 12, color: "#555", marginBottom: 20 }}>
         <strong>Grade Key:</strong>
         {[["A", "80–100% Excellent"], ["B", "70–79% Very Good"], ["C", "60–69% Good"], ["D", "50–59% Average"], ["E", "0–49% Needs Improvement"]].map(([g, desc]) => (
@@ -83,7 +96,6 @@ function PrintableCard({ card }: { card: any }) {
         ))}
       </div>
 
-      {/* Signatures */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24, marginTop: 32, fontSize: 12 }}>
         {["Class Teacher", "Head Teacher", "Parent/Guardian"].map(role => (
           <div key={role} style={{ textAlign: "center" }}>
@@ -100,39 +112,54 @@ function PrintableCard({ card }: { card: any }) {
 }
 
 export default function ReportCardsPage() {
+  const { error: toastError } = useToast();
   const [selectedExam, setSelectedExam] = useState<string>("");
   const [selectedStudent, setSelectedStudent] = useState<string>("");
-  const [viewCard, setViewCard] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const { data: examsData } = useQuery({
+  const { data: examsData, error: examsError } = useQuery({
     queryKey: ["exams"],
-    queryFn: async () => { try { const r = await (await api.exams.$get()).json(); return Array.isArray(r) ? r : (r as any).exams ?? []; } catch { return []; } },
+    queryFn: async () => {
+      const result = await parseResponse(await api.exams.$get());
+      return Array.isArray(result) ? result : (result as any).exams ?? [];
+    },
   });
 
-  const { data: cardsData, isLoading: cardsLoading } = useQuery({
+  const { data: cardsData, isLoading: cardsLoading, error: cardsError } = useQuery({
     queryKey: ["report-cards", selectedExam],
     queryFn: async () => {
-      if (!selectedExam) return null;
-      const r = await fetch(`/api/report-cards?examId=${selectedExam}`, { credentials: "include" });
-      const j = await r.json();
-      return j?.reportCards ?? j?.reportCard ?? j ?? null;
+      if (!selectedExam) return [];
+      const result = await parseResponse(await fetch(`/api/report-cards?examId=${selectedExam}`, { credentials: "include" }));
+      return Array.isArray(result) ? result : (result as any)?.reportCards ?? [];
     },
     enabled: !!selectedExam,
   });
 
-  const { data: singleCard, isLoading: singleLoading } = useQuery({
+  const { data: singleCard, isLoading: singleLoading, error: singleError } = useQuery({
     queryKey: ["report-card-single", selectedExam, selectedStudent],
     queryFn: async () => {
       if (!selectedExam || !selectedStudent) return null;
-      const r = await fetch(`/api/report-cards/${selectedStudent}?examId=${selectedExam}`, { credentials: "include" });
-      const j = await r.json();
-      return j?.reportCards ?? j?.reportCard ?? j ?? null;
+      const result = await parseResponse(await fetch(`/api/report-cards/${selectedStudent}?examId=${selectedExam}`, { credentials: "include" }));
+      return (result as any)?.reportCard ?? null;
     },
     enabled: !!selectedExam && !!selectedStudent,
   });
 
+  const cards: any[] = Array.isArray(cardsData) ? cardsData : [];
+  const gradedCards = cards.filter((card: any) => card.hasResults);
+  const sortedCards = [...cards].sort((a: any, b: any) => {
+    const aPosition = a.position ?? Number.MAX_SAFE_INTEGER;
+    const bPosition = b.position ?? Number.MAX_SAFE_INTEGER;
+    if (aPosition !== bPosition) return aPosition - bPosition;
+    return String(a.student?.name || "").localeCompare(String(b.student?.name || ""));
+  });
+  const activeCard = selectedStudent ? singleCard : null;
+
   const handlePrint = () => {
+    if (!activeCard?.hasResults) {
+      toastError("Cannot print report card", "No exam results have been entered for this student yet.");
+      return;
+    }
     const printContent = printRef.current?.innerHTML;
     if (!printContent) return;
     const win = window.open("", "_blank");
@@ -153,14 +180,10 @@ export default function ReportCardsPage() {
   };
 
   const handlePrintAll = () => {
-    const cardsArray: any[] = Array.isArray(cardsData) ? cardsData : [];
-    if (!cardsArray.length) return;
-    const allCards = cardsArray.map((card: any) => {
-      const el = document.createElement("div");
-      el.style.pageBreakAfter = "always";
-      // We'll just render them as text summary for bulk print
-      return `<div style="page-break-after:always; padding:20px;">${document.getElementById(`card-${card.student?.id}`)?.innerHTML || ""}</div>`;
-    }).join("");
+    if (!gradedCards.length) return;
+    const allCards = gradedCards.map((card: any) => (
+      `<div style="page-break-after:always; padding:20px;">${document.getElementById(`card-${card.student?.id}`)?.innerHTML || ""}</div>`
+    )).join("");
     const win = window.open("", "_blank");
     if (!win) return;
     win.document.write(`<html><head><title>All Report Cards</title>
@@ -171,23 +194,27 @@ export default function ReportCardsPage() {
     setTimeout(() => { win.print(); win.close(); }, 800);
   };
 
-  const activeCard = selectedStudent ? (singleCard?.reportCard ?? singleCard) : null;
+  const queryError = examsError || cardsError || singleError;
 
   return (
     <Layout title="Report Cards" action={
       activeCard ? (
         <div style={{ display: "flex", gap: 8 }}>
-          <Button variant="secondary" size="sm" onClick={() => { setViewCard(null); setSelectedStudent(""); }}>
+          <Button variant="secondary" size="sm" onClick={() => setSelectedStudent("")}>
             <ChevronLeft size={14} /> Back to List
           </Button>
-          <Button onClick={handlePrint}><Printer size={14} /> Print Card</Button>
+          {activeCard.hasResults && <Button onClick={handlePrint}><Printer size={14} /> Print Card</Button>}
         </div>
-      ) : selectedExam && (Array.isArray(cardsData) ? cardsData.length : 0) > 0 ? (
-        <Button onClick={handlePrintAll}><Printer size={14} /> Print All</Button>
+      ) : selectedExam && gradedCards.length > 0 ? (
+        <Button onClick={handlePrintAll}><Printer size={14} /> Print Graded</Button>
       ) : undefined
     }>
+      {queryError && (
+        <div style={{ marginBottom: 18, padding: "12px 14px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13 }}>
+          {(queryError as Error).message || "Could not load report-card data"}
+        </div>
+      )}
 
-      {/* Selectors */}
       {!activeCard && (
         <div style={{ display: "flex", gap: 14, marginBottom: 24, alignItems: "flex-end" }}>
           <div style={{ flex: 1 }}>
@@ -195,10 +222,10 @@ export default function ReportCardsPage() {
               label="Select Exam"
               value={selectedExam}
               onChange={e => { setSelectedExam(e.target.value); setSelectedStudent(""); }}
-              options={(Array.isArray(examsData) ? examsData : (examsData as any)?.exams ?? []).map((ex: any) => ({ value: String(ex.id), label: `${ex.name} — ${ex.term} ${ex.year}` }))}
+              options={(Array.isArray(examsData) ? examsData : []).map((ex: any) => ({ value: String(ex.id), label: `${ex.name} — ${ex.term} ${ex.year}` }))}
             />
           </div>
-          {Array.isArray(cardsData) && cardsData.length > 0 && (
+          {cards.length > 0 && (
             <div style={{ flex: 1 }}>
               <Select
                 label="View Student Card"
@@ -206,10 +233,10 @@ export default function ReportCardsPage() {
                 onChange={e => setSelectedStudent(e.target.value)}
                 options={[
                   { value: "", label: "— All students —" },
-                  ...(cardsData.map((c: any) => ({
-                    value: String(c.student?.id),
-                    label: `${c.student?.name} (${c.student?.admissionNo})`,
-                  }))),
+                  ...cards.map((card: any) => ({
+                    value: String(card.student?.id),
+                    label: `${card.student?.name} (${card.student?.admissionNo})${card.hasResults ? "" : " — no results"}`,
+                  })),
                 ]}
               />
             </div>
@@ -217,12 +244,16 @@ export default function ReportCardsPage() {
         </div>
       )}
 
-      {/* Single card view */}
       {selectedStudent && (
         singleLoading ? (
           <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>Loading...</div>
         ) : activeCard ? (
           <div>
+            {!activeCard.hasResults && (
+              <div style={{ marginBottom: 14, padding: "10px 12px", borderRadius: 8, background: "#FFFBEB", border: "1px solid #FDE68A", color: "#92400E", fontSize: 12 }}>
+                No exam marks have been entered for this student, so they are not graded or ranked yet.
+              </div>
+            )}
             <div ref={printRef}>
               <PrintableCard card={activeCard} />
             </div>
@@ -230,21 +261,24 @@ export default function ReportCardsPage() {
         ) : null
       )}
 
-      {/* All cards list */}
       {!selectedStudent && selectedExam && (
         cardsLoading ? (
           <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)" }}>Loading report cards...</div>
-        ) : !(Array.isArray(cardsData) && cardsData.length) ? (
+        ) : !cards.length ? (
           <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-secondary)" }}>
             <FileText size={48} style={{ marginBottom: 12, opacity: 0.3 }} />
-            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>No results yet</div>
-            <div style={{ fontSize: 13 }}>Enter exam results first from the Exams page.</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 }}>No students found</div>
+            <div style={{ fontSize: 13 }}>Check the exam class and student enrollment.</div>
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
-            {(Array.isArray(cardsData) ? cardsData : [])
-              .sort((a: any, b: any) => a.position - b.position)
-              .map((card: any) => (
+          <>
+            {gradedCards.length === 0 && (
+              <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, background: "#FFFBEB", border: "1px solid #FDE68A", color: "#92400E", fontSize: 13 }}>
+                Students are enrolled in this class, but no exam results have been entered yet.
+              </div>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 14 }}>
+              {sortedCards.map((card: any) => (
                 <div key={card.student?.id} id={`card-${card.student?.id}`}
                   style={{
                     background: "var(--bg-secondary)", borderRadius: 12, border: "1px solid var(--border)",
@@ -271,15 +305,15 @@ export default function ReportCardsPage() {
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
                     <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: "var(--accent)" }}>{card.overallPercentage}%</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "var(--accent)" }}>{card.overallPercentage !== null ? `${card.overallPercentage}%` : "—"}</div>
                       <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>Score</div>
                     </div>
                     <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: "#E91E8C" }}>{ordinal(card.position)}</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#E91E8C" }}>{card.position !== null ? ordinal(card.position) : "—"}</div>
                       <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>Position</div>
                     </div>
                     <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "8px 10px", textAlign: "center" }}>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: "#58A6FF" }}>{card.subjects?.filter((s: any) => s.marks !== null).length}</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#58A6FF" }}>{card.attemptedSubjects ?? card.subjects?.filter((s: any) => s.marks !== null).length}</div>
                       <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>Subjects</div>
                     </div>
                   </div>
@@ -289,22 +323,22 @@ export default function ReportCardsPage() {
                     <div style={{ display: "flex", gap: 4 }}>
                       <Award size={12} color="#E3B341" />
                       <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                        {card.totalMarks}/{card.totalMax}
+                        {card.hasResults ? `${card.totalMarks}/${card.totalMax}` : "No marks"}
                       </span>
                     </div>
                   </div>
                 </div>
               ))}
-          </div>
+            </div>
+          </>
         )
       )}
 
-      {/* Empty state */}
       {!selectedExam && (
         <div style={{ textAlign: "center", padding: "80px 0", color: "var(--text-secondary)" }}>
           <FileText size={56} style={{ marginBottom: 16, opacity: 0.2 }} />
           <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>Select an exam to generate report cards</div>
-          <div style={{ fontSize: 13 }}>Report cards are auto-generated from exam results.</div>
+          <div style={{ fontSize: 13 }}>Report cards are generated from entered exam results. Ungraded students stay unranked.</div>
         </div>
       )}
     </Layout>
