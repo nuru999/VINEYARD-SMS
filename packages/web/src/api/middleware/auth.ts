@@ -12,7 +12,22 @@ export const authMiddleware = createMiddleware(async (c, next) => {
 });
 
 export const requireAuth = createMiddleware(async (c, next) => {
-  if (!c.get("user")) return c.json({ message: "Unauthorized" }, 401);
+  const user = c.get("user");
+  if (!user) return c.json({ message: "Unauthorized" }, 401);
+
+  // Better Auth identity alone is not enough to enter the school application.
+  // Every app user must have an explicit profile/role. This prevents a partial
+  // account-creation/deletion failure from falling through to route-level
+  // `teacher` defaults and accidentally gaining teacher permissions.
+  const [profile] = await db
+    .select({ id: schema.userProfiles.id })
+    .from(schema.userProfiles)
+    .where(eq(schema.userProfiles.userId, user.id));
+
+  if (!profile) {
+    return c.json({ message: "Forbidden: account profile is not configured" }, 403);
+  }
+
   return next();
 });
 
