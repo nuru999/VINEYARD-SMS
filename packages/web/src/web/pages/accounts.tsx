@@ -29,6 +29,14 @@ const INCOME_CATEGORIES = ["School Fees", "Donations", "Grants", "Other Income"]
 const EXPENSE_CATEGORIES = ["Salaries", "Utilities", "Supplies", "Maintenance", "Transport", "Events", "Other Expense"];
 const PAYMENT_METHODS = ["Cash", "M-Pesa", "Bank Transfer"];
 
+async function parseResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.message || fallbackMessage);
+  }
+  return payload as T;
+}
+
 function printHTML(html: string, title: string) {
   const win = window.open("", "_blank", "width=800,height=900");
   if (!win) return;
@@ -67,7 +75,6 @@ function printAccountsReport(transactions: Transaction[], summary: any, filter: 
     filter.endDate ? `To: ${filter.endDate}` : "",
   ].filter(Boolean).join(" · ");
 
-  // Group by category
   const incomeRows = transactions.filter(t => t.type === "income");
   const expenseRows = transactions.filter(t => t.type === "expense");
   const totalIncome = incomeRows.reduce((s, t) => s + t.amount, 0);
@@ -117,9 +124,7 @@ function printAccountsReport(transactions: Transaction[], summary: any, filter: 
           <th>Date</th><th>Type</th><th>Category</th><th>Description</th><th>Method</th><th>Reference</th><th>Amount</th>
         </tr>
       </thead>
-      <tbody>
-        ${makeRows(transactions)}
-      </tbody>
+      <tbody>${makeRows(transactions)}</tbody>
       <tfoot>
         <tr class="total-row">
           <td colspan="6"><strong>TOTALS</strong></td>
@@ -134,34 +139,30 @@ function printAccountsReport(transactions: Transaction[], summary: any, filter: 
 const accountsApi = {
   list: async (params?: Record<string, string>) => {
     const q = params ? "?" + new URLSearchParams(params).toString() : "";
-    const r = await fetch(`/api/accounts${q}`, { credentials: "include" });
-    if (!r.ok) return { transactions: [], summary: { totalIncome: 0, totalExpense: 0, balance: 0 } };
-    return r.json();
+    const response = await fetch(`/api/accounts${q}`, { credentials: "include" });
+    return parseResponse<any>(response, "Failed to load accounts");
   },
   create: async (data: Partial<Transaction>) => {
-    const r = await fetch("/api/accounts", {
+    const response = await fetch("/api/accounts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify(data),
     });
-    if (!r.ok) throw new Error("Failed to create transaction");
-    return r.json();
+    return parseResponse(response, "Failed to create transaction");
   },
   update: async ({ id, ...data }: Partial<Transaction> & { id: string }) => {
-    const r = await fetch(`/api/accounts/${id}`, {
+    const response = await fetch(`/api/accounts/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify(data),
     });
-    if (!r.ok) throw new Error("Failed to update transaction");
-    return r.json();
+    return parseResponse(response, "Failed to update transaction");
   },
   delete: async (id: string) => {
-    const r = await fetch(`/api/accounts/${id}`, { method: "DELETE", credentials: "include" });
-    if (!r.ok) throw new Error("Failed to delete transaction");
-    return r.json();
+    const response = await fetch(`/api/accounts/${id}`, { method: "DELETE", credentials: "include" });
+    return parseResponse(response, "Failed to delete transaction");
   },
 };
 
@@ -190,7 +191,10 @@ export default function AccountsPage() {
   if (filter.startDate) params.startDate = filter.startDate;
   if (filter.endDate) params.endDate = filter.endDate;
 
-  const { data, isLoading } = useQuery({ queryKey: ["accounts", params], queryFn: () => accountsApi.list(params) });
+  const { data, isLoading, error: loadError } = useQuery({
+    queryKey: ["accounts", params],
+    queryFn: () => accountsApi.list(params),
+  });
   const transactions: Transaction[] = data?.transactions || [];
   const summary = data?.summary || { totalIncome: 0, totalExpense: 0, balance: 0 };
 
@@ -207,7 +211,7 @@ export default function AccountsPage() {
   const deleteMut = useMutation({
     mutationFn: accountsApi.delete,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["accounts"] }); closeModal(); success("Transaction deleted"); },
-    onError: () => toastError("Delete failed"),
+    onError: (e: Error) => toastError("Delete failed", e.message),
   });
 
   const openCreate = () => { setForm({ ...empty, date: new Date().toISOString().split("T")[0] }); setError(""); setModal("create"); };
@@ -217,35 +221,39 @@ export default function AccountsPage() {
 
   const handleSubmit = () => {
     if (!form.category || !form.description || !form.amount || !form.date) {
-      setError("Fill all required fields"); return;
+      setError("Fill all required fields");
+      return;
     }
     if (modal === "create") createMut.mutate(form);
     else if (modal === "edit" && selected) updateMut.mutate({ ...form, id: selected.id });
   };
 
   const categories = form.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
-
   const fmtCurrency = (n: number) =>
     new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(n);
 
   return (
     <Layout>
       <div style={{ padding: "24px", maxWidth: 1200 }}>
-        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>Accounts</h1>
             <p style={{ margin: "4px 0 0", color: "var(--text-secondary)", fontSize: 14 }}>Track income & expenses</p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <Button variant="secondary" onClick={() => printAccountsReport(transactions, summary, filter)}>
+            <Button variant="secondary" onClick={() => printAccountsReport(transactions, summary, filter)} disabled={Boolean(loadError)}>
               <Printer size={14} /> Print Report
             </Button>
-            <Button onClick={openCreate}>+ New Transaction</Button>
+            <Button onClick={openCreate} disabled={Boolean(loadError)}>+ New Transaction</Button>
           </div>
         </div>
 
-        {/* Summary Cards */}
+        {loadError && (
+          <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.35)", background: "rgba(248,113,113,0.08)", color: "var(--danger)", fontSize: 13 }}>
+            {loadError instanceof Error ? loadError.message : "Accounts data could not be loaded. Refresh the page and try again."}
+          </div>
+        )}
+
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
           {[
             { label: "Total Income", value: summary.totalIncome, color: "#4ADE80" },
@@ -255,13 +263,12 @@ export default function AccountsPage() {
             <Card key={s.label}>
               <div style={{ padding: 20 }}>
                 <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 8 }}>{s.label}</div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{fmtCurrency(s.value)}</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: s.color }}>{loadError ? "Unavailable" : fmtCurrency(s.value)}</div>
               </div>
             </Card>
           ))}
         </div>
 
-        {/* Filters */}
         <Card style={{ marginBottom: 16 }}>
           <div style={{ padding: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             <select
@@ -307,11 +314,12 @@ export default function AccountsPage() {
           </div>
         </Card>
 
-        {/* Table */}
         <Card>
           <div style={{ overflowX: "auto" }}>
             {isLoading ? (
               <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>Loading...</div>
+            ) : loadError ? (
+              <div style={{ padding: 40, textAlign: "center", color: "var(--danger)" }}>Accounts data could not be loaded.</div>
             ) : transactions.length === 0 ? (
               <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>No transactions found</div>
             ) : (
@@ -351,7 +359,6 @@ export default function AccountsPage() {
           </div>
         </Card>
 
-        {/* Create/Edit Modal */}
         <Modal open={modal === "create" || modal === "edit"} onClose={closeModal} title={modal === "create" ? "New Transaction" : "Edit Transaction"}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {error && <div style={{ background: "#F8717120", border: "1px solid #F87171", borderRadius: 6, padding: "10px 14px", color: "#F87171", fontSize: 14 }}>{error}</div>}
@@ -403,7 +410,6 @@ export default function AccountsPage() {
           </div>
         </Modal>
 
-        {/* Delete Modal */}
         <Modal open={modal === "delete"} onClose={closeModal} title="Delete Transaction">
           <p style={{ color: "var(--text-secondary)", margin: "0 0 24px" }}>
             Delete <strong style={{ color: "var(--text-primary)" }}>{selected?.description}</strong>? This cannot be undone.
