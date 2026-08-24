@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { auth } from "./auth";
 import { authMiddleware, requireAdminOrPrincipal, requireFinanceAccess } from "./middleware/auth";
 import { userManagementRoutes } from "./routes/user-management";
+import { adminSecurityRoutes } from "./routes/admin-security";
 import { students } from "./routes/students";
 import { staffRoutes } from "./routes/staff";
 import { classesRoutes, sectionsRoutes, subjectsRoutes } from "./routes/classes";
@@ -111,6 +112,7 @@ const app = new Hono()
 
   // ── User management (admin only, handled inside the route) ──
   .route("/me", userManagementRoutes)
+  .route("/admin-security", adminSecurityRoutes)
   .route("/settings", settingsRoutes);
 
 export type AppType = typeof app;
