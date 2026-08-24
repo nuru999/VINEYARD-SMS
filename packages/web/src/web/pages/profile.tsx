@@ -8,7 +8,6 @@ import { UserCircle, Mail, Phone, BookOpen, Shield, Key } from "lucide-react";
 
 export default function ProfilePage() {
   const { user, role } = useRole();
-  const { data: session } = authClient.useSession();
   const { success, error: showError } = useToast();
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -16,22 +15,20 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPw, setChangingPw] = useState(false);
 
-  // Load profile for phone
   const { data: profileData } = useQuery({
     queryKey: ["my-profile"],
     queryFn: async () => {
       const r = await fetch("/api/me", { credentials: "include" });
-      if (!r.ok) return null;
+      if (!r.ok) throw new Error("Failed to load profile");
       return r.json();
     },
   });
 
-  // Load assigned class info for teachers
   const { data: classesData } = useQuery({
     queryKey: ["classes"],
     queryFn: async () => {
       const res = await fetch("/api/classes", { credentials: "include" });
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error("Failed to load classes");
       const r = await res.json();
       return Array.isArray(r) ? r : (r.classes ?? []);
     },
@@ -53,18 +50,20 @@ export default function ProfilePage() {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) { showError("Passwords don't match"); return; }
-    if (newPassword.length < 8) { showError("Password must be at least 8 characters"); return; }
+    if (newPassword.length < 12) { showError("Password must be at least 12 characters"); return; }
+    if (newPassword === currentPassword) { showError("New password must be different from the current password"); return; }
+
     setChangingPw(true);
     try {
       const res = await authClient.changePassword({
         currentPassword,
         newPassword,
-        revokeOtherSessions: false,
+        revokeOtherSessions: true,
       });
       if ((res as any)?.error) {
         showError((res as any).error.message ?? "Failed to change password");
       } else {
-        success("Password changed successfully");
+        success("Password changed and other sessions revoked");
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
@@ -79,15 +78,11 @@ export default function ProfilePage() {
   return (
     <Layout title="My Profile">
       <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
-
-        {/* Profile card */}
         <div style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #E2E8F0", overflow: "hidden" }}>
-          {/* Banner */}
           <div style={{ height: 80, background: "linear-gradient(135deg, #1B4D4D, #0f2e2e)", position: "relative" }}>
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(233,30,140,0.3), transparent)" }} />
           </div>
 
-          {/* Avatar + info */}
           <div style={{ padding: "0 28px 24px", position: "relative" }}>
             <div style={{
               width: 72, height: 72, borderRadius: "50%",
@@ -98,7 +93,7 @@ export default function ProfilePage() {
               fontSize: 28, fontWeight: 800, color: "#FFFFFF",
               boxShadow: "0 4px 12px rgba(233,30,140,0.3)",
             }}>
-              {user?.name?.charAt(0).toUpperCase() ?? "?"}
+              {user?.name?.charAt(0).toUpperCase() ?? <UserCircle size={28} />}
             </div>
 
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
@@ -114,7 +109,6 @@ export default function ProfilePage() {
               </span>
             </div>
 
-            {/* Info rows */}
             <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "#475569" }}>
                 <Mail size={15} style={{ color: "#94A3B8", flexShrink: 0 }} />
@@ -146,11 +140,13 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Change password */}
         <div style={{ background: "#FFFFFF", borderRadius: 16, border: "1px solid #E2E8F0", padding: "24px 28px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
             <Key size={16} style={{ color: "#E91E8C" }} />
             <span style={{ fontSize: 14, fontWeight: 700, color: "#1E293B" }}>Change Password</span>
+          </div>
+          <div style={{ fontSize: 12, color: "#64748B", marginBottom: 20 }}>
+            Use at least 12 characters. Updating your password signs out other sessions for this account.
           </div>
 
           <form onSubmit={handleChangePassword} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -162,7 +158,7 @@ export default function ProfilePage() {
               <div key={label}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 5 }}>{label}</label>
                 <input
-                  type="password" value={value} onChange={e => set(e.target.value)} required
+                  type="password" value={value} onChange={e => set(e.target.value)} required autoComplete={label === "Current Password" ? "current-password" : "new-password"}
                   style={{
                     width: "100%", padding: "10px 12px", borderRadius: 8, fontSize: 13,
                     border: "1.5px solid #E2E8F0", outline: "none", fontFamily: "inherit",
@@ -184,7 +180,6 @@ export default function ProfilePage() {
             </button>
           </form>
         </div>
-
       </div>
     </Layout>
   );
