@@ -7,6 +7,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import app from "./src/api/index";
 import { runStartupMigrations } from "./src/api/database/startup-migrations";
+import { runRoleCredentialRotation } from "./src/api/lib/role-credential-rotation";
 
 const PORT = Number(process.env.PORT) || 3000;
 
@@ -27,6 +28,11 @@ server.get("/*", serveStatic({ path: "./dist/index.html" }));
 async function startServer() {
   // Apply safe, idempotent schema changes before accepting traffic.
   await runStartupMigrations();
+
+  // Optional one-time production credential rotation. This is a no-op unless
+  // ROLE_CREDENTIAL_ROTATION_ID and all role-specific credentials are supplied
+  // through the runtime environment. A completed rotation is marked in the DB.
+  await runRoleCredentialRotation();
 
   serve({ fetch: server.fetch, port: PORT }, () => {
     console.log(`✅ Vineyard School running on port ${PORT}`);
