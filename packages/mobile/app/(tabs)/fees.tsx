@@ -24,64 +24,74 @@ const METHOD_COLOR: Record<string, string> = {
 
 type Tab = "payments" | "defaulters";
 
+async function parseResponse(response: Response) {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error((data as any)?.message || "Request failed");
+  return data;
+}
+
+function initials(name: string | undefined) {
+  if (!name) return "?";
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("") || "?";
+}
+
 export default function FeesScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("defaulters");
 
-  // Defaulters list
-  const { data: defData, isLoading: defLoading } = useQuery({
+  const { data: defData, isLoading: defLoading, isError: defError } = useQuery({
     queryKey: ["m-defaulters"],
-    queryFn: async () => {
-      const r = await apiFetch("/api/fee-payments/defaulters");
-      if (!r.ok) return null;
-      return r.json();
-    },
+    queryFn: async () => parseResponse(await apiFetch("/api/fee-payments/defaulters")),
     enabled: activeTab === "defaulters",
   });
 
-  // Recent payments
-  const { data: payData, isLoading: payLoading } = useQuery({
+  const { data: payData, isLoading: payLoading, isError: payError } = useQuery({
     queryKey: ["m-fee-payments"],
-    queryFn: async () => {
-      const r = await apiFetch("/api/fee-payments");
-      if (!r.ok) return null;
-      return r.json();
-    },
+    queryFn: async () => parseResponse(await apiFetch("/api/fee-payments")),
     enabled: activeTab === "payments",
   });
 
-  const defaulters: any[] = defData?.defaulters ?? [];
-  const payments: any[] = payData?.payments ?? [];
+  const defaulters: any[] = (defData as any)?.defaulters ?? [];
+  const payments: any[] = (payData as any)?.payments ?? [];
 
-  // Stats
-  const totalOwed = defaulters.reduce((s, d) => s + (d.totalOwed || 0), 0);
-  const totalPayments = payments.reduce((s, p) => s + (p.amount || 0), 0);
+  const totalOwed = Number(
+    (defData as any)?.totalOutstanding ??
+    defaulters.reduce((sum, item) => sum + Number(item.totalOwed || 0), 0)
+  );
+  const totalPayments = Number(
+    (payData as any)?.summary?.totalCollected ??
+    payments.reduce((sum, payment) => sum + Number(payment.paidAmount || 0), 0)
+  );
 
   const isLoading = activeTab === "defaulters" ? defLoading : payLoading;
+  const isError = activeTab === "defaulters" ? defError : payError;
 
   return (
     <View style={styles.container}>
-      {/* Tabs */}
       <View style={styles.tabBar}>
-        {(["defaulters", "payments"] as Tab[]).map((t) => (
+        {(["defaulters", "payments"] as Tab[]).map((tab) => (
           <TouchableOpacity
-            key={t}
-            style={[styles.tab, activeTab === t && styles.tabActive]}
-            onPress={() => setActiveTab(t)}
+            key={tab}
+            style={[styles.tab, activeTab === tab && styles.tabActive]}
+            onPress={() => setActiveTab(tab)}
           >
-            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>
-              {t === "defaulters" ? "Defaulters" : "Payments"}
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {tab === "defaulters" ? "Defaulters" : "Payments"}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Summary strip */}
       <View style={styles.summaryStrip}>
         {activeTab === "defaulters" ? (
           <>
             <View style={styles.stripItem}>
               <Text style={[styles.stripValue, { color: "#F87171" }]}>
-                {defData?.count ?? 0}
+                {(defData as any)?.count ?? 0}
               </Text>
               <Text style={styles.stripLabel}>Defaulters</Text>
             </View>
@@ -114,51 +124,54 @@ export default function FeesScreen() {
         <View style={styles.center}>
           <ActivityIndicator color={PINK} />
         </View>
+      ) : isError ? (
+        <View style={styles.center}>
+          <Text style={styles.errorText}>Could not load fee data.</Text>
+          <Text style={styles.empty}>Check your connection and try again.</Text>
+        </View>
       ) : activeTab === "defaulters" ? (
         defaulters.length === 0 ? (
           <View style={styles.center}>
             <Text style={styles.emptyIcon}>✓</Text>
-            <Text style={styles.empty}>No defaulters — all fees paid!</Text>
+            <Text style={styles.empty}>No defaulters — all recorded fee obligations are cleared.</Text>
           </View>
         ) : (
           <FlatList
             data={defaulters}
-            keyExtractor={(d: any, i) => String(d.student?.id ?? i)}
+            keyExtractor={(item: any, index) => String(item.student?.id ?? index)}
             contentContainerStyle={{ padding: 16, gap: 8 }}
-            renderItem={({ item }) => (
-              <View style={styles.card}>
-                <View style={styles.cardTop}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>
-                      {item.student?.firstName?.[0]}
-                      {item.student?.lastName?.[0]}
-                    </Text>
+            renderItem={({ item }) => {
+              const student = item.student;
+              return (
+                <View style={styles.card}>
+                  <View style={styles.cardTop}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>{initials(student?.name)}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.studentName}>{student?.name || "Unknown student"}</Text>
+                      <Text style={styles.classMeta}>
+                        {item.class?.name || "No class"} · ADM: {student?.admissionNo || "—"}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.studentName}>
-                      {item.student?.firstName} {item.student?.lastName}
-                    </Text>
-                    <Text style={styles.classMeta}>
-                      {item.class?.name || "No class"} · ADM: {item.student?.admissionNumber}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.amtRow}>
-                  <View>
-                    <Text style={styles.amtLabel}>Paid</Text>
-                    <Text style={[styles.amt, { color: PINK }]}>
-                      {fmtKES(item.totalPaid)}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={styles.amtLabel}>Outstanding</Text>
-                    <Text style={[styles.amt, { color: "#F87171" }]}>
-                      {fmtKES(item.totalOwed)}
-                    </Text>
+                  <View style={styles.amtRow}>
+                    <View>
+                      <Text style={styles.amtLabel}>Paid</Text>
+                      <Text style={[styles.amt, { color: PINK }]}>
+                        {fmtKES(Number(item.totalPaid || 0))}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={styles.amtLabel}>Outstanding</Text>
+                      <Text style={[styles.amt, { color: "#F87171" }]}>
+                        {fmtKES(Number(item.totalOwed || 0))}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            )}
+              );
+            }}
           />
         )
       ) : payments.length === 0 ? (
@@ -168,7 +181,7 @@ export default function FeesScreen() {
       ) : (
         <FlatList
           data={[...payments].reverse()}
-          keyExtractor={(p: any) => String(p.id)}
+          keyExtractor={(payment: any) => String(payment.id)}
           contentContainerStyle={{ padding: 16, gap: 8 }}
           renderItem={({ item }) => (
             <View style={styles.card}>
@@ -182,40 +195,32 @@ export default function FeesScreen() {
                   </Text>
                 </View>
                 <Text style={[styles.payAmt, { color: PINK }]}>
-                  {fmtKES(item.paidAmount || item.amount)}
+                  {fmtKES(Number(item.paidAmount || 0))}
                 </Text>
               </View>
               <View style={styles.payMeta}>
                 <View
                   style={[
                     styles.methodBadge,
-                    {
-                      borderColor:
-                        METHOD_COLOR[item.paymentMethod] || "#8b949e",
-                    },
+                    { borderColor: METHOD_COLOR[item.paymentMethod] || "#8b949e" },
                   ]}
                 >
                   <Text
                     style={[
                       styles.methodText,
-                      {
-                        color:
-                          METHOD_COLOR[item.paymentMethod] || "#8b949e",
-                      },
+                      { color: METHOD_COLOR[item.paymentMethod] || "#8b949e" },
                     ]}
                   >
                     {item.paymentMethod?.toUpperCase() || "CASH"}
                   </Text>
                 </View>
-                {item.balance > 0 && (
+                {Number(item.balance || 0) > 0 && (
                   <Text style={styles.balText}>
-                    Bal: {fmtKES(item.balance)}
+                    Balance after receipt: {fmtKES(Number(item.balance || 0))}
                   </Text>
                 )}
               </View>
-              {item.notes ? (
-                <Text style={styles.notes}>{item.notes}</Text>
-              ) : null}
+              {item.notes ? <Text style={styles.notes}>{item.notes}</Text> : null}
             </View>
           )}
         />
@@ -252,9 +257,10 @@ const styles = StyleSheet.create({
   stripItem: { flex: 1 },
   stripValue: { fontSize: 20, fontWeight: "700" },
   stripLabel: { fontSize: 12, color: "#8b949e", marginTop: 2 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 8 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 8, padding: 24 },
   emptyIcon: { fontSize: 36, color: PINK },
   empty: { color: "#8b949e", fontSize: 14, textAlign: "center" },
+  errorText: { color: "#F87171", fontSize: 15, fontWeight: "600", textAlign: "center" },
   card: {
     backgroundColor: "#161B22",
     borderRadius: 12,
@@ -285,7 +291,7 @@ const styles = StyleSheet.create({
   amt: { fontSize: 16, fontWeight: "700" },
   receiptNo: { fontSize: 14, fontWeight: "600", color: "#fff" },
   payAmt: { fontSize: 18, fontWeight: "700" },
-  payMeta: { flexDirection: "row", alignItems: "center", gap: 10 },
+  payMeta: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
   methodBadge: {
     borderWidth: 1,
     borderRadius: 6,
