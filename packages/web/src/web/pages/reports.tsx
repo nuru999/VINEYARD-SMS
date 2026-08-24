@@ -10,6 +10,12 @@ const SCHOOL_MOTTO = "Fruitful Development";
 const fmt = (n: number) => `KES ${(n || 0).toLocaleString("en-KE")}`;
 const fmtNum = (n: number) => new Intl.NumberFormat("en-KE").format(n);
 
+async function parseResponse<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.message || fallbackMessage);
+  return payload as T;
+}
+
 function printHTML(html: string, title: string) {
   const win = window.open("", "_blank", "width=800,height=900");
   if (!win) return;
@@ -71,72 +77,52 @@ function StatCard({ label, value, sub, color = "var(--text-primary)" }: { label:
   );
 }
 
+const errorText = (error: unknown) => error instanceof Error ? error.message : "Report data could not be loaded";
+
 export default function ReportsPage() {
   const { role } = useRole();
   const showSchoolMetrics = role !== "accountant";
 
-  const { data: studentsData } = useQuery({
+  const { data: studentsData, error: studentsError } = useQuery({
     queryKey: ["students-all"],
-    queryFn: async () => {
-      const r = await fetch("/api/students?limit=1000", { credentials: "include" });
-      if (!r.ok) return { students: [] };
-      return r.json();
-    },
+    queryFn: async () => parseResponse<any>(await fetch("/api/students?limit=1000", { credentials: "include" }), "Failed to load students for reports"),
     enabled: showSchoolMetrics,
   });
-  const { data: feePaymentsData } = useQuery({
+  const { data: feePaymentsData, error: feePaymentsError } = useQuery({
     queryKey: ["fee-payments-all"],
-    queryFn: async () => {
-      const r = await fetch("/api/fee-payments?limit=1000", { credentials: "include" });
-      if (!r.ok) return { payments: [] };
-      return r.json();
-    },
+    queryFn: async () => parseResponse<any>(await fetch("/api/fee-payments?limit=1000", { credentials: "include" }), "Failed to load fee payments for reports"),
   });
-  const { data: staffData } = useQuery({
+  const { data: staffData, error: staffError } = useQuery({
     queryKey: ["staff-all"],
-    queryFn: async () => {
-      const r = await fetch("/api/staff?limit=1000", { credentials: "include" });
-      if (!r.ok) return { staff: [] };
-      return r.json();
-    },
+    queryFn: async () => parseResponse<any>(await fetch("/api/staff?limit=1000", { credentials: "include" }), "Failed to load staff for reports"),
     enabled: showSchoolMetrics,
   });
-  const { data: classesData } = useQuery({
+  const { data: classesData, error: classesError } = useQuery({
     queryKey: ["classes-all"],
-    queryFn: async () => {
-      const r = await fetch("/api/classes", { credentials: "include" });
-      if (!r.ok) return { classes: [] };
-      return r.json();
-    },
+    queryFn: async () => parseResponse<any>(await fetch("/api/classes", { credentials: "include" }), "Failed to load classes for reports"),
     enabled: showSchoolMetrics,
   });
-  const { data: accountsData } = useQuery({
+  const { data: accountsData, error: accountsError } = useQuery({
     queryKey: ["accounts-all"],
-    queryFn: async () => {
-      const r = await fetch("/api/accounts", { credentials: "include" });
-      if (!r.ok) return { transactions: [], summary: { totalIncome: 0, totalExpense: 0, balance: 0 } };
-      return r.json();
-    },
+    queryFn: async () => parseResponse<any>(await fetch("/api/accounts", { credentials: "include" }), "Failed to load accounts for reports"),
   });
-  const { data: payrollData } = useQuery({
+  const { data: payrollData, error: payrollError } = useQuery({
     queryKey: ["payroll-all"],
-    queryFn: async () => {
-      const r = await fetch("/api/payroll", { credentials: "include" });
-      if (!r.ok) return { payroll: [] };
-      return r.json();
-    },
+    queryFn: async () => parseResponse<any>(await fetch("/api/payroll", { credentials: "include" }), "Failed to load payroll for reports"),
   });
-  const { data: attendanceData } = useQuery({
+  const { data: attendanceData, error: attendanceError } = useQuery({
     queryKey: ["attendance-report"],
     queryFn: async () => {
       const today = new Date().toISOString().split("T")[0];
       const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
-      const r = await fetch(`/api/attendance?startDate=${weekAgo}&endDate=${today}`, { credentials: "include" });
-      if (!r.ok) return { attendance: [] };
-      return r.json();
+      return parseResponse<any>(await fetch(`/api/attendance?startDate=${weekAgo}&endDate=${today}`, { credentials: "include" }), "Failed to load attendance for reports");
     },
     enabled: showSchoolMetrics,
   });
+
+  const financeLoadError = feePaymentsError || accountsError || payrollError;
+  const schoolLoadError = showSchoolMetrics ? (studentsError || staffError || classesError || attendanceError) : null;
+  const reportLoadError = financeLoadError || schoolLoadError;
 
   const students = Array.isArray(studentsData?.students) ? studentsData.students : [];
   const payments = Array.isArray(feePaymentsData?.payments) ? feePaymentsData.payments : [];
@@ -147,7 +133,6 @@ export default function ReportsPage() {
   const payrollList = Array.isArray(payrollData) ? payrollData : (payrollData?.payroll || []);
   const attendanceRecords = Array.isArray(attendanceData?.attendance) ? attendanceData.attendance : [];
 
-  // Fee collection metrics must use money actually received, not the invoice amount.
   const activeStudents = students.filter((s: any) => s.status === "active").length;
   const totalFeesPaid = payments.reduce((sum: number, p: any) => sum + Number(p.paidAmount || 0), 0);
   const totalPayroll = payrollList.reduce((sum: number, p: any) => sum + Number(p.netSalary || 0), 0);
@@ -191,6 +176,8 @@ export default function ReportsPage() {
   const COLORS = ["#4ADE80", "#60A5FA", "#F472B6", "#FBBF24", "#A78BFA", "#34D399"];
 
   function printFullReport() {
+    if (reportLoadError) return;
+
     const classByClassRows = studentsByClass.map(c => `<tr><td>${c.label}</td><td>${c.value}</td></tr>`).join("");
     const paymentMethodRows = Object.entries(methodBreakdown).map(([m, v]) =>
       `<tr><td>${m}</td><td style="font-weight:600">${fmt(v)}</td></tr>`
@@ -303,42 +290,47 @@ export default function ReportsPage() {
               {showSchoolMetrics ? "School overview at a glance" : "Financial overview at a glance"}
             </p>
           </div>
-          <Button onClick={printFullReport}><Printer size={14} /> {showSchoolMetrics ? "Print Full Report" : "Print Financial Report"}</Button>
+          <Button onClick={printFullReport} disabled={Boolean(reportLoadError)}><Printer size={14} /> {showSchoolMetrics ? "Print Full Report" : "Print Financial Report"}</Button>
         </div>
+
+        {reportLoadError && (
+          <div style={{ marginBottom: 18, padding: "12px 14px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.35)", background: "rgba(248,113,113,0.08)", color: "var(--danger)", fontSize: 13 }}>
+            Report data is incomplete: {errorText(reportLoadError)}. Printing is disabled until all required data loads successfully.
+          </div>
+        )}
 
         {showSchoolMetrics ? (
           <>
-            {/* Key school metrics */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-              <StatCard label="Active Students" value={fmtNum(activeStudents)} sub={`of ${fmtNum(students.length)} total`} color="var(--accent)" />
-              <StatCard label="Total Staff" value={fmtNum(staff.length)} sub={`${classes.length} classes`} />
-              <StatCard label="Fees Collected" value={fmt(totalFeesPaid)} sub={`${payments.length} payments`} color="#4ADE80" />
-              <StatCard label="Attendance Rate" value={`${attendanceRate}%`} sub="this week" color={attendanceRate >= 80 ? "#4ADE80" : "#F87171"} />
+              <StatCard label="Active Students" value={schoolLoadError ? "Unavailable" : fmtNum(activeStudents)} sub={schoolLoadError ? undefined : `of ${fmtNum(students.length)} total`} color="var(--accent)" />
+              <StatCard label="Total Staff" value={schoolLoadError ? "Unavailable" : fmtNum(staff.length)} sub={schoolLoadError ? undefined : `${classes.length} classes`} />
+              <StatCard label="Fees Collected" value={financeLoadError ? "Unavailable" : fmt(totalFeesPaid)} sub={financeLoadError ? undefined : `${payments.length} payments`} color="#4ADE80" />
+              <StatCard label="Attendance Rate" value={schoolLoadError ? "Unavailable" : `${attendanceRate}%`} sub={schoolLoadError ? undefined : "this week"} color={!schoolLoadError && attendanceRate >= 80 ? "#4ADE80" : "#F87171"} />
             </div>
 
-            {/* Finance overview */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24 }}>
-              <StatCard label="Total Income" value={fmt(summary.totalIncome)} color="#4ADE80" />
-              <StatCard label="Total Expenses" value={fmt(summary.totalExpense)} color="#F87171" />
-              <StatCard label="Net Balance" value={fmt(summary.balance)} color={summary.balance >= 0 ? "#4ADE80" : "#F87171"} />
+              <StatCard label="Total Income" value={financeLoadError ? "Unavailable" : fmt(summary.totalIncome)} color="#4ADE80" />
+              <StatCard label="Total Expenses" value={financeLoadError ? "Unavailable" : fmt(summary.totalExpense)} color="#F87171" />
+              <StatCard label="Net Balance" value={financeLoadError ? "Unavailable" : fmt(summary.balance)} color={!financeLoadError && summary.balance >= 0 ? "#4ADE80" : "#F87171"} />
             </div>
           </>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24 }}>
-            <StatCard label="Fees Collected" value={fmt(totalFeesPaid)} sub={`${payments.length} payments`} color="#4ADE80" />
-            <StatCard label="Total Income" value={fmt(summary.totalIncome)} color="#4ADE80" />
-            <StatCard label="Total Expenses" value={fmt(summary.totalExpense)} color="#F87171" />
-            <StatCard label="Net Balance" value={fmt(summary.balance)} color={summary.balance >= 0 ? "#4ADE80" : "#F87171"} />
+            <StatCard label="Fees Collected" value={financeLoadError ? "Unavailable" : fmt(totalFeesPaid)} sub={financeLoadError ? undefined : `${payments.length} payments`} color="#4ADE80" />
+            <StatCard label="Total Income" value={financeLoadError ? "Unavailable" : fmt(summary.totalIncome)} color="#4ADE80" />
+            <StatCard label="Total Expenses" value={financeLoadError ? "Unavailable" : fmt(summary.totalExpense)} color="#F87171" />
+            <StatCard label="Net Balance" value={financeLoadError ? "Unavailable" : fmt(summary.balance)} color={!financeLoadError && summary.balance >= 0 ? "#4ADE80" : "#F87171"} />
           </div>
         )}
 
-        {/* Main reporting row */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
           {showSchoolMetrics ? (
             <Card>
               <div style={{ padding: 20 }}>
                 <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600 }}>Students by Class</h3>
-                {studentsByClass.length === 0 ? (
+                {schoolLoadError ? (
+                  <div style={{ color: "var(--danger)", fontSize: 13 }}>Student/class data unavailable</div>
+                ) : studentsByClass.length === 0 ? (
                   <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>No class data</div>
                 ) : (
                   <BarChart data={studentsByClass} colorFn={(i) => COLORS[i % COLORS.length]} />
@@ -349,16 +341,20 @@ export default function ReportsPage() {
             <Card>
               <div style={{ padding: 20 }}>
                 <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600 }}>Payroll Summary</h3>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 24, fontWeight: 700 }}>{fmt(totalPayroll)}</div>
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Total payroll</div>
+                {payrollError ? (
+                  <div style={{ color: "var(--danger)", fontSize: 13 }}>Payroll data unavailable</div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 24, fontWeight: 700 }}>{fmt(totalPayroll)}</div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Total payroll</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 24, fontWeight: 700 }}>{payrollList.filter((p: any) => p.status === "paid").length}</div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Paid records of {payrollList.length}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 24, fontWeight: 700 }}>{payrollList.filter((p: any) => p.status === "paid").length}</div>
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Paid records of {payrollList.length}</div>
-                  </div>
-                </div>
+                )}
               </div>
             </Card>
           )}
@@ -366,24 +362,25 @@ export default function ReportsPage() {
           <Card>
             <div style={{ padding: 20 }}>
               <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600 }}>Fee Payments by Method</h3>
-              {Object.keys(methodBreakdown).length === 0 ? (
+              {feePaymentsError ? (
+                <div style={{ color: "var(--danger)", fontSize: 13 }}>Fee payment data unavailable</div>
+              ) : Object.keys(methodBreakdown).length === 0 ? (
                 <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>No payment data</div>
               ) : (
-                <BarChart
-                  data={Object.entries(methodBreakdown).map(([label, value]) => ({ label, value: value as number }))}
-                  colorFn={(i) => COLORS[i % COLORS.length]}
-                />
+                <BarChart data={Object.entries(methodBreakdown).map(([label, value]) => ({ label, value: value as number }))} colorFn={(i) => COLORS[i % COLORS.length]} />
               )}
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between" }}>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#4ADE80" }}>{fmt(totalFeesPaid)}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Total Collected</div>
+              {!feePaymentsError && (
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#4ADE80" }}>{fmt(totalFeesPaid)}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Total Collected</div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#60A5FA" }}>{payments.length}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Transactions</div>
+                  </div>
                 </div>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#60A5FA" }}>{payments.length}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Transactions</div>
-                </div>
-              </div>
+              )}
             </div>
           </Card>
         </div>
@@ -393,51 +390,50 @@ export default function ReportsPage() {
             <Card>
               <div style={{ padding: 20 }}>
                 <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600 }}>Attendance This Week</h3>
-                <BarChart
-                  data={[
-                    { label: "Present", value: presentCount },
-                    { label: "Late", value: lateCount },
-                    { label: "Absent", value: absentCount },
-                  ]}
-                  colorFn={(i) => ["#4ADE80", "#FBBF24", "#F87171"][i]}
-                />
-                <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-secondary)" }}>
-                  {fmtNum(totalAttendance)} attendance records this week
-                </div>
+                {attendanceError ? (
+                  <div style={{ color: "var(--danger)", fontSize: 13 }}>Attendance data unavailable</div>
+                ) : (
+                  <>
+                    <BarChart data={[{ label: "Present", value: presentCount }, { label: "Late", value: lateCount }, { label: "Absent", value: absentCount }]} colorFn={(i) => ["#4ADE80", "#FBBF24", "#F87171"][i]} />
+                    <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-secondary)" }}>{fmtNum(totalAttendance)} attendance records this week</div>
+                  </>
+                )}
               </div>
             </Card>
             <Card>
               <div style={{ padding: 20 }}>
                 <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600 }}>Student Gender Split</h3>
-                <div style={{ display: "flex", gap: 24, justifyContent: "center", alignItems: "center", padding: "16px 0" }}>
-                  {[
-                    { label: "Male", value: maleCount, color: "#60A5FA" },
-                    { label: "Female", value: femaleCount, color: "#F472B6" },
-                  ].map((g) => (
-                    <div key={g.label} style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: 40, fontWeight: 700, color: g.color }}>{fmtNum(g.value)}</div>
-                      <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4 }}>{g.label}</div>
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                        {students.length ? Math.round((g.value / students.length) * 100) : 0}%
-                      </div>
+                {studentsError ? (
+                  <div style={{ color: "var(--danger)", fontSize: 13 }}>Student data unavailable</div>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", gap: 24, justifyContent: "center", alignItems: "center", padding: "16px 0" }}>
+                      {[{ label: "Male", value: maleCount, color: "#60A5FA" }, { label: "Female", value: femaleCount, color: "#F472B6" }].map((g) => (
+                        <div key={g.label} style={{ textAlign: "center" }}>
+                          <div style={{ fontSize: 40, fontWeight: 700, color: g.color }}>{fmtNum(g.value)}</div>
+                          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 4 }}>{g.label}</div>
+                          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{students.length ? Math.round((g.value / students.length) * 100) : 0}%</div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <div style={{ height: 12, borderRadius: 6, overflow: "hidden", display: "flex" }}>
-                  <div style={{ flex: maleCount || 1, background: "#60A5FA" }} />
-                  <div style={{ flex: femaleCount || 1, background: "#F472B6" }} />
-                </div>
+                    <div style={{ height: 12, borderRadius: 6, overflow: "hidden", display: "flex" }}>
+                      <div style={{ flex: maleCount || 1, background: "#60A5FA" }} />
+                      <div style={{ flex: femaleCount || 1, background: "#F472B6" }} />
+                    </div>
+                  </>
+                )}
               </div>
             </Card>
           </div>
         )}
 
-        {/* Finance breakdown */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <Card>
             <div style={{ padding: 20 }}>
               <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600 }}>Income by Category</h3>
-              {incomeChart.length === 0 ? (
+              {accountsError ? (
+                <div style={{ color: "var(--danger)", fontSize: 13 }}>Accounts data unavailable</div>
+              ) : incomeChart.length === 0 ? (
                 <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>No income recorded</div>
               ) : (
                 <BarChart data={incomeChart} colorFn={(i) => COLORS[i % COLORS.length]} />
@@ -447,7 +443,9 @@ export default function ReportsPage() {
           <Card>
             <div style={{ padding: 20 }}>
               <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 600 }}>Expenses by Category</h3>
-              {expenseChart.length === 0 ? (
+              {accountsError ? (
+                <div style={{ color: "var(--danger)", fontSize: 13 }}>Accounts data unavailable</div>
+              ) : expenseChart.length === 0 ? (
                 <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>No expenses recorded</div>
               ) : (
                 <BarChart data={expenseChart} colorFn={(i) => ["#F87171", "#FB923C", "#FBBF24", "#A78BFA", "#F472B6"][i % 5]} />
