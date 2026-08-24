@@ -1,0 +1,56 @@
+name: Production Smoke Post-Merge TEMP
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify deployed commit and public health
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://vineyard-sms-gq1q.onrender.com"
+          expected="e28648669a81"
+          matched="false"
+
+          for attempt in $(seq 1 30); do
+            body="$(curl --fail --silent --show-error --max-time 30 "$base/api/health" || true)"
+            status="$(printf '%s' "$body" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("status", ""))' 2>/dev/null || true)"
+            commit="$(printf '%s' "$body" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("commit", ""))' 2>/dev/null || true)"
+            echo "Attempt $attempt: status=$status commit=$commit"
+            if [ "$status" = "ok" ] && [ "$commit" = "$expected" ]; then
+              matched="true"
+              break
+            fi
+            sleep 10
+          done
+
+          if [ "$matched" != "true" ]; then
+            echo "Production did not report expected commit $expected"
+            exit 1
+          fi
+
+      - name: Verify homepage and unauthenticated boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://vineyard-sms-gq1q.onrender.com"
+
+          home_status="$(curl --silent --show-error --location --output /dev/null --write-out '%{http_code}' --max-time 30 "$base/")"
+          echo "Homepage HTTP $home_status"
+          test "$home_status" = "200"
+
+          students_body="$(mktemp)"
+          students_status="$(curl --silent --show-error --output "$students_body" --write-out '%{http_code}' --max-time 30 "$base/api/students")"
+          echo "Unauthenticated /api/students HTTP $students_status"
+          cat "$students_body"
+          echo
+          test "$students_status" = "401"
+
+          echo "Post-merge production smoke passed for e28648669a81"
