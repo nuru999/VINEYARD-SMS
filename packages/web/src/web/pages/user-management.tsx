@@ -4,15 +4,18 @@ import { useToast } from "../components/ui/toast";
 import { useRole } from "../lib/use-role";
 import { useLocation } from "wouter";
 import {
-  ShieldCheck, Plus, Trash2, RefreshCw, User, Eye, EyeOff, BookOpen
+  ShieldCheck, Plus, Trash2, RefreshCw, User, Eye, EyeOff, BookOpen, AlertTriangle
 } from "lucide-react";
 import { Layout } from "../components/layout";
+
+type ManagedRole = "admin" | "principal" | "teacher" | "accountant";
+type UserRole = ManagedRole | "unconfigured";
 
 interface UserRecord {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "principal" | "teacher" | "accountant";
+  role: UserRole;
   createdAt?: string;
   assignedClass?: { id: number; name: string } | null;
 }
@@ -30,7 +33,7 @@ export default function UserManagementPage() {
   const { success, error: toastError } = useToast();
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "teacher" as "admin" | "principal" | "teacher" | "accountant", classId: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "teacher" as ManagedRole, classId: "" });
   const [showPw, setShowPw] = useState(false);
   const [formError, setFormError] = useState("");
   const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
@@ -46,7 +49,7 @@ export default function UserManagementPage() {
     enabled: isAdmin,
   });
 
-  const { data: classesData } = useQuery({
+  const { data: classesData, error: classesError } = useQuery({
     queryKey: ["classes"],
     queryFn: async () => parseResponse(await fetch("/api/classes", { credentials: "include" })),
     enabled: isAdmin,
@@ -87,7 +90,7 @@ export default function UserManagementPage() {
   });
 
   const changeRoleMutation = useMutation({
-    mutationFn: async ({ id, role }: { id: string; role: string }) => parseResponse(await fetch(`/api/me/users/${id}/role`, {
+    mutationFn: async ({ id, role }: { id: string; role: ManagedRole }) => parseResponse(await fetch(`/api/me/users/${id}/role`, {
       method: "PUT",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -127,6 +130,7 @@ export default function UserManagementPage() {
   const adminCount = users.filter(u => u.role === "admin").length;
   const principalCount = users.filter(u => u.role === "principal").length;
   const teacherCount = users.filter(u => u.role === "teacher").length;
+  const unconfiguredCount = users.filter(u => u.role === "unconfigured").length;
 
   if (roleLoading) {
     return (
@@ -151,7 +155,20 @@ export default function UserManagementPage() {
     }>
     <div style={{ fontFamily: "'Poppins', sans-serif" }}>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 24, maxWidth: 720 }}>
+      {unconfiguredCount > 0 && (
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10, padding: "12px 14px", marginBottom: 18, color: "#9A3412", fontSize: 12 }}>
+          <AlertTriangle size={16} style={{ marginTop: 1, flexShrink: 0 }} />
+          <div><strong>{unconfiguredCount} authentication account{unconfiguredCount === 1 ? "" : "s"} need repair.</strong> These accounts have no application role and cannot enter protected school routes. Delete and recreate them rather than assigning a role in place.</div>
+        </div>
+      )}
+
+      {classesError && (
+        <div style={{ background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 10, padding: "12px 14px", marginBottom: 18, color: "#DC2626", fontSize: 12 }}>
+          {classesError instanceof Error ? classesError.message : "Class data could not be loaded"}. Teacher class assignment is unavailable until this is resolved.
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 24, maxWidth: 920 }}>
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, padding: "16px 20px" }}>
           <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Admins</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: "#E91E8C" }}>{adminCount}<span style={{ fontSize: 14, color: "#94A3B8", fontWeight: 400 }}>/2</span></div>
@@ -163,6 +180,10 @@ export default function UserManagementPage() {
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, padding: "16px 20px" }}>
           <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Teachers</div>
           <div style={{ fontSize: 28, fontWeight: 700, color: "#3B82F6" }}>{teacherCount}</div>
+        </div>
+        <div style={{ background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 12, padding: "16px 20px" }}>
+          <div style={{ fontSize: 11, color: "#9A3412", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Unconfigured</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: unconfiguredCount ? "#EA580C" : "#94A3B8" }}>{unconfiguredCount}</div>
         </div>
       </div>
 
@@ -183,22 +204,11 @@ export default function UserManagementPage() {
           <div style={{ display: "grid", gap: 12 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Full Name</label>
-              <input
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Jane Mwangi"
-                style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
-              />
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Jane Mwangi" style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Email</label>
-              <input
-                type="email"
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                placeholder="jane@vineyardprimary.ac.ke"
-                style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
-              />
+              <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="jane@vineyardprimary.ac.ke" style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }} />
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Password</label>
@@ -206,58 +216,36 @@ export default function UserManagementPage() {
                 <input
                   type={showPw ? "text" : "password"}
                   value={form.password}
-                  minLength={8}
+                  minLength={12}
+                  autoComplete="new-password"
                   onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                  placeholder="Minimum 8 characters"
+                  placeholder="Minimum 12 characters"
                   style={{ width: "100%", padding: "10px 40px 10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPw(s => !s)}
-                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8" }}>
+                <button type="button" onClick={() => setShowPw(s => !s)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#94A3B8" }}>
                   {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Role</label>
-              <select
-                value={form.role}
-                onChange={e => setForm(f => ({ ...f, role: e.target.value as "admin" | "principal" | "teacher" | "accountant", classId: "" }))}
-                style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, outline: "none", background: "#fff" }}>
+              <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value as ManagedRole, classId: "" }))} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, outline: "none", background: "#fff" }}>
                 <option value="teacher">Teacher</option>
                 <option value="principal">Principal</option>
                 <option value="accountant">Accountant</option>
                 <option value="admin" disabled={adminCount >= 2}>Admin {adminCount >= 2 ? "(max reached)" : ""}</option>
               </select>
-              {form.role === "admin" && (
-                <p style={{ fontSize: 11, color: "#F59E0B", margin: "4px 0 0" }}>
-                  ⚠ Admin has full access to all financial data, staff, and system settings.
-                </p>
-              )}
+              {form.role === "admin" && <p style={{ fontSize: 11, color: "#F59E0B", margin: "4px 0 0" }}>⚠ Admin has full access to all financial data, staff, and system settings.</p>}
             </div>
 
             {form.role === "teacher" && (
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>
-                  Assign Class <span style={{ fontWeight: 400, color: "#94A3B8" }}>(optional)</span>
-                </label>
-                <select
-                  value={form.classId}
-                  onChange={e => setForm(f => ({ ...f, classId: e.target.value }))}
-                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #D1FAE5", borderRadius: 8, fontSize: 13, outline: "none", background: "#F0FDF4" }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Assign Class <span style={{ fontWeight: 400, color: "#94A3B8" }}>(optional)</span></label>
+                <select value={form.classId} disabled={Boolean(classesError)} onChange={e => setForm(f => ({ ...f, classId: e.target.value }))} style={{ width: "100%", padding: "10px 12px", border: "1px solid #D1FAE5", borderRadius: 8, fontSize: 13, outline: "none", background: "#F0FDF4" }}>
                   <option value="">— No class yet —</option>
-                  {allClasses.map((c: any) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}{c.teacherName ? ` (${c.teacherName})` : ""}
-                    </option>
-                  ))}
+                  {allClasses.map((c: any) => <option key={c.id} value={c.id}>{c.name}{c.teacherName ? ` (${c.teacherName})` : ""}</option>)}
                 </select>
-                {form.classId && (
-                  <p style={{ fontSize: 11, color: "#16A34A", margin: "4px 0 0" }}>
-                    ✓ Teacher will be assigned to this class immediately
-                  </p>
-                )}
+                {form.classId && <p style={{ fontSize: 11, color: "#16A34A", margin: "4px 0 0" }}>✓ Teacher will be assigned to this class immediately</p>}
               </div>
             )}
           </div>
@@ -265,19 +253,11 @@ export default function UserManagementPage() {
           <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
             <button
               onClick={() => createMutation.mutate(form)}
-              disabled={createMutation.isPending || !form.name.trim() || !form.email.trim() || form.password.length < 8}
-              style={{
-                padding: "10px 20px", background: "#E91E8C", color: "#fff",
-                border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600,
-                opacity: (createMutation.isPending || !form.name.trim() || !form.email.trim() || form.password.length < 8) ? 0.6 : 1,
-              }}>
+              disabled={createMutation.isPending || !form.name.trim() || !form.email.trim() || form.password.length < 12}
+              style={{ padding: "10px 20px", background: "#E91E8C", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, opacity: (createMutation.isPending || !form.name.trim() || !form.email.trim() || form.password.length < 12) ? 0.6 : 1 }}>
               {createMutation.isPending ? "Creating..." : "Create User"}
             </button>
-            <button
-              onClick={() => { setShowForm(false); setFormError(""); }}
-              style={{ padding: "10px 16px", background: "#F1F5F9", color: "#374151", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>
-              Cancel
-            </button>
+            <button onClick={() => { setShowForm(false); setFormError(""); }} style={{ padding: "10px 16px", background: "#F1F5F9", color: "#374151", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>Cancel</button>
           </div>
         </div>
       )}
@@ -285,29 +265,20 @@ export default function UserManagementPage() {
       <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, overflow: "hidden" }}>
         <div style={{ padding: "16px 20px", borderBottom: "1px solid #F1F5F9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: "#1B4D4D" }}>All Users</span>
-          <button onClick={() => { qc.invalidateQueries({ queryKey: ["admin-users"] }); qc.invalidateQueries({ queryKey: ["classes"] }); }}
-            style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8" }}>
-            <RefreshCw size={14} />
-          </button>
+          <button onClick={() => { qc.invalidateQueries({ queryKey: ["admin-users"] }); qc.invalidateQueries({ queryKey: ["classes"] }); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#94A3B8" }}><RefreshCw size={14} /></button>
         </div>
 
         {isLoading ? (
           <div style={{ padding: 40, textAlign: "center", color: "#94A3B8" }}>Loading...</div>
         ) : isError ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#DC2626", fontSize: 13 }}>
-            {usersError instanceof Error ? usersError.message : "Could not load users"}
-          </div>
+          <div style={{ padding: 40, textAlign: "center", color: "#DC2626", fontSize: 13 }}>{usersError instanceof Error ? usersError.message : "Could not load users"}</div>
         ) : users.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "#94A3B8", fontSize: 14 }}>No users found</div>
         ) : (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#F8FAFC" }}>
-                <th style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Name</th>
-                <th style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Email</th>
-                <th style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Role</th>
-                <th style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Assigned Class</th>
-                <th style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>Actions</th>
+                {["Name", "Email", "Role", "Assigned Class", "Actions"].map((header) => <th key={header} style={{ padding: "10px 20px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>{header}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -315,17 +286,14 @@ export default function UserManagementPage() {
                 const assignedClass = allClasses.find((c: any) => c.teacherUserId === u.id);
                 const isAssigning = assigningUserId === u.id;
                 const isCurrentUser = u.id === user?.id;
+                const isUnconfigured = u.role === "unconfigured";
 
                 return (
-                  <tr key={u.id} style={{ borderTop: i > 0 ? "1px solid #F1F5F9" : "none" }}>
+                  <tr key={u.id} style={{ borderTop: i > 0 ? "1px solid #F1F5F9" : "none", background: isUnconfigured ? "#FFFBEB" : undefined }}>
                     <td style={{ padding: "12px 20px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{
-                          width: 32, height: 32, borderRadius: "50%",
-                          background: u.role === "admin" ? "rgba(233,30,140,0.1)" : "rgba(27,77,77,0.1)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                        }}>
-                          {u.role === "admin" ? <ShieldCheck size={15} color="#E91E8C" /> : <User size={15} color="#1B4D4D" />}
+                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: isUnconfigured ? "#FFEDD5" : u.role === "admin" ? "rgba(233,30,140,0.1)" : "rgba(27,77,77,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {isUnconfigured ? <AlertTriangle size={15} color="#EA580C" /> : u.role === "admin" ? <ShieldCheck size={15} color="#E91E8C" /> : <User size={15} color="#1B4D4D" />}
                         </div>
                         <div>
                           <span style={{ fontSize: 13, fontWeight: 600, color: "#1E293B" }}>{u.name}</span>
@@ -335,96 +303,62 @@ export default function UserManagementPage() {
                     </td>
                     <td style={{ padding: "12px 20px", fontSize: 13, color: "#64748B" }}>{u.email}</td>
                     <td style={{ padding: "12px 20px" }}>
-                      <select
-                        value={u.role}
-                        disabled={isCurrentUser || changeRoleMutation.isPending}
-                        onChange={e => {
-                          const nextRole = e.target.value;
-                          if (u.role === "teacher" && nextRole !== "teacher" && assignedClass) {
-                            const ok = confirm(`Changing ${u.name} from Teacher will unassign them from ${assignedClass.name}. Continue?`);
-                            if (!ok) return;
-                          }
-                          changeRoleMutation.mutate({ id: u.id, role: nextRole });
-                        }}
-                        title={isCurrentUser ? "You cannot change your own admin role here" : undefined}
-                        style={{
-                          padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
-                          border: "1px solid",
-                          borderColor: u.role === "admin" ? "#FBCFE8" : "#BBF7D0",
-                          background: u.role === "admin" ? "#FDF2F8" : "#F0FDF4",
-                          color: u.role === "admin" ? "#E91E8C" : "#166534",
-                          cursor: isCurrentUser ? "not-allowed" : "pointer", outline: "none",
-                          opacity: isCurrentUser ? 0.65 : 1,
-                        }}>
-                        <option value="teacher">Teacher</option>
-                        <option value="principal">Principal</option>
-                        <option value="accountant">Accountant</option>
-                        <option value="admin" disabled={u.role !== "admin" && adminCount >= 2}>Admin</option>
-                      </select>
+                      {isUnconfigured ? (
+                        <span title="This authentication identity has no application profile. Delete and recreate it." style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 9px", borderRadius: 20, fontSize: 11, fontWeight: 700, border: "1px solid #FED7AA", background: "#FFF7ED", color: "#C2410C" }}>
+                          <AlertTriangle size={11} /> Unconfigured — recreate
+                        </span>
+                      ) : (
+                        <select
+                          value={u.role}
+                          disabled={isCurrentUser || changeRoleMutation.isPending}
+                          onChange={e => {
+                            const nextRole = e.target.value as ManagedRole;
+                            if (u.role === "teacher" && nextRole !== "teacher" && assignedClass) {
+                              const ok = confirm(`Changing ${u.name} from Teacher will unassign them from ${assignedClass.name}. Continue?`);
+                              if (!ok) return;
+                            }
+                            changeRoleMutation.mutate({ id: u.id, role: nextRole });
+                          }}
+                          title={isCurrentUser ? "You cannot change your own admin role here" : undefined}
+                          style={{ padding: "4px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, border: "1px solid", borderColor: u.role === "admin" ? "#FBCFE8" : "#BBF7D0", background: u.role === "admin" ? "#FDF2F8" : "#F0FDF4", color: u.role === "admin" ? "#E91E8C" : "#166534", cursor: isCurrentUser ? "not-allowed" : "pointer", outline: "none", opacity: isCurrentUser ? 0.65 : 1 }}>
+                          <option value="teacher">Teacher</option>
+                          <option value="principal">Principal</option>
+                          <option value="accountant">Accountant</option>
+                          <option value="admin" disabled={u.role !== "admin" && adminCount >= 2}>Admin</option>
+                        </select>
+                      )}
                     </td>
                     <td style={{ padding: "12px 20px" }}>
-                      {u.role === "teacher" ? (
+                      {u.role === "teacher" && !classesError ? (
                         isAssigning ? (
                           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <select
-                              value={assignClassId}
-                              onChange={e => setAssignClassId(e.target.value)}
-                              style={{ padding: "5px 8px", border: "1px solid #D1FAE5", borderRadius: 6, fontSize: 12, background: "#F0FDF4", outline: "none" }}>
+                            <select value={assignClassId} onChange={e => setAssignClassId(e.target.value)} style={{ padding: "5px 8px", border: "1px solid #D1FAE5", borderRadius: 6, fontSize: 12, background: "#F0FDF4", outline: "none" }}>
                               <option value="">— None —</option>
-                              {allClasses.map((c: any) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name}{c.teacherUserId && c.teacherUserId !== u.id ? ` (${c.teacherName})` : ""}
-                                </option>
-                              ))}
+                              {allClasses.map((c: any) => <option key={c.id} value={c.id}>{c.name}{c.teacherUserId && c.teacherUserId !== u.id ? ` (${c.teacherName})` : ""}</option>)}
                             </select>
-                            <button
-                              onClick={() => assignClassMutation.mutate({ classId: assignClassId, userId: u.id, currentClassId: assignedClass?.id ?? null })}
-                              disabled={assignClassMutation.isPending || (!assignClassId && !assignedClass)}
-                              style={{ padding: "5px 10px", background: "#16A34A", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>
-                              Save
-                            </button>
-                            <button
-                              onClick={() => { setAssigningUserId(null); setAssignClassId(""); }}
-                              style={{ padding: "5px 8px", background: "#F1F5F9", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>
-                              ✕
-                            </button>
+                            <button onClick={() => assignClassMutation.mutate({ classId: assignClassId, userId: u.id, currentClassId: assignedClass?.id ?? null })} disabled={assignClassMutation.isPending || (!assignClassId && !assignedClass)} style={{ padding: "5px 10px", background: "#16A34A", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>Save</button>
+                            <button onClick={() => { setAssigningUserId(null); setAssignClassId(""); }} style={{ padding: "5px 8px", background: "#F1F5F9", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>✕</button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => {
-                              setAssigningUserId(u.id);
-                              setAssignClassId(assignedClass ? String(assignedClass.id) : "");
-                            }}
-                            style={{
-                              display: "flex", alignItems: "center", gap: 5,
-                              padding: "5px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer", border: "1px solid",
-                              background: assignedClass ? "#F0FDF4" : "#F8FAFC",
-                              borderColor: assignedClass ? "#BBF7D0" : "#E2E8F0",
-                              color: assignedClass ? "#166534" : "#94A3B8",
-                            }}>
-                            <BookOpen size={11} />
-                            {assignedClass ? assignedClass.name : "Assign class"}
+                          <button onClick={() => { setAssigningUserId(u.id); setAssignClassId(assignedClass ? String(assignedClass.id) : ""); }} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 6, fontSize: 12, cursor: "pointer", border: "1px solid", background: assignedClass ? "#F0FDF4" : "#F8FAFC", borderColor: assignedClass ? "#BBF7D0" : "#E2E8F0", color: assignedClass ? "#166534" : "#94A3B8" }}>
+                            <BookOpen size={11} />{assignedClass ? assignedClass.name : "Assign class"}
                           </button>
                         )
                       ) : (
-                        <span style={{ fontSize: 12, color: "#CBD5E1" }}>—</span>
+                        <span style={{ fontSize: 12, color: isUnconfigured ? "#C2410C" : "#CBD5E1" }}>{isUnconfigured ? "Not configured" : "—"}</span>
                       )}
                     </td>
                     <td style={{ padding: "12px 20px" }}>
                       <button
                         disabled={isCurrentUser || deleteMutation.isPending}
-                        title={isCurrentUser ? "You cannot delete your own account" : undefined}
+                        title={isCurrentUser ? "You cannot delete your own account" : isUnconfigured ? "Delete this incomplete identity so it can be recreated correctly" : undefined}
                         onClick={() => {
-                          if (confirm(`Delete ${u.name}? This removes login access but preserves linked school history.`)) {
-                            deleteMutation.mutate(u.id);
-                          }
+                          const message = isUnconfigured
+                            ? `Delete incomplete account ${u.name}? Recreate it afterward with the correct role and a private password.`
+                            : `Delete ${u.name}? This removes login access but preserves linked school history.`;
+                          if (confirm(message)) deleteMutation.mutate(u.id);
                         }}
-                        style={{
-                          background: "none", border: "1px solid #FECACA", borderRadius: 6,
-                          padding: "5px 8px", cursor: isCurrentUser ? "not-allowed" : "pointer", color: "#EF4444",
-                          display: "flex", alignItems: "center", gap: 4, fontSize: 12,
-                          opacity: isCurrentUser ? 0.45 : 1,
-                        }}>
+                        style={{ background: "none", border: "1px solid #FECACA", borderRadius: 6, padding: "5px 8px", cursor: isCurrentUser ? "not-allowed" : "pointer", color: "#EF4444", display: "flex", alignItems: "center", gap: 4, fontSize: 12, opacity: isCurrentUser ? 0.45 : 1 }}>
                         <Trash2 size={12} /> Delete
                       </button>
                     </td>
@@ -442,20 +376,13 @@ export default function UserManagementPage() {
           <div>
             <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 600, color: "#E91E8C" }}>Admin (max 2)</p>
             <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#64748B", lineHeight: 1.8 }}>
-              <li>Full access to all pages</li>
-              <li>Fees, Payroll &amp; Accounts</li>
-              <li>Staff management</li>
-              <li>Financial Reports</li>
-              <li>User management</li>
+              <li>Full access to all pages</li><li>Fees, Payroll &amp; Accounts</li><li>Staff management</li><li>Financial Reports</li><li>User management</li>
             </ul>
           </div>
           <div>
             <p style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 600, color: "#1B4D4D" }}>Teacher (unlimited)</p>
             <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#64748B", lineHeight: 1.8 }}>
-              <li>Assigned-class students &amp; attendance</li>
-              <li>Exams, timetable &amp; academic records</li>
-              <li>Parent communication for assigned pupils</li>
-              <li>Library loans; Transport/Inventory read-only</li>
+              <li>Assigned-class students &amp; attendance</li><li>Exams, timetable &amp; academic records</li><li>Parent communication for assigned pupils</li><li>Library loans; Transport/Inventory read-only</li>
             </ul>
           </div>
         </div>

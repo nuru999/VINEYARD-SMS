@@ -116,8 +116,8 @@ export const userManagementRoutes = new Hono()
     const password = String(body.password || "");
     const targetRole: AppRole = validRole(body.role ?? "teacher") ? body.role ?? "teacher" : "teacher";
 
-    if (!name || name.length > 160 || !email || !validEmail(email) || password.length < 8) {
-      return c.json({ message: "Valid name, email, and a password of at least 8 characters are required" }, 400);
+    if (!name || name.length > 160 || !email || !validEmail(email) || password.length < 12) {
+      return c.json({ message: "Valid name, email, and a password of at least 12 characters are required" }, 400);
     }
     if (!validRole(body.role ?? "teacher")) {
       return c.json({ message: "role must be admin, principal, teacher or accountant" }, 400);
@@ -203,9 +203,6 @@ export const userManagementRoutes = new Hono()
           .where(eq(schema.classes.id, classId));
       }
     } catch (error) {
-      // Fail closed if application setup is interrupted. Remove role/link state
-      // first so an auth identity can never fall through to teacher privileges,
-      // then best-effort remove the Better Auth identity as well.
       await cleanupApplicationLinks(newUser.id).catch(() => {});
       await db.delete(userTable).where(eq(userTable.id, newUser.id)).catch(() => {});
       throw error;
@@ -225,9 +222,6 @@ export const userManagementRoutes = new Hono()
     const [existingUser] = await db.select().from(userTable).where(eq(userTable.id, id));
     if (!existingUser) return c.json({ message: "User not found" }, 404);
 
-    // Delete the identity first. Better Auth account/session rows reference the
-    // user with ON DELETE CASCADE, so a successful delete removes active login
-    // material. Never suppress a failure here or report a false success.
     const deleted = await db.delete(userTable)
       .where(eq(userTable.id, id))
       .returning({ id: userTable.id });
