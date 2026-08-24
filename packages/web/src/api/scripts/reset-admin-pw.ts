@@ -8,8 +8,8 @@
  */
 import { db } from "../database";
 import { user as userTable, account } from "../database/auth-schema";
+import { hashPassword } from "../lib/auth-password";
 import { and, eq } from "drizzle-orm";
-import { Scrypt } from "better-auth";
 
 const targetEmail = String(process.env.TARGET_USER_EMAIL || "").trim().toLowerCase();
 const newPassword = String(process.env.NEW_PASSWORD || "");
@@ -25,8 +25,7 @@ async function main() {
   const [targetUser] = await db.select().from(userTable).where(eq(userTable.email, targetEmail)).limit(1);
   if (!targetUser) throw new Error("Target user not found");
 
-  const scrypt = new Scrypt();
-  const hashed = await scrypt.hash(newPassword);
+  const hashed = await hashPassword(newPassword);
 
   const updated = await db
     .update(account)
