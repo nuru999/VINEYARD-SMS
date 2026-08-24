@@ -1,9 +1,8 @@
 name: Production Smoke Probe
 
 on:
-  push:
-    branches:
-      - ops/production-smoke-2026-08-24
+  pull_request:
+    branches: [main]
 
 jobs:
   probe-production:
