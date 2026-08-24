@@ -24,6 +24,15 @@ async function parseResponse(response: Response) {
   return data;
 }
 
+function obligationPeriod(structure: any, paymentDate: string, term: string) {
+  if (!structure || !paymentDate) return "";
+  const year = paymentDate.slice(0, 4);
+  if (structure.frequency === "monthly") return paymentDate.slice(0, 7);
+  if (structure.frequency === "annual") return year;
+  if (structure.frequency === "once") return "once";
+  return term && year ? `${term} ${year}` : "";
+}
+
 function printHTML(html: string, title: string) {
   const win = window.open("", "_blank", "width=800,height=900");
   if (!win) return;
@@ -67,23 +76,21 @@ export default function FeesPage() {
   const [filterClass, setFilterClass] = useState("");
   const [filterTerm, setFilterTerm] = useState("");
 
-  const { data: paymentsData, isLoading } = useQuery({
+  const { data: ledgerData, isLoading } = useQuery({
     queryKey: ["fee-payments"],
-    queryFn: async () => {
-      const r = await fetch("/api/fee-payments", { credentials: "include" });
-      if (!r.ok) return [];
-      const j = await r.json();
-      return Array.isArray(j.payments) ? j.payments : Array.isArray(j) ? j : [];
-    },
+    queryFn: async () => parseResponse(await fetch("/api/fee-payments", { credentials: "include" })),
   });
 
   const { data: defaultersData, isLoading: defaultersLoading } = useQuery({
     queryKey: ["fee-defaulters"],
     queryFn: async () => {
       const r = await fetch("/api/fee-payments/defaulters", { credentials: "include" });
-      if (!r.ok) return { defaulters: [], count: 0 };
-      const j = await r.json();
-      return { defaulters: Array.isArray(j.defaulters) ? j.defaulters : [], count: j.count || 0 };
+      const j = await parseResponse(r);
+      return {
+        defaulters: Array.isArray(j.defaulters) ? j.defaulters : [],
+        count: j.count || 0,
+        totalOutstanding: Number(j.totalOutstanding || 0),
+      };
     },
   });
 
@@ -117,6 +124,34 @@ export default function FeesPage() {
     },
   });
 
+  const payments: any[] = Array.isArray((ledgerData as any)?.payments) ? (ledgerData as any).payments : [];
+  const obligations: any[] = Array.isArray((ledgerData as any)?.obligations) ? (ledgerData as any).obligations : [];
+  const ledgerSummary = (ledgerData as any)?.summary || {};
+  const structures: any[] = Array.isArray(structuresData) ? structuresData : [];
+  const students: any[] = Array.isArray(studentsData) ? studentsData : [];
+  const classes: any[] = Array.isArray(classesData) ? classesData : [];
+
+  const getStudent = (id: number) => students.find(s => s.id === id);
+  const getClass = (classId: number) => classes.find(c => c.id === classId);
+  const getStructure = (id: number) => structures.find(s => s.id === id);
+
+  const currentBalanceForForm = (f: any) => {
+    const amount = Number(f.amount || 0);
+    const studentId = Number(f.studentId);
+    const feeStructureId = Number(f.feeStructureId);
+    const structure = structures.find((item) => item.id === feeStructureId);
+    if (!structure || !studentId || !feeStructureId) return amount;
+
+    const period = obligationPeriod(structure, String(f.paymentDate || ""), String(f.term || ""));
+    if (!period) return amount;
+    const obligation = obligations.find((item) =>
+      item.studentId === studentId &&
+      item.feeStructureId === feeStructureId &&
+      item.period === period
+    );
+    return Number(obligation?.balance ?? obligation?.amount ?? amount);
+  };
+
   const saveStructure = useMutation({
     mutationFn: async (f: any) => {
       if (!canManageStructures) throw new Error("You do not have permission to change fee structures");
@@ -143,7 +178,10 @@ export default function FeesPage() {
       const amt = parseFloat(f.amount);
       const paid = parseFloat(f.paidAmount);
       const disc = parseFloat(f.discount || "0");
-      if (paid + disc > amt) throw new Error("Paid amount plus discount cannot exceed the total amount");
+      const structure = structures.find((item) => item.id === parseInt(f.feeStructureId));
+      if (structure?.frequency === "termly" && !f.term) throw new Error("Select the school term for this fee");
+      const remaining = currentBalanceForForm(f);
+      if (paid + disc > remaining) throw new Error(`Paid amount plus discount cannot exceed the remaining balance of ${fmt(remaining)}`);
       const r = await fetch("/api/fee-payments", {
         method: "POST",
         credentials: "include",
@@ -179,27 +217,20 @@ export default function FeesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["fee-payments"] });
       qc.invalidateQueries({ queryKey: ["fee-defaulters"] });
+      qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       success("Payment deleted");
     },
     onError: (e: any) => toastError("Delete failed", e?.message),
   });
 
-  const payments: any[] = Array.isArray(paymentsData) ? paymentsData : [];
-  const structures: any[] = Array.isArray(structuresData) ? structuresData : [];
-  const students: any[] = Array.isArray(studentsData) ? studentsData : [];
-  const classes: any[] = Array.isArray(classesData) ? classesData : [];
-
-  const getStudent = (id: number) => students.find(s => s.id === id);
-  const getClass = (classId: number) => classes.find(c => c.id === classId);
-  const getStructure = (id: number) => structures.find(s => s.id === id);
-
   const selectedPaymentStudent = students.find(s => s.id === parseInt(pf.studentId));
   const applicableStructures = selectedPaymentStudent
     ? structures.filter(fs => fs.classId === selectedPaymentStudent.classId)
     : [];
+  const selectedPaymentStructure = structures.find(s => s.id === parseInt(pf.feeStructureId));
 
-  const totalCollected = payments.reduce((s, p) => s + Number(p.paidAmount || 0), 0);
-  const totalBalance = payments.reduce((s, p) => s + Number(p.balance || 0), 0);
+  const totalCollected = Number(ledgerSummary.totalCollected ?? payments.reduce((s, p) => s + Number(p.paidAmount || 0), 0));
+  const totalBalance = Number(ledgerSummary.totalOutstanding ?? obligations.reduce((s, o) => s + Number(o.balance || 0), 0));
   const defaulterCount = defaultersData?.count || 0;
 
   const filteredPayments = payments.filter(p => {
@@ -209,14 +240,24 @@ export default function FeesPage() {
     return true;
   });
 
+  const filteredObligations = obligations.filter((o: any) => {
+    const student = getStudent(o.studentId);
+    if (filterClass && student?.classId !== parseInt(filterClass)) return false;
+    if (filterTerm && o.term !== filterTerm) return false;
+    return true;
+  });
+  const filteredOutstanding = filteredObligations.reduce((sum, obligation) => sum + Number(obligation.balance || 0), 0);
+
   const classSummary = classes.map(cls => {
     const classStudents = students.filter(s => s.classId === cls.id);
-    const classPayments = payments.filter(p => classStudents.some(s => s.id === p.studentId));
+    const studentIds = new Set(classStudents.map(s => s.id));
+    const classPayments = payments.filter(p => studentIds.has(p.studentId));
+    const classObligations = obligations.filter(o => studentIds.has(o.studentId));
     return {
       class: cls,
       studentCount: classStudents.length,
       totalCollected: classPayments.reduce((s, p) => s + Number(p.paidAmount || 0), 0),
-      totalOutstanding: classPayments.reduce((s, p) => s + Number(p.balance || 0), 0),
+      totalOutstanding: classObligations.reduce((s, o) => s + Number(o.balance || 0), 0),
       paymentCount: classPayments.length,
     };
   }).filter(c => c.studentCount > 0);
@@ -235,7 +276,7 @@ export default function FeesPage() {
         "Total Amount (KES)": p.amount,
         "Paid (KES)": p.paidAmount,
         "Discount (KES)": p.discount,
-        "Balance (KES)": p.balance,
+        "Balance After Receipt (KES)": p.balance,
         "Payment Method": p.paymentMethod,
         "Term": p.term || "",
         "Payment Date": p.paymentDate,
@@ -262,7 +303,7 @@ export default function FeesPage() {
         "Total Amount (KES)": p.amount,
         "Paid (KES)": p.paidAmount,
         "Discount (KES)": p.discount,
-        "Balance (KES)": p.balance,
+        "Balance After Receipt (KES)": p.balance,
         "Payment Method": p.paymentMethod,
         "Term": p.term || "",
         "Payment Date": p.paymentDate,
@@ -302,7 +343,7 @@ export default function FeesPage() {
         <tr><td style="color:#64748b;font-weight:600">Phone</td><td>${student?.parentPhone || "—"}</td></tr>
       </table>
       <table>
-        <thead><tr><th>Description</th><th>Amount</th><th>Paid</th><th>Discount</th><th>Balance</th><th>Method</th>${p.term ? "<th>Term</th>" : ""}</tr></thead>
+        <thead><tr><th>Description</th><th>Amount</th><th>Paid</th><th>Discount</th><th>Balance After Receipt</th><th>Method</th>${p.term ? "<th>Term</th>" : ""}</tr></thead>
         <tbody>
           <tr>
             <td>${structure?.name || "Fee Payment"}</td>
@@ -353,16 +394,16 @@ export default function FeesPage() {
         <div style="text-align:right;font-size:12px;color:#64748b">
           <div>Total Records: <strong>${filteredPayments.length}</strong></div>
           <div>Total Collected: <strong style="color:#166534">${fmt(filteredPayments.reduce((s,p)=>s+Number(p.paidAmount || 0),0))}</strong></div>
-          <div>Outstanding: <strong style="color:#991b1b">${fmt(filteredPayments.reduce((s,p)=>s+Number(p.balance || 0),0))}</strong></div>
+          <div>Current Outstanding: <strong style="color:#991b1b">${fmt(filteredOutstanding)}</strong></div>
         </div>
       </div>
       <table>
-        <thead><tr><th>Receipt No</th><th>Student</th><th>Adm No.</th><th>Class</th><th>Date</th><th>Method</th><th>Term</th><th>Paid</th><th>Balance</th></tr></thead>
+        <thead><tr><th>Receipt No</th><th>Student</th><th>Adm No.</th><th>Class</th><th>Date</th><th>Method</th><th>Term</th><th>Paid</th><th>Balance After Receipt</th></tr></thead>
         <tbody>${rows}</tbody>
         <tr class="total-row">
-          <td colspan="7">TOTAL</td>
+          <td colspan="7">TOTAL / CURRENT OUTSTANDING</td>
           <td>${fmt(filteredPayments.reduce((s,p)=>s+Number(p.paidAmount || 0),0))}</td>
-          <td>${fmt(filteredPayments.reduce((s,p)=>s+Number(p.balance || 0),0))}</td>
+          <td>${fmt(filteredOutstanding)}</td>
         </tr>
       </table>
     `, "Fee Payments Report");
@@ -475,7 +516,9 @@ export default function FeesPage() {
   ];
 
   const TERMS = ["Term 1", "Term 2", "Term 3"];
-  const balancePreview = Number(pf.amount || 0) - Number(pf.paidAmount || 0) - Number(pf.discount || 0);
+  const currentOutstanding = currentBalanceForForm(pf);
+  const balancePreview = currentOutstanding - Number(pf.paidAmount || 0) - Number(pf.discount || 0);
+  const termRequired = selectedPaymentStructure?.frequency === "termly";
 
   return (
     <Layout title="Fees & Payments" action={
@@ -496,7 +539,7 @@ export default function FeesPage() {
           <div style={{ fontSize: 24, fontWeight: 800, color: "#22C55E" }}>{fmt(totalCollected)}</div>
         </div>
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: "18px 20px" }}>
-          <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>Outstanding</div>
+          <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, textTransform: "uppercase", marginBottom: 6 }}>Current Outstanding</div>
           <div style={{ fontSize: 24, fontWeight: 800, color: "#EF4444" }}>{fmt(totalBalance)}</div>
         </div>
         <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: "18px 20px" }}>
@@ -547,7 +590,7 @@ export default function FeesPage() {
           <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 12, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr style={{ background: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
-                {["Receipt No", "Student", "Class", "Term", "Amount", "Paid", "Balance", "Method", "Date", "Actions"].map(h => <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>{h}</th>)}
+                {["Receipt No", "Student", "Class", "Term", "Amount", "Paid", "Balance After Receipt", "Method", "Date", "Actions"].map(h => <th key={h} style={{ padding: "11px 14px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#64748B", textTransform: "uppercase" }}>{h}</th>)}
               </tr></thead>
               <tbody>
                 {isLoading ? (
@@ -582,9 +625,9 @@ export default function FeesPage() {
               </tbody>
               {filteredPayments.length > 0 && (
                 <tfoot><tr style={{ background: "#F8FAFC", borderTop: "2px solid #E2E8F0" }}>
-                  <td colSpan={5} style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#1E293B" }}>TOTALS ({filteredPayments.length} records)</td>
+                  <td colSpan={5} style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#1E293B" }}>TOTALS ({filteredPayments.length} receipts)</td>
                   <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "#22C55E" }}>{fmt(filteredPayments.reduce((s, p) => s + Number(p.paidAmount || 0), 0))}</td>
-                  <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "#EF4444" }}>{fmt(filteredPayments.reduce((s, p) => s + Number(p.balance || 0), 0))}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 800, color: "#EF4444" }}>{fmt(filteredOutstanding)} current</td>
                   <td colSpan={3} />
                 </tr></tfoot>
               )}
@@ -622,7 +665,7 @@ export default function FeesPage() {
                 ))}</tbody>
                 <tfoot><tr style={{ background: "#FEF2F2", borderTop: "2px solid #FECACA" }}>
                   <td colSpan={6} style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#1E293B" }}>TOTAL OUTSTANDING — {defaulterCount} student{defaulterCount !== 1 ? "s" : ""}</td>
-                  <td style={{ padding: "10px 14px", fontSize: 14, fontWeight: 800, color: "#EF4444" }}>{fmt(defaultersData.defaulters.reduce((s: number, d: any) => s + d.totalOwed, 0))}</td>
+                  <td style={{ padding: "10px 14px", fontSize: 14, fontWeight: 800, color: "#EF4444" }}>{fmt(defaultersData.totalOutstanding ?? defaultersData.defaulters.reduce((s: number, d: any) => s + d.totalOwed, 0))}</td>
                 </tr></tfoot>
               </table>
             </div>
@@ -706,7 +749,15 @@ export default function FeesPage() {
               const studentId = parseInt(e.target.value);
               const s = students.find(st => st.id === studentId);
               const classStructures = structures.filter(fs => fs.classId === s?.classId);
-              setPf({ ...pf, studentId: e.target.value, feeStructureId: classStructures[0]?.id ? String(classStructures[0].id) : "", amount: classStructures[0]?.amount ? String(classStructures[0].amount) : "" });
+              setPf({
+                ...pf,
+                studentId: e.target.value,
+                feeStructureId: classStructures[0]?.id ? String(classStructures[0].id) : "",
+                amount: classStructures[0]?.amount ? String(classStructures[0].amount) : "",
+                paidAmount: "",
+                discount: "0",
+                term: "",
+              });
             }} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }} required>
               <option value="">Select student...</option>
               {students.map(s => { const cls = getClass(s.classId); return <option key={s.id} value={s.id}>{s.name} ({s.admissionNo}) — {cls?.name || "No class"}</option>; })}
@@ -716,30 +767,42 @@ export default function FeesPage() {
             <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Fee Type</label>
             <select value={pf.feeStructureId} onChange={e => {
               const fs = applicableStructures.find(s => s.id === parseInt(e.target.value));
-              setPf({ ...pf, feeStructureId: e.target.value, amount: fs?.amount ? String(fs.amount) : pf.amount });
+              setPf({
+                ...pf,
+                feeStructureId: e.target.value,
+                amount: fs?.amount ? String(fs.amount) : "",
+                paidAmount: "",
+                discount: "0",
+                term: "",
+              });
             }} disabled={!pf.studentId} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }}>
-              <option value="">{pf.studentId ? "Select fee type..." : "Select a student first"}</option>
+              <option value="">{pf.studentId ? "Custom / other fee" : "Select a student first"}</option>
               {applicableStructures.map(fs => <option key={fs.id} value={fs.id}>{fs.name} — {fmt(fs.amount)}</option>)}
             </select>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Total Amount (KES)</label><input type="number" min="0" value={pf.amount} onChange={e => setPf({ ...pf, amount: e.target.value })} required style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} /></div>
-            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Amount Paid (KES)</label><input type="number" min="0" value={pf.paidAmount} onChange={e => setPf({ ...pf, paidAmount: e.target.value })} required style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Total Amount (KES)</label><input type="number" min="0" value={pf.amount} onChange={e => setPf({ ...pf, amount: e.target.value })} readOnly={!!selectedPaymentStructure} required style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any, background: selectedPaymentStructure ? "#F8FAFC" : "#fff" }} /></div>
+            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Amount Paid (KES)</label><input type="number" min="0" max={currentOutstanding || undefined} value={pf.paidAmount} onChange={e => setPf({ ...pf, paidAmount: e.target.value })} required style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} /></div>
             <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Discount (KES)</label><input type="number" min="0" value={pf.discount} onChange={e => setPf({ ...pf, discount: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} /></div>
             <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Payment Date</label><input type="date" value={pf.paymentDate} onChange={e => setPf({ ...pf, paymentDate: e.target.value })} required style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} /></div>
             <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Payment Method</label><select value={pf.paymentMethod} onChange={e => setPf({ ...pf, paymentMethod: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }}><option value="cash">Cash</option><option value="mpesa">M-Pesa</option><option value="bank">Bank Transfer</option></select></div>
-            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Term</label><select value={pf.term} onChange={e => setPf({ ...pf, term: e.target.value })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }}><option value="">Select term...</option>{TERMS.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
+            <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Term{termRequired ? " *" : ""}</label><select value={pf.term} required={termRequired} onChange={e => setPf({ ...pf, term: e.target.value, paidAmount: "", discount: "0" })} style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, background: "#fff", color: "#1E293B" }}><option value="">Select term...</option>{TERMS.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
           </div>
-          {pf.amount && pf.paidAmount && (
+          {pf.amount && selectedPaymentStructure && (
+            <div style={{ padding: "10px 14px", borderRadius: 8, background: "#F8FAFC", border: "1px solid #E2E8F0", fontSize: 12, color: "#475569" }}>
+              Current outstanding for this fee period: <strong style={{ color: currentOutstanding > 0 ? "#EF4444" : "#22C55E" }}>{fmt(currentOutstanding)}</strong>
+            </div>
+          )}
+          {pf.amount && (pf.paidAmount || Number(pf.discount || 0) > 0) && (
             <div style={{ padding: "12px 16px", borderRadius: 8, background: balancePreview > 0 ? "#FEF2F2" : balancePreview < 0 ? "#FFF7ED" : "#F0FDF4", border: `1px solid ${balancePreview > 0 ? "#FECACA" : balancePreview < 0 ? "#FED7AA" : "#BBF7D0"}` }}>
-              <span style={{ fontSize: 12, color: "#64748B" }}>{balancePreview < 0 ? "Overpayment: " : "Balance: "}</span>
+              <span style={{ fontSize: 12, color: "#64748B" }}>{balancePreview < 0 ? "Overpayment: " : "Balance after payment: "}</span>
               <span style={{ fontSize: 16, fontWeight: 800, color: balancePreview > 0 ? "#EF4444" : balancePreview < 0 ? "#C2410C" : "#22C55E" }}>{fmt(Math.abs(balancePreview))}</span>
             </div>
           )}
           <div><label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Notes (optional)</label><input value={pf.notes} onChange={e => setPf({ ...pf, notes: e.target.value })} placeholder="e.g. M-Pesa ref: QX123..." style={{ width: "100%", padding: "10px 12px", border: "1px solid #E2E8F0", borderRadius: 8, fontSize: 13, boxSizing: "border-box" as any }} /></div>
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <button type="button" onClick={() => setPaymentModal(false)} style={{ padding: "9px 16px", background: "#F1F5F9", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13 }}>Cancel</button>
-            <button type="submit" disabled={savePayment.isPending || balancePreview < 0} style={{ padding: "9px 20px", background: "#E91E8C", color: "#fff", border: "none", borderRadius: 8, cursor: balancePreview < 0 ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, opacity: balancePreview < 0 ? 0.6 : 1 }}>{savePayment.isPending ? "Recording..." : "Record Payment"}</button>
+            <button type="submit" disabled={savePayment.isPending || balancePreview < 0 || (termRequired && !pf.term)} style={{ padding: "9px 20px", background: "#E91E8C", color: "#fff", border: "none", borderRadius: 8, cursor: balancePreview < 0 || (termRequired && !pf.term) ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, opacity: balancePreview < 0 || (termRequired && !pf.term) ? 0.6 : 1 }}>{savePayment.isPending ? "Recording..." : "Record Payment"}</button>
           </div>
         </form>
       </Modal>
