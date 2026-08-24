@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -12,25 +12,51 @@ import { apiFetch } from "../../lib/auth";
 
 const PINK = "#E91E8C";
 
-const statusColor = (s: string) =>
-  s === "active" ? PINK : s === "inactive" ? "#F87171" : "#FBBF24";
+const statusColor = (status: string) => {
+  const normalized = String(status || "active").toLowerCase();
+  return normalized === "active" ? PINK : normalized === "inactive" ? "#F87171" : "#FBBF24";
+};
+
+function initials(name: string | undefined) {
+  if (!name) return "?";
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("") || "?";
+}
+
+function displayGender(value: unknown) {
+  const gender = String(value || "").trim().toLowerCase();
+  return gender ? gender.charAt(0).toUpperCase() + gender.slice(1) : "—";
+}
+
+async function parseResponse(response: Response) {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error((data as any)?.message || "Request failed");
+  return data;
+}
 
 export default function StudentsScreen() {
   const [search, setSearch] = useState("");
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["m-students-list", search],
-    queryFn: async () => {
-      const q = search
-        ? `?search=${encodeURIComponent(search)}&limit=50`
-        : "?limit=50";
-      const r = await apiFetch(`/api/students${q}`);
-      if (!r.ok) return null;
-      return r.json();
-    },
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["m-students-list"],
+    queryFn: async () => parseResponse(await apiFetch("/api/students")),
   });
 
-  const students: any[] = data?.students ?? [];
+  const students: any[] = Array.isArray((data as any)?.students) ? (data as any).students : [];
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return students;
+    return students.filter((student) =>
+      String(student.name || "").toLowerCase().includes(query) ||
+      String(student.admissionNo || "").toLowerCase().includes(query) ||
+      String(student.className || "").toLowerCase().includes(query) ||
+      String(student.parentName || "").toLowerCase().includes(query)
+    );
+  }, [students, search]);
 
   return (
     <View style={styles.container}>
@@ -48,36 +74,33 @@ export default function StudentsScreen() {
         <View style={styles.center}>
           <ActivityIndicator color={PINK} />
         </View>
-      ) : students.length === 0 ? (
+      ) : isError ? (
         <View style={styles.center}>
-          <Text style={styles.empty}>No students found</Text>
+          <Text style={styles.errorText}>Could not load students.</Text>
+          <Text style={styles.empty}>Check your connection and try again.</Text>
+        </View>
+      ) : filtered.length === 0 ? (
+        <View style={styles.center}>
+          <Text style={styles.empty}>{search ? "No students match your search" : "No students found"}</Text>
         </View>
       ) : (
         <FlatList
-          data={students}
-          keyExtractor={(item: any) => item.id}
+          data={filtered}
+          keyExtractor={(item: any) => String(item.id)}
           contentContainerStyle={{ padding: 16 }}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {item.firstName?.[0]}
-                  {item.lastName?.[0]}
-                </Text>
+                <Text style={styles.avatarText}>{initials(item.name)}</Text>
               </View>
               <View style={styles.info}>
-                <Text style={styles.name}>
-                  {item.firstName} {item.lastName}
+                <Text style={styles.name}>{item.name || "Unnamed student"}</Text>
+                <Text style={styles.meta}>
+                  ADM: {item.admissionNo || "—"} · {item.className || "No class"}
                 </Text>
                 <Text style={styles.meta}>
-                  ADM: {item.admissionNumber} · {item.className || "No class"}
-                </Text>
-                <Text style={styles.meta}>
-                  {item.gender} ·{" "}
-                  {item.dateOfBirth
-                    ? new Date(item.dateOfBirth).getFullYear()
-                    : "—"}
+                  {displayGender(item.gender)} · {item.dob ? new Date(item.dob).getFullYear() : "—"}
                 </Text>
               </View>
               <View
@@ -92,7 +115,7 @@ export default function StudentsScreen() {
                     { color: statusColor(item.status) },
                   ]}
                 >
-                  {item.status}
+                  {String(item.status || "active").toLowerCase()}
                 </Text>
               </View>
             </View>
@@ -115,8 +138,9 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 14,
   },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  empty: { color: "#8b949e", fontSize: 14 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", gap: 6, padding: 20 },
+  empty: { color: "#8b949e", fontSize: 14, textAlign: "center" },
+  errorText: { color: "#F87171", fontSize: 15, fontWeight: "600", textAlign: "center" },
   card: {
     flexDirection: "row",
     alignItems: "center",
