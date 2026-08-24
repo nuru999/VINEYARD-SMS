@@ -1,0 +1,45 @@
+name: Production Smoke Probe
+
+on:
+  push:
+    branches:
+      - ops/production-smoke-2026-08-24
+
+jobs:
+  probe-production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe deployed application
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://vineyard-sms-gq1q.onrender.com"
+
+          echo "Checking public health endpoint..."
+          healthy=0
+          for attempt in {1..18}; do
+            status="$(curl -sS --max-time 30 -o /tmp/health.json -w '%{http_code}' "$base/api/health" || true)"
+            body="$(cat /tmp/health.json 2>/dev/null || true)"
+            echo "attempt=$attempt status=$status body=$body"
+            if [[ "$status" == "200" && "$body" == *'"status":"ok"'* ]]; then
+              healthy=1
+              break
+            fi
+            sleep 10
+          done
+          if [[ "$healthy" != "1" ]]; then
+            echo "Production health endpoint did not become healthy"
+            exit 1
+          fi
+
+          echo "Checking homepage..."
+          home_status="$(curl -sS --max-time 30 -o /tmp/home.html -w '%{http_code}' "$base/" || true)"
+          test "$home_status" = "200"
+
+          echo "Checking protected API remains protected..."
+          protected_status="$(curl -sS --max-time 30 -o /tmp/protected.json -w '%{http_code}' "$base/api/students" || true)"
+          protected_body="$(cat /tmp/protected.json 2>/dev/null || true)"
+          echo "protected_status=$protected_status body=$protected_body"
+          test "$protected_status" = "401"
+
+          echo "Production smoke probe passed."
