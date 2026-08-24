@@ -1,8 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "../components/layout";
 import { useRole } from "../lib/use-role";
-import { Save, School, Calendar, Phone, Mail, MapPin, Image } from "lucide-react";
+import { useToast } from "../components/ui/toast";
+import { Save, School, Phone, Mail, MapPin, Image } from "lucide-react";
+
+async function parseResponse(response: Response) {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error((data as any)?.message || "Request failed");
+  return data;
+}
 
 function Field({
   label, value, onChange, icon, type = "text", placeholder = "", disabled = false,
@@ -62,43 +69,45 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function SettingsPage() {
   const { role } = useRole();
   const qc = useQueryClient();
+  const { success, error: toastError } = useToast();
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState<Record<string, string> | null>(null);
 
-  const { data: settings, isLoading } = useQuery({
+  const { data: settings, isLoading, error: loadError } = useQuery({
     queryKey: ["school-settings"],
-    queryFn: async () => {
-      const res = await fetch("/api/settings", { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to load settings");
-      return res.json() as Promise<Record<string, string>>;
-    },
-    onSuccess: (data) => {
-      if (!form) setForm({ ...data });
-    },
-  } as any);
+    queryFn: async () => parseResponse(await fetch("/api/settings", { credentials: "include" })) as Promise<Record<string, string>>,
+  });
+
+  useEffect(() => {
+    if (settings && !form) setForm({ ...settings });
+  }, [settings, form]);
 
   const mutation = useMutation({
-    mutationFn: async (data: Record<string, string>) => {
-      const res = await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error("Failed to save");
-      return res.json();
-    },
+    mutationFn: async (data: Record<string, string>) => parseResponse(await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(data),
+    })),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["school-settings"] });
       qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
       setSaved(true);
+      success("School settings saved");
       setTimeout(() => setSaved(false), 3000);
     },
+    onError: (error: any) => toastError("Save failed", error?.message),
   });
 
   const isAdmin = role === "admin";
   const current = form ?? settings ?? {};
-  const set = (key: string) => (v: string) => setForm(f => ({ ...(f ?? {}), ...current, [key]: v }));
+  const set = (key: string) => (value: string) => setForm(prev => ({ ...(prev ?? current), [key]: value }));
+  const currentYear = new Date().getFullYear();
+  const configuredYear = Number(current.current_year);
+  const yearOptions = Array.from(new Set([
+    ...Array.from({ length: 9 }, (_, index) => currentYear - 3 + index),
+    ...(Number.isInteger(configuredYear) ? [configuredYear] : []),
+  ])).sort((a, b) => a - b);
 
   if (isLoading) {
     return (
@@ -111,7 +120,12 @@ export default function SettingsPage() {
   return (
     <Layout title="Settings">
       <div style={{ maxWidth: 800 }}>
-        {/* Header */}
+        {loadError && (
+          <div style={{ marginBottom: 18, padding: "12px 14px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: 13 }}>
+            {loadError instanceof Error ? loadError.message : "Could not load school settings"}
+          </div>
+        )}
+
         <div style={{ marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#1E293B" }}>School Settings</div>
@@ -121,14 +135,15 @@ export default function SettingsPage() {
           </div>
           {isAdmin && (
             <button
-              onClick={() => form && mutation.mutate(form)}
-              disabled={mutation.isPending}
+              onClick={() => mutation.mutate({ ...(settings ?? {}), ...(form ?? {}) })}
+              disabled={mutation.isPending || !!loadError}
               style={{
                 display: "flex", alignItems: "center", gap: 8,
                 padding: "10px 20px", borderRadius: 10, fontSize: 13, fontWeight: 700,
                 background: saved ? "#22c55e" : "linear-gradient(135deg, #E91E8C, #c0166d)",
-                color: "#fff", border: "none", cursor: "pointer",
+                color: "#fff", border: "none", cursor: loadError ? "not-allowed" : "pointer",
                 boxShadow: "0 2px 10px rgba(233,30,140,0.3)", transition: "all 0.2s",
+                opacity: loadError ? 0.6 : 1,
               }}
             >
               <Save size={15} />
@@ -137,7 +152,6 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* School Identity */}
         <Section title="🏫 School Identity">
           <Field label="School Name" value={current.school_name ?? ""} onChange={set("school_name")} icon={<School size={14} />} placeholder="Vineyard Primary School" disabled={!isAdmin} />
           <Field label="School Motto" value={current.school_motto ?? ""} onChange={set("school_motto")} placeholder="Fruitful Development" disabled={!isAdmin} />
@@ -157,7 +171,6 @@ export default function SettingsPage() {
           )}
         </Section>
 
-        {/* Academic Calendar */}
         <Section title="📅 Academic Calendar">
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 6 }}>
@@ -183,7 +196,7 @@ export default function SettingsPage() {
               Academic Year
             </label>
             <select
-              value={current.current_year ?? String(new Date().getFullYear())}
+              value={current.current_year ?? String(currentYear)}
               onChange={e => set("current_year")(e.target.value)}
               disabled={!isAdmin}
               style={{
@@ -192,14 +205,11 @@ export default function SettingsPage() {
                 fontFamily: "inherit", outline: "none", cursor: isAdmin ? "pointer" : "not-allowed",
               }}
             >
-              {[2023, 2024, 2025, 2026, 2027].map(y => (
-                <option key={y}>{y}</option>
-              ))}
+              {yearOptions.map(year => <option key={year}>{year}</option>)}
             </select>
           </div>
         </Section>
 
-        {/* Contact Info */}
         <Section title="📞 Contact Information">
           <Field label="School Email" value={current.school_email ?? ""} onChange={set("school_email")} icon={<Mail size={14} />} type="email" placeholder="info@vineyard.school" disabled={!isAdmin} />
           <Field label="Phone Number" value={current.school_phone ?? ""} onChange={set("school_phone")} icon={<Phone size={14} />} placeholder="+254 700 000 000" disabled={!isAdmin} />
