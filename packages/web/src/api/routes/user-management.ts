@@ -57,6 +57,18 @@ async function ensureTeacherStaffLink(user: any) {
   return created.id;
 }
 
+async function cleanupApplicationLinks(userId: string) {
+  await db.update(schema.classes)
+    .set({ teacherUserId: null })
+    .where(eq(schema.classes.teacherUserId, userId));
+
+  await db.update(schema.staff)
+    .set({ userId: null })
+    .where(eq(schema.staff.userId, userId));
+
+  await db.delete(schema.userProfiles).where(eq(schema.userProfiles.userId, userId));
+}
+
 export const userManagementRoutes = new Hono()
   .get("/", requireAuth, async (c) => {
     const user = c.get("user")!;
@@ -89,7 +101,7 @@ export const userManagementRoutes = new Hono()
       id: u.id,
       email: u.email,
       name: u.name,
-      role: profileMap.get(u.id)?.role ?? "teacher",
+      role: profileMap.get(u.id)?.role ?? "unconfigured",
       createdAt: u.createdAt,
       assignedClass: classMap.get(u.id) ?? null,
     }));
@@ -151,43 +163,52 @@ export const userManagementRoutes = new Hono()
     }
 
     const result = await auth.api.signUpEmail({ body: { name, email, password } });
-    if (!result || result.error) {
+    if (!result || (result as any).error) {
       return c.json({ message: (result as any)?.error?.message ?? "Failed to create user" }, 400);
     }
 
     const newUser = (result as any).user;
 
-    await db
-      .insert(schema.userProfiles)
-      .values({ userId: newUser.id, role: targetRole })
-      .onConflictDoUpdate({
-        target: schema.userProfiles.userId,
-        set: { role: targetRole },
-      });
+    try {
+      await db
+        .insert(schema.userProfiles)
+        .values({ userId: newUser.id, role: targetRole })
+        .onConflictDoUpdate({
+          target: schema.userProfiles.userId,
+          set: { role: targetRole },
+        });
 
-    if (targetRole === "teacher") {
-      if (targetStaffId) {
-        await db.update(schema.staff)
-          .set({
-            userId: newUser.id,
-            name,
-            email,
-            designation: "Teacher",
-            status: "active",
-          })
-          .where(eq(schema.staff.id, targetStaffId));
-      } else {
-        await ensureTeacherStaffLink({ ...newUser, name, email });
+      if (targetRole === "teacher") {
+        if (targetStaffId) {
+          await db.update(schema.staff)
+            .set({
+              userId: newUser.id,
+              name,
+              email,
+              designation: "Teacher",
+              status: "active",
+            })
+            .where(eq(schema.staff.id, targetStaffId));
+        } else {
+          await ensureTeacherStaffLink({ ...newUser, name, email });
+        }
       }
-    }
 
-    if (targetRole === "teacher" && classId) {
-      await db.update(schema.classes)
-        .set({ teacherUserId: null })
-        .where(eq(schema.classes.teacherUserId, newUser.id));
-      await db.update(schema.classes)
-        .set({ teacherUserId: newUser.id })
-        .where(eq(schema.classes.id, classId));
+      if (targetRole === "teacher" && classId) {
+        await db.update(schema.classes)
+          .set({ teacherUserId: null })
+          .where(eq(schema.classes.teacherUserId, newUser.id));
+        await db.update(schema.classes)
+          .set({ teacherUserId: newUser.id })
+          .where(eq(schema.classes.id, classId));
+      }
+    } catch (error) {
+      // Fail closed if application setup is interrupted. Remove role/link state
+      // first so an auth identity can never fall through to teacher privileges,
+      // then best-effort remove the Better Auth identity as well.
+      await cleanupApplicationLinks(newUser.id).catch(() => {});
+      await db.delete(userTable).where(eq(userTable.id, newUser.id)).catch(() => {});
+      throw error;
     }
 
     return c.json({ user: { id: newUser.id, email, name, role: targetRole } }, 201);
@@ -204,17 +225,17 @@ export const userManagementRoutes = new Hono()
     const [existingUser] = await db.select().from(userTable).where(eq(userTable.id, id));
     if (!existingUser) return c.json({ message: "User not found" }, 404);
 
-    await db.update(schema.classes)
-      .set({ teacherUserId: null })
-      .where(eq(schema.classes.teacherUserId, id));
+    // Delete the identity first. Better Auth account/session rows reference the
+    // user with ON DELETE CASCADE, so a successful delete removes active login
+    // material. Never suppress a failure here or report a false success.
+    const deleted = await db.delete(userTable)
+      .where(eq(userTable.id, id))
+      .returning({ id: userTable.id });
+    if (!deleted.length) {
+      return c.json({ message: "Failed to delete authentication account" }, 500);
+    }
 
-    await db.update(schema.staff)
-      .set({ userId: null })
-      .where(eq(schema.staff.userId, id));
-
-    await db.delete(schema.userProfiles).where(eq(schema.userProfiles.userId, id));
-    await db.delete(userTable).where(eq(userTable.id, id)).catch(() => {});
-
+    await cleanupApplicationLinks(id);
     return c.json({ message: "User deleted" });
   })
 
@@ -234,7 +255,10 @@ export const userManagementRoutes = new Hono()
       .select()
       .from(schema.userProfiles)
       .where(eq(schema.userProfiles.userId, id));
-    const currentRole = (currentProfile?.role && validRole(currentProfile.role)) ? currentProfile.role : "teacher";
+    if (!currentProfile || !validRole(currentProfile.role)) {
+      return c.json({ message: "User does not have a configured application role" }, 409);
+    }
+    const currentRole = currentProfile.role;
 
     if (id === adminUser.id && currentRole === "admin" && role !== "admin") {
       return c.json({ message: "You cannot remove your own admin access" }, 400);
@@ -266,12 +290,9 @@ export const userManagementRoutes = new Hono()
     }
 
     await db
-      .insert(schema.userProfiles)
-      .values({ userId: id, role })
-      .onConflictDoUpdate({
-        target: schema.userProfiles.userId,
-        set: { role },
-      });
+      .update(schema.userProfiles)
+      .set({ role })
+      .where(eq(schema.userProfiles.userId, id));
 
     return c.json({
       message: "Role updated",
