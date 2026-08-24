@@ -1,0 +1,54 @@
+name: Render Recovery Smoke TEMP
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for repaired production commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://vineyard-sms-gq1q.onrender.com"
+          expected="0bc36db0168b"
+          matched="false"
+
+          for attempt in $(seq 1 60); do
+            body="$(curl --fail --silent --show-error --max-time 30 "$base/api/health" || true)"
+            status="$(printf '%s' "$body" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("status", ""))' 2>/dev/null || true)"
+            commit="$(printf '%s' "$body" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("commit", ""))' 2>/dev/null || true)"
+            echo "Attempt $attempt: status=$status commit=$commit"
+            if [ "$status" = "ok" ] && [ "$commit" = "$expected" ]; then
+              matched="true"
+              break
+            fi
+            sleep 10
+          done
+
+          if [ "$matched" != "true" ]; then
+            echo "Production did not report repaired commit $expected"
+            exit 1
+          fi
+
+      - name: Verify homepage and unauthenticated boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://vineyard-sms-gq1q.onrender.com"
+
+          homepage_status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 30 "$base/")"
+          echo "Homepage status: $homepage_status"
+          test "$homepage_status" = "200"
+
+          api_status="$(curl --silent --output /tmp/students-body --write-out '%{http_code}' --max-time 30 "$base/api/students")"
+          echo "Unauthenticated /api/students status: $api_status"
+          cat /tmp/students-body
+          test "$api_status" = "401"
+
+          echo "Render recovery smoke passed."
