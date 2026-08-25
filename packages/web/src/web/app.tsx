@@ -14,6 +14,7 @@ const StaffPage = lazy(() => import("./pages/staff"));
 const ClassesPage = lazy(() => import("./pages/classes"));
 const AttendancePage = lazy(() => import("./pages/attendance"));
 const FeesPage = lazy(() => import("./pages/fees"));
+const PrincipalFeesPage = lazy(() => import("./pages/principal-fees"));
 const ExamsPage = lazy(() => import("./pages/exams"));
 const PayrollPage = lazy(() => import("./pages/payroll"));
 const CertificatesPage = lazy(() => import("./pages/certificates"));
@@ -91,6 +92,11 @@ function RoleDashboard() {
   return isAdmin ? <Dashboard /> : isPrincipal ? <PrincipalDashboard /> : isAccountant ? <AccountantDashboard /> : <TeacherDashboard />;
 }
 
+function RoleFeesPage() {
+  const { isPrincipal } = useRole();
+  return isPrincipal ? <PrincipalFeesPage /> : <FeesPage />;
+}
+
 function App() {
   return (
     <Provider>
@@ -98,18 +104,19 @@ function App() {
         <Switch>
         <Route path="/sign-in" component={SignIn} />
 
-        {/* Dashboard — admin sees full dashboard, teacher sees teacher dashboard */}
         <Route path="/" component={() => <ProtectedRoute component={RoleDashboard} />} />
-        <Route path="/students" component={() => <ProtectedRoute component={StudentsPage} />} />
-        <Route path="/students/:id" component={() => <ProtectedRoute component={StudentProfilePage} />} />
-        <Route path="/classes" component={() => <ProtectedRoute component={ClassesPage} />} />
-        <Route path="/attendance" component={() => <ProtectedRoute component={AttendancePage} />} />
-        <Route path="/exams" component={() => <ProtectedRoute component={ExamsPage} />} />
-        <Route path="/timetable" component={() => <ProtectedRoute component={TimetablePage} />} />
-        <Route path="/communication" component={() => <ProtectedRoute component={CommunicationPage} />} />
-        <Route path="/transport" component={() => <ProtectedRoute component={TransportPage} />} />
-        <Route path="/library" component={() => <ProtectedRoute component={LibraryPage} />} />
-        <Route path="/inventory" component={() => <ProtectedRoute component={InventoryPage} />} />
+
+        {/* School operations: Accountant is finance-only and cannot enter these routes directly. */}
+        <Route path="/students" component={() => <ProtectedRoleRoute component={StudentsPage} allowedRoles={["admin", "principal", "teacher"]} />} />
+        <Route path="/students/:id" component={() => <ProtectedRoleRoute component={StudentProfilePage} allowedRoles={["admin", "principal", "teacher"]} />} />
+        <Route path="/classes" component={() => <ProtectedRoleRoute component={ClassesPage} allowedRoles={["admin", "principal", "teacher"]} />} />
+        <Route path="/attendance" component={() => <ProtectedRoleRoute component={AttendancePage} allowedRoles={["admin", "principal", "teacher"]} />} />
+        <Route path="/exams" component={() => <ProtectedRoleRoute component={ExamsPage} allowedRoles={["admin", "principal", "teacher"]} />} />
+        <Route path="/timetable" component={() => <ProtectedRoleRoute component={TimetablePage} allowedRoles={["admin", "principal", "teacher"]} />} />
+        <Route path="/communication" component={() => <ProtectedRoleRoute component={CommunicationPage} allowedRoles={["admin", "principal", "teacher"]} />} />
+        <Route path="/transport" component={() => <ProtectedRoleRoute component={TransportPage} allowedRoles={["admin", "principal", "teacher"]} />} />
+        <Route path="/library" component={() => <ProtectedRoleRoute component={LibraryPage} allowedRoles={["admin", "principal", "teacher"]} />} />
+        <Route path="/inventory" component={() => <ProtectedRoleRoute component={InventoryPage} allowedRoles={["admin", "principal", "teacher"]} />} />
 
         {/* Academic records: admin + principal + teacher */}
         <Route path="/certificates" component={() => <ProtectedRoleRoute component={CertificatesPage} allowedRoles={["admin", "principal", "teacher"]} />} />
@@ -118,21 +125,19 @@ function App() {
         {/* Admin + Principal */}
         <Route path="/staff" component={() => <ProtectedRoleRoute component={StaffPage} allowedRoles={["admin", "principal"]} />} />
 
-        {/* Admin + Principal + Accountant */}
-        <Route path="/fees" component={() => <ProtectedRoleRoute component={FeesPage} allowedRoles={["admin", "principal", "accountant"]} />} />
+        {/* Finance: Principal receives read-only fee oversight; Admin/Accountant receive operational fee controls. */}
+        <Route path="/fees" component={() => <ProtectedRoleRoute component={RoleFeesPage} allowedRoles={["admin", "principal", "accountant"]} />} />
         <Route path="/reports" component={() => <ProtectedRoleRoute component={ReportsPage} allowedRoles={["admin", "principal", "accountant"]} />} />
-
-        {/* Finance oversight: Principal has read-only access; Admin/Accountant manage records */}
         <Route path="/payroll" component={() => <ProtectedRoleRoute component={PayrollPage} allowedRoles={["admin", "principal", "accountant"]} />} />
         <Route path="/accounts" component={() => <ProtectedRoleRoute component={AccountsPage} allowedRoles={["admin", "principal", "accountant"]} />} />
 
         {/* Admin only */}
         <Route path="/user-management" component={() => <ProtectedRoleRoute component={UserManagementPage} allowedRoles={["admin"]} />} />
         <Route path="/admin-security" component={() => <ProtectedRoleRoute component={AdminSecurityPage} allowedRoles={["admin"]} />} />
+        <Route path="/settings" component={() => <ProtectedRoleRoute component={SettingsPage} allowedRoles={["admin"]} />} />
 
-        {/* All roles — profile page */}
+        {/* All roles — personal profile/password management */}
         <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
-        <Route path="/settings" component={() => <ProtectedRoute component={SettingsPage} />} />
 
         <Route component={() => <Redirect to="/" />} />
         </Switch>
