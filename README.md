@@ -1,170 +1,136 @@
 # Vineyard Primary School — Management System
 
-A full-stack school management platform built for **Vineyard Primary School, Kenya**.  
-Live: [https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/](https://tev9r78fiuvrwtmm0bicj-preview-4200.runable.site/)
+A full-stack school management platform for Vineyard Primary School, with web, mobile, and desktop clients.
 
----
+**Production:** https://vineyard-sms-gq1q.onrender.com
 
-## Features
+## Core modules
 
-| Module | What it does |
-|--------|-------------|
-| **Dashboard** | KPI overview — students, fees collected, attendance, payroll |
-| **Students** | Enrol, edit, archive students; class assignment |
-| **Staff** | Staff records, contact details (admin-only) |
-| **Classes & Subjects** | Create classes, assign subjects per class |
-| **Attendance** | Daily mark-in by class; weekly summary |
-| **Exams & Results** | Create exams, record scores per student per subject |
-| **Timetable** | Weekly schedule builder by class |
-| **Report Cards** | Auto-generated from exam data; printable |
-| **Certificates** | Issue achievement/completion certificates |
-| **Fees & Payments** | Fee structure per class; record payments; outstanding balance |
-| **Payroll** | Generate monthly payroll for staff |
-| **Accounts** | Income & expense ledger |
-| **Reports** | Aggregate analytics across all modules |
-| **Communication** | Compose notices to parents / staff |
-| **Transport** | Route & vehicle management |
-| **Library** | Book inventory tracking |
-| **Inventory** | School assets management |
-| **User Management** | Add/remove admin & teacher login accounts (max 2 admins) |
+- Dashboard and role-specific dashboards
+- Students, staff, classes, subjects, and teacher assignment
+- Attendance, exams, results, timetables, report cards, and certificates
+- Fees, payments, payroll, accounts, and reports
+- Communication, transport, library, and inventory
+- User management, profile/settings, and admin security tools
 
----
+## Roles
 
-## Tech Stack
+The application currently supports four roles:
 
-- **Frontend**: React 19 + Vite + Wouter (SPA routing)
-- **Backend**: Hono API (Bun runtime)
-- **Auth**: better-auth (email/password, session-based)
-- **Database**: Turso (libSQL / SQLite edge)
-- **Styling**: Inline styles (no CSS framework dependency)
-- **Deployment**: Runable platform (Node/Bun serverless)
+| Role | Main access |
+| --- | --- |
+| `admin` | Full system access, user management, security, academics, and finance |
+| `principal` | School oversight, staff, academics, fees, and reports |
+| `teacher` | Class/student academic workflows assigned to the teacher |
+| `accountant` | Fees, payroll, accounts, and finance reports |
 
----
+Authorization is enforced server-side; the UI also hides or redirects users from pages outside their role.
 
-## Role System
+## Tech stack
 
-| Role | Access |
-|------|--------|
-| `admin` | All modules including Staff, Fees, Payroll, Accounts, Reports, User Management |
-| `teacher` | All student-facing modules: Students, Classes, Attendance, Exams, Timetable, Report Cards, Certificates, Communication, Transport, Library, Inventory |
+- **Web:** React 19, Vite, Wouter, TanStack Query
+- **API:** Hono on Bun
+- **Authentication:** Better Auth
+- **Database:** Turso/libSQL with Drizzle ORM
+- **Mobile:** Expo / React Native
+- **Desktop:** Electron
+- **Deployment:** Render
+- **CI:** GitHub Actions for web and mobile checks
 
-- Maximum **2 admin accounts** enforced at signup
-- Role stored in `user_profiles` table; checked server-side on every protected API call
+## Repository structure
 
----
+```text
+.github/workflows/        CI workflows
+docs/                     Presentation/readiness documentation
+packages/
+  web/                    React web app + Hono API
+  mobile/                 Expo mobile client
+  desktop/                Electron desktop client
+Dockerfile                Production container build
+nixpacks.toml              Render/Nixpacks build configuration
+package.json               Bun workspace configuration
+turbo.json                 Turborepo task configuration
+```
 
-## Local Development
+## Local development
 
-### Prerequisites
-- [Bun](https://bun.sh) ≥ 1.1
-- A [Turso](https://turso.tech) database (free tier works)
+### Requirements
 
-### Setup
+- Bun 1.3.5 (matches the repository package manager and CI)
+- A Turso/libSQL database
+
+### Install
 
 ```bash
 git clone https://github.com/nuru999/VINEYARD-SMS.git
 cd VINEYARD-SMS
-
-# Install dependencies
 bun install
-
-# Copy env template
-cp .env.example .env
-# Fill in your Turso DATABASE_URL and DATABASE_AUTH_TOKEN
-
-# Run database migrations
-cd packages/web
-bun src/api/database/migrate.ts
-
-# Start dev server (port 4200)
-bun dev
 ```
 
-### Environment Variables
+Create a root `.env` file locally. Do **not** commit it.
 
-```
-DATABASE_URL=libsql://your-db.turso.io
-DATABASE_AUTH_TOKEN=your-token-here
-BETTER_AUTH_SECRET=any-long-random-string
-BASE_URL=http://localhost:4200
-```
-
----
-
-## First-Time Setup (Production)
-
-1. Deploy to your hosting platform
-2. Set the environment variables above
-3. Run migrations once: `bun src/api/database/migrate.ts`
-4. Create the first admin account via the sign-up API:
-   ```bash
-   curl -X POST https://your-domain.com/api/auth/sign-up/email \
-     -H "Content-Type: application/json" \
-     -d '{"name":"School Admin","email":"admin@yourschool.com","password":"YourSecurePassword"}'
-   ```
-5. Manually set that user as admin in the database:
-   ```sql
-   INSERT INTO user_profiles (user_id, role) VALUES ('<userId-from-above>', 'admin');
-   ```
-6. Sign in at `/sign-in`
-
----
-
-## Project Structure
-
-```
-packages/
-  web/
-    src/
-      api/
-        database/       # Schema, migrations, DB client
-        middleware/      # Auth, requireAdmin middleware
-        routes/          # All API route handlers
-        auth.ts          # better-auth configuration
-        index.ts         # Hono app entry
-      web/
-        components/      # Sidebar, shared UI
-        lib/             # Auth client
-        pages/           # All 18 page components
-        app.tsx          # Router + ProtectedRoute/AdminRoute
-        main.tsx         # React entry
+```env
+DATABASE_URL=libsql://your-database.turso.io
+DATABASE_AUTH_TOKEN=your-token
+BETTER_AUTH_SECRET=replace-with-a-long-random-secret
+WEBSITE_URL=http://localhost:4200
 ```
 
----
+### Web app
 
-## Database Schema (key tables)
+```bash
+bun run dev
+```
 
-- `user` / `session` / `account` / `verification` — better-auth managed
-- `user_profiles` — `user_id`, `role` (admin|teacher)
-- `students` — full student records
-- `staff` — staff records
-- `classes` — class definitions
-- `subjects` — subjects per class
-- `attendance` / `attendance_records` — daily attendance
-- `exams` / `exam_results` — exam scores
-- `timetable_entries` — weekly schedule
-- `fee_structures` / `fee_payments` — fees
-- `payroll_records` — payroll
-- `transactions` — accounts ledger
-- `messages` — communication
-- `transport_routes` / `vehicles` — transport
-- `books` — library
-- `inventory_items` — inventory
-- `certificates` — issued certificates
+The Vite development server uses port `4200`.
 
----
+### Database commands
 
-## Handover Notes (for school IT supervisor)
+From the repository root:
 
-- **Login URL**: `/sign-in`  
-- **Admin credentials**: Contact the person who set up the system — passwords are not stored in plain text  
-- **Backups**: Turso provides automatic cloud backups; export via Turso dashboard  
-- **Adding teachers**: Go to **User Management** → **Add User** → select role "Teacher"  
-- **Max admins**: System enforces maximum 2 admin accounts  
-- **Support**: Raise issues on [GitHub](https://github.com/nuru999/VINEYARD-SMS/issues)
+```bash
+bun run db:generate
+bun run db:migrate
+bun run db:push
+bun run db:studio
+```
 
----
+Use the command appropriate for the database change you are making; do not run destructive schema operations against production without a backup.
+
+### Mobile app
+
+```bash
+bun run dev:mobile
+```
+
+The checked-in Expo configuration points to the production API. For development builds, use the supported Expo environment configuration when you need to target another API.
+
+### Desktop app
+
+```bash
+bun run dev:desktop
+```
+
+The Electron client defaults to the production Render service and can be overridden by `REMOTE_URL` or `WEBSITE_URL`.
+
+## Quality checks
+
+Web CI installs dependencies with the frozen Bun lockfile, runs the Bun regression tests, type-checks the web package, and builds the production web bundle. Mobile CI provides a separate TypeScript gate.
+
+Before merging application changes, keep both workflows green.
+
+## Security notes
+
+- Secrets belong in environment variables, never source control.
+- Passwords are handled through Better Auth and are not stored in plaintext.
+- Protected API routes enforce role permissions server-side.
+- Admin credential recovery/rotation tooling is intended for controlled operational use.
+- The public health endpoint is for liveness/deployment verification and should not expose secrets.
+
+## Presentation readiness
+
+See `docs/PRESENTATION-READINESS.md` for the production/demo checklist, role checks, and acceptance guidance.
 
 ## License
 
-Private — Vineyard Primary School, Kenya. All rights reserved.
+No open-source license file is currently included in this repository. Unless a license is added, normal copyright restrictions apply.
