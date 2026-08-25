@@ -94,3 +94,19 @@ export const requireFinanceAccess = createMiddleware(async (c, next) => {
   }
   return next();
 });
+
+/** School operations are available to Admin, Principal, and Teacher — never Accountant. */
+export const requireSchoolOperationsAccess = createMiddleware(async (c, next) => {
+  const user = c.get("user");
+  if (!user) return c.json({ message: "Unauthorized" }, 401);
+
+  const [profile] = await db
+    .select()
+    .from(schema.userProfiles)
+    .where(eq(schema.userProfiles.userId, user.id));
+
+  if (!profile || !["admin", "principal", "teacher"].includes(profile.role)) {
+    return c.json({ message: "Forbidden: School operations access required" }, 403);
+  }
+  return next();
+});
