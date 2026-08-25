@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "./auth";
-import { authMiddleware, requireAdminOrPrincipal, requireFinanceAccess } from "./middleware/auth";
+import { authMiddleware, requireAdminOrPrincipal, requireFinanceAccess, requireSchoolOperationsAccess } from "./middleware/auth";
 import { userManagementRoutes } from "./routes/user-management";
 import { adminSecurityRoutes } from "./routes/admin-security";
 import { students } from "./routes/students";
@@ -74,7 +74,40 @@ const app = new Hono()
   // Every application route below this point requires an authenticated session.
   .use("*", authMiddleware)
 
-  // ── Routes open to all authenticated users (teachers + admins) ──
+  // School operations are available to Admin, Principal and Teacher only.
+  // Guard both collection roots and nested resource paths so Accountant cannot
+  // bypass the finance-only UI by calling an academic/operations API directly.
+  .use("/students", requireSchoolOperationsAccess)
+  .use("/students/*", requireSchoolOperationsAccess)
+  .use("/classes", requireSchoolOperationsAccess)
+  .use("/classes/*", requireSchoolOperationsAccess)
+  .use("/sections", requireSchoolOperationsAccess)
+  .use("/sections/*", requireSchoolOperationsAccess)
+  .use("/subjects", requireSchoolOperationsAccess)
+  .use("/subjects/*", requireSchoolOperationsAccess)
+  .use("/attendance", requireSchoolOperationsAccess)
+  .use("/attendance/*", requireSchoolOperationsAccess)
+  .use("/staff-attendance", requireSchoolOperationsAccess)
+  .use("/staff-attendance/*", requireSchoolOperationsAccess)
+  .use("/exams", requireSchoolOperationsAccess)
+  .use("/exams/*", requireSchoolOperationsAccess)
+  .use("/results", requireSchoolOperationsAccess)
+  .use("/results/*", requireSchoolOperationsAccess)
+  .use("/certificates", requireSchoolOperationsAccess)
+  .use("/certificates/*", requireSchoolOperationsAccess)
+  .use("/timetable", requireSchoolOperationsAccess)
+  .use("/timetable/*", requireSchoolOperationsAccess)
+  .use("/messages", requireSchoolOperationsAccess)
+  .use("/messages/*", requireSchoolOperationsAccess)
+  .use("/transport", requireSchoolOperationsAccess)
+  .use("/transport/*", requireSchoolOperationsAccess)
+  .use("/library", requireSchoolOperationsAccess)
+  .use("/library/*", requireSchoolOperationsAccess)
+  .use("/inventory", requireSchoolOperationsAccess)
+  .use("/inventory/*", requireSchoolOperationsAccess)
+  .use("/report-cards", requireSchoolOperationsAccess)
+  .use("/report-cards/*", requireSchoolOperationsAccess)
+
   .route("/students", students)
   .route("/classes", classesRoutes)
   .route("/sections", sectionsRoutes)
@@ -92,7 +125,6 @@ const app = new Hono()
   .route("/inventory", inventoryRoutes)
   .route("/report-cards", reportCardsRoutes)
 
-  // ── Role-restricted routes ──
   // Staff: admin + principal only
   .use("/staff/*", requireAdminOrPrincipal)
   .route("/staff", staffRoutes)
@@ -100,7 +132,7 @@ const app = new Hono()
   // Fee structures: finance roles can read; admin/accountant writes are enforced inside the route.
   .route("/fee-structures", feeStructuresRoutes)
 
-  // Fee payments: admin + accountant + principal (all finance roles)
+  // Fee payments: all finance roles can read; admin/accountant writes are enforced inside the route.
   .use("/fee-payments/*", requireFinanceAccess)
   .route("/fee-payments", feePaymentsRoutes)
 
@@ -110,7 +142,7 @@ const app = new Hono()
   // Accounts/transactions: finance roles can read; admin/accountant writes are enforced inside the route.
   .route("/accounts", accountsRoutes)
 
-  // ── User management (admin only, handled inside the route) ──
+  // User management and security are role-restricted inside their routes.
   .route("/me", userManagementRoutes)
   .route("/admin-security", adminSecurityRoutes)
   .route("/settings", settingsRoutes);
