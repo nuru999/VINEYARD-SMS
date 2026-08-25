@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Vineyard School Management System</title>
+  <desc id="desc">Branded banner for the Vineyard multi-platform school management system</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071426"/>
+      <stop offset="0.55" stop-color="#0B3B4A"/>
+      <stop offset="1" stop-color="#0F766E"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2DD4BF"/>
+      <stop offset="1" stop-color="#A7F3D0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#020617" flood-opacity=".35"/>
+    </filter>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#FFFFFF" stroke-opacity=".035"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="360" rx="28" fill="url(#bg)"/>
+  <rect width="1200" height="360" rx="28" fill="url(#grid)"/>
+  <circle cx="1070" cy="65" r="170" fill="#2DD4BF" opacity=".06"/>
+  <circle cx="1110" cy="325" r="220" fill="#A7F3D0" opacity=".045"/>
+
+  <g transform="translate(78 66)">
+    <rect width="106" height="106" rx="26" fill="#FFFFFF" opacity=".1"/>
+    <path d="M22 48 53 27l31 21v34H65V61H41v21H22Z" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M17 88h72" stroke="#A7F3D0" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="53" cy="48" r="5" fill="#A7F3D0"/>
+  </g>
+
+  <text x="216" y="113" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="5" fill="#5EEAD4">VINEYARD</text>
+  <text x="216" y="172" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="48" font-weight="800" fill="#FFFFFF">School Management System</text>
+  <text x="216" y="213" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="21" fill="#CBD5E1">One connected platform for academics, finance, staff and school operations.</text>
+
+  <g font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="650" fill="#E2E8F0">
+    <g transform="translate(216 253)">
+      <rect width="116" height="40" rx="20" fill="#FFFFFF" opacity=".09"/>
+      <circle cx="24" cy="20" r="6" fill="#2DD4BF"/>
+      <text x="40" y="26">Web App</text>
+    </g>
+    <g transform="translate(344 253)">
+      <rect width="126" height="40" rx="20" fill="#FFFFFF" opacity=".09"/>
+      <circle cx="24" cy="20" r="6" fill="#5EEAD4"/>
+      <text x="40" y="26">Mobile App</text>
+    </g>
+    <g transform="translate(482 253)">
+      <rect width="136" height="40" rx="20" fill="#FFFFFF" opacity=".09"/>
+      <circle cx="24" cy="20" r="6" fill="#99F6E4"/>
+      <text x="40" y="26">Desktop App</text>
+    </g>
+  </g>
+
+  <g transform="translate(905 102)" filter="url(#shadow)">
+    <rect width="214" height="188" rx="24" fill="#0F172A" stroke="#5EEAD4" stroke-opacity=".3"/>
+    <rect x="24" y="26" width="166" height="14" rx="7" fill="#334155"/>
+    <rect x="24" y="58" width="74" height="48" rx="12" fill="#14B8A6" opacity=".8"/>
+    <rect x="116" y="58" width="74" height="48" rx="12" fill="#0EA5E9" opacity=".65"/>
+    <rect x="24" y="124" width="166" height="12" rx="6" fill="#334155"/>
+    <rect x="24" y="148" width="116" height="12" rx="6" fill="#334155"/>
+    <circle cx="178" cy="154" r="17" fill="#22C55E"/>
+    <path d="m170 154 6 6 11-13" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
