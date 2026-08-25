@@ -122,9 +122,9 @@ function App() {
         <Route path="/fees" component={() => <ProtectedRoleRoute component={FeesPage} allowedRoles={["admin", "principal", "accountant"]} />} />
         <Route path="/reports" component={() => <ProtectedRoleRoute component={ReportsPage} allowedRoles={["admin", "principal", "accountant"]} />} />
 
-        {/* Admin + Accountant */}
-        <Route path="/payroll" component={() => <ProtectedRoleRoute component={PayrollPage} allowedRoles={["admin", "accountant"]} />} />
-        <Route path="/accounts" component={() => <ProtectedRoleRoute component={AccountsPage} allowedRoles={["admin", "accountant"]} />} />
+        {/* Finance oversight: Principal has read-only access; Admin/Accountant manage records */}
+        <Route path="/payroll" component={() => <ProtectedRoleRoute component={PayrollPage} allowedRoles={["admin", "principal", "accountant"]} />} />
+        <Route path="/accounts" component={() => <ProtectedRoleRoute component={AccountsPage} allowedRoles={["admin", "principal", "accountant"]} />} />
 
         {/* Admin only */}
         <Route path="/user-management" component={() => <ProtectedRoleRoute component={UserManagementPage} allowedRoles={["admin"]} />} />

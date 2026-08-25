@@ -8,6 +8,7 @@ import { Button } from "../components/ui/button";
 import { Modal } from "../components/ui/modal";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
+import { useRole } from "../lib/use-role";
 
 const SCHOOL_NAME = "Vineyard Primary School";
 const SCHOOL_MOTTO = "Fruitful Development";
@@ -178,6 +179,8 @@ const empty: Partial<Transaction> = {
 
 export default function AccountsPage() {
   const qc = useQueryClient();
+  const { role } = useRole();
+  const canManage = role === "admin" || role === "accountant";
   const { success, error: toastError } = useToast();
   const [filter, setFilter] = useState({ type: "", category: "", startDate: "", endDate: "" });
   const [modal, setModal] = useState<"create" | "edit" | "delete" | null>(null);
@@ -214,12 +217,13 @@ export default function AccountsPage() {
     onError: (e: Error) => toastError("Delete failed", e.message),
   });
 
-  const openCreate = () => { setForm({ ...empty, date: new Date().toISOString().split("T")[0] }); setError(""); setModal("create"); };
-  const openEdit = (t: Transaction) => { setSelected(t); setForm(t); setError(""); setModal("edit"); };
-  const openDelete = (t: Transaction) => { setSelected(t); setModal("delete"); };
+  const openCreate = () => { if (!canManage) return; setForm({ ...empty, date: new Date().toISOString().split("T")[0] }); setError(""); setModal("create"); };
+  const openEdit = (t: Transaction) => { if (!canManage) return; setSelected(t); setForm(t); setError(""); setModal("edit"); };
+  const openDelete = (t: Transaction) => { if (!canManage) return; setSelected(t); setModal("delete"); };
   const closeModal = () => { setModal(null); setSelected(null); setForm(empty); setError(""); };
 
   const handleSubmit = () => {
+    if (!canManage) return;
     if (!form.category || !form.description || !form.amount || !form.date) {
       setError("Fill all required fields");
       return;
@@ -238,13 +242,13 @@ export default function AccountsPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>Accounts</h1>
-            <p style={{ margin: "4px 0 0", color: "var(--text-secondary)", fontSize: 14 }}>Track income & expenses</p>
+            <p style={{ margin: "4px 0 0", color: "var(--text-secondary)", fontSize: 14 }}>{canManage ? "Track income & expenses" : "Review income & expenses (read-only)"}</p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <Button variant="secondary" onClick={() => printAccountsReport(transactions, summary, filter)} disabled={Boolean(loadError)}>
               <Printer size={14} /> Print Report
             </Button>
-            <Button onClick={openCreate} disabled={Boolean(loadError)}>+ New Transaction</Button>
+            {canManage && <Button onClick={openCreate} disabled={Boolean(loadError)}>+ New Transaction</Button>}
           </div>
         </div>
 
@@ -346,10 +350,10 @@ export default function AccountsPage() {
                         {t.type === "expense" ? "-" : "+"}{fmtCurrency(t.amount)}
                       </td>
                       <td style={{ padding: "12px 16px" }}>
-                        <div style={{ display: "flex", gap: 8 }}>
+                        {canManage && <div style={{ display: "flex", gap: 8 }}>
                           <button onClick={() => openEdit(t)} style={{ background: "transparent", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>Edit</button>
                           <button onClick={() => openDelete(t)} style={{ background: "transparent", border: "1px solid #F87171", color: "#F87171", borderRadius: 4, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>Del</button>
-                        </div>
+                        </div>}
                       </td>
                     </tr>
                   ))}
@@ -359,7 +363,7 @@ export default function AccountsPage() {
           </div>
         </Card>
 
-        <Modal open={modal === "create" || modal === "edit"} onClose={closeModal} title={modal === "create" ? "New Transaction" : "Edit Transaction"}>
+        <Modal open={canManage && (modal === "create" || modal === "edit")} onClose={closeModal} title={modal === "create" ? "New Transaction" : "Edit Transaction"}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {error && <div style={{ background: "#F8717120", border: "1px solid #F87171", borderRadius: 6, padding: "10px 14px", color: "#F87171", fontSize: 14 }}>{error}</div>}
             <div>
@@ -410,7 +414,7 @@ export default function AccountsPage() {
           </div>
         </Modal>
 
-        <Modal open={modal === "delete"} onClose={closeModal} title="Delete Transaction">
+        <Modal open={canManage && modal === "delete"} onClose={closeModal} title="Delete Transaction">
           <p style={{ color: "var(--text-secondary)", margin: "0 0 24px" }}>
             Delete <strong style={{ color: "var(--text-primary)" }}>{selected?.description}</strong>? This cannot be undone.
           </p>

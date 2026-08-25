@@ -35,8 +35,8 @@ const navGroups = [
     group: "Finance",
     items: [
       { label: "Fees & Payments", icon: DollarSign, path: "/fees", allowedRoles: ["admin", "principal", "accountant"] },
-      { label: "Payroll", icon: Wallet, path: "/payroll", allowedRoles: ["admin", "accountant"] },
-      { label: "Accounts", icon: FileText, path: "/accounts", allowedRoles: ["admin", "accountant"] },
+      { label: "Payroll", icon: Wallet, path: "/payroll", allowedRoles: ["admin", "principal", "accountant"] },
+      { label: "Accounts", icon: FileText, path: "/accounts", allowedRoles: ["admin", "principal", "accountant"] },
       { label: "Reports", icon: BarChart3, path: "/reports", allowedRoles: ["admin", "principal", "accountant"] },
     ],
   },
