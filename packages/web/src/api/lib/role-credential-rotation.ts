@@ -1,4 +1,5 @@
 import { and, eq } from "drizzle-orm";
+import { auth } from "../auth";
 import { client, db } from "../database";
 import { account, session, user as userTable } from "../database/auth-schema";
 import { staff, userProfiles } from "../database/schema";
@@ -19,30 +20,35 @@ const roleConfigs: Array<{
   oldEmail: string;
   emailEnv: string;
   passwordEnv: string;
+  displayName: string;
 }> = [
   {
     role: "admin",
     oldEmail: "admin@vineyard.school",
     emailEnv: "ROTATE_ADMIN_EMAIL",
     passwordEnv: "ROTATE_ADMIN_PASSWORD",
+    displayName: "Admin User",
   },
   {
     role: "principal",
     oldEmail: "principal@vineyard.school",
     emailEnv: "ROTATE_PRINCIPAL_EMAIL",
     passwordEnv: "ROTATE_PRINCIPAL_PASSWORD",
+    displayName: "Principal User",
   },
   {
     role: "teacher",
     oldEmail: "teacher@vineyard.school",
     emailEnv: "ROTATE_TEACHER_EMAIL",
     passwordEnv: "ROTATE_TEACHER_PASSWORD",
+    displayName: "Teacher User",
   },
   {
     role: "accountant",
     oldEmail: "accountant@vineyard.school",
     emailEnv: "ROTATE_ACCOUNTANT_EMAIL",
     passwordEnv: "ROTATE_ACCOUNTANT_PASSWORD",
+    displayName: "Accountant User",
   },
 ];
 
@@ -57,6 +63,43 @@ async function findUserByEmail(email: string) {
     .where(eq(userTable.email, email.toLowerCase()))
     .limit(1);
   return user;
+}
+
+async function provisionMissingRoleAccount(config: (typeof roleConfigs)[number], email: string, password: string) {
+  const created = await auth.api.signUpEmail({
+    body: {
+      name: config.displayName,
+      email,
+      password,
+    },
+  });
+
+  if (!created?.user?.id) {
+    throw new Error(`Cannot provision ${config.role}: authentication account creation failed`);
+  }
+
+  try {
+    await db.insert(userProfiles).values({
+      userId: created.user.id,
+      role: config.role,
+      phone: null,
+    });
+
+    if (config.role === "teacher") {
+      await db.insert(staff).values({
+        userId: created.user.id,
+        name: config.displayName,
+        email,
+        designation: "Teacher",
+        status: "active",
+      });
+    }
+  } catch (error) {
+    await db.delete(userTable).where(eq(userTable.id, created.user.id)).catch(() => {});
+    throw error;
+  }
+
+  return created.user;
 }
 
 export async function runRoleCredentialRotation() {
@@ -92,9 +135,10 @@ export async function runRoleCredentialRotation() {
       throw new Error(`Cannot rotate ${config.role}: ${newEmail} already belongs to another user`);
     }
 
-    const targetUser = oldUser ?? newUser;
+    let targetUser = oldUser ?? newUser;
     if (!targetUser) {
-      throw new Error(`Cannot rotate ${config.role}: existing role account was not found`);
+      targetUser = await provisionMissingRoleAccount(config, newEmail, password);
+      console.log(`[Credential rotation] provisioned missing ${config.role} account`);
     }
 
     const [profile] = await db
@@ -132,10 +176,6 @@ export async function runRoleCredentialRotation() {
     throw new Error("Each rotated role must have a unique password");
   }
 
-  // Resolve and validate every target before the first write. If a later write
-  // is interrupted, rerunning with the same rotation id is safe because each
-  // account is located by either its old or new email and the marker is only
-  // written after all four accounts complete.
   const passwordHashes = await Promise.all(targets.map((target) => hashPassword(target.password)));
 
   for (let index = 0; index < targets.length; index += 1) {
@@ -149,9 +189,6 @@ export async function runRoleCredentialRotation() {
 
     await db.update(userTable).set({ email: target.newEmail }).where(eq(userTable.id, target.userId));
     await db.update(staff).set({ email: target.newEmail }).where(eq(staff.userId, target.userId));
-
-    // Explicitly preserve the intended role and force every browser/device to
-    // authenticate again with the new credentials.
     await db
       .update(userProfiles)
       .set({ role: target.role })
