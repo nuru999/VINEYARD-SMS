@@ -1,7 +1,6 @@
 import { Route, Switch, Redirect, useLocation } from "wouter";
 import { useEffect, lazy, Suspense } from "react";
 import { Provider } from "./components/provider";
-import { AgentFeedback } from "@runablehq/website-runtime";
 import { useRole } from "./lib/use-role";
 
 // Pages
@@ -138,7 +137,6 @@ function App() {
         <Route component={() => <Redirect to="/" />} />
         </Switch>
       </Suspense>
-      {import.meta.env.DEV && <AgentFeedback />}
     </Provider>
   );
 }
