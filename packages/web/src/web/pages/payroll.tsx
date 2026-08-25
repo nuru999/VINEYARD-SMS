@@ -8,6 +8,7 @@ import { Badge } from "../components/ui/badge";
 import { Modal } from "../components/ui/modal";
 import { Input, Select } from "../components/ui/input";
 import { StatCard } from "../components/ui/card";
+import { useRole } from "../lib/use-role";
 
 const SCHOOL_NAME = "Vineyard Primary School";
 const SCHOOL_MOTTO = "Fruitful Development";
@@ -143,6 +144,8 @@ const empty = { staffId: "", month: months[new Date().getMonth()], year: new Dat
 
 export default function PayrollPage() {
   const qc = useQueryClient();
+  const { role } = useRole();
+  const canManage = role === "admin" || role === "accountant";
   const { success, error: toastError } = useToast();
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState<any>(empty);
@@ -182,6 +185,7 @@ export default function PayrollPage() {
 
   const save = useMutation({
     mutationFn: async (f: any) => {
+      if (!canManage) throw new Error("Payroll changes require Admin or Accountant access");
       const response = await fetch("/api/payroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -196,6 +200,7 @@ export default function PayrollPage() {
 
   const markPaid = useMutation({
     mutationFn: async (p: any) => {
+      if (!canManage) throw new Error("Payroll changes require Admin or Accountant access");
       const response = await fetch(`/api/payroll/${p.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -210,6 +215,7 @@ export default function PayrollPage() {
 
   const remove = useMutation({
     mutationFn: async (id: number) => {
+      if (!canManage) throw new Error("Payroll changes require Admin or Accountant access");
       const response = await fetch(`/api/payroll/${id}`, { method: "DELETE", credentials: "include" });
       return parseResponse(response, "Failed to delete payroll record");
     },
@@ -230,9 +236,15 @@ export default function PayrollPage() {
         <Button variant="secondary" onClick={() => printPayrollReport(payrollList, staffList, filterMonth, filterYear)} disabled={Boolean(payrollError)}>
           <Printer size={14} /> Print Report
         </Button>
-        <Button onClick={() => setModal(true)} disabled={Boolean(staffError)}><Plus size={15} /> Generate Payroll</Button>
+        {canManage && <Button onClick={() => setModal(true)} disabled={Boolean(staffError)}><Plus size={15} /> Generate Payroll</Button>}
       </div>
     }>
+      {!canManage && !loadError && (
+        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: "#EFF6FF", border: "1px solid #BFDBFE", color: "#1D4ED8", fontSize: 12 }}>
+          Principal finance oversight is read-only. Payroll creation, payment changes and deletion remain Admin/Accountant actions.
+        </div>
+      )}
+
       {loadError && (
         <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.35)", background: "rgba(248,113,113,0.08)", color: "var(--danger)", fontSize: 13 }}>
           {loadError instanceof Error ? loadError.message : "Payroll data could not be loaded. Refresh the page and try again."}
@@ -303,10 +315,10 @@ export default function PayrollPage() {
                     <Button variant="secondary" size="sm" onClick={() => printPayslip(p, getStaffName(p.staffId))} title="Print Payslip">
                       <FileText size={13} />
                     </Button>
-                    {p.status === "pending" && (
+                    {canManage && p.status === "pending" && (
                       <Button size="sm" onClick={() => markPaid.mutate(p)} loading={markPaid.isPending}>Mark Paid</Button>
                     )}
-                    <Button variant="danger" size="sm" onClick={() => { if (confirm("Delete payroll?")) remove.mutate(p.id); }}><Trash2 size={13} /></Button>
+                    {canManage && <Button variant="danger" size="sm" onClick={() => { if (confirm("Delete payroll?")) remove.mutate(p.id); }}><Trash2 size={13} /></Button>}
                   </div>
                 </td>
               </tr>
@@ -315,7 +327,7 @@ export default function PayrollPage() {
         </table>
       </div>
 
-      <Modal open={modal} onClose={() => setModal(false)} title="Generate Payroll" width={520}>
+      <Modal open={canManage && modal} onClose={() => setModal(false)} title="Generate Payroll" width={520}>
         <form onSubmit={e => { e.preventDefault(); save.mutate(form); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <Select label="Staff Member" value={form.staffId} onChange={e => {
             const s = staffList.find((m: any) => m.id === parseInt(e.target.value));

@@ -35,18 +35,18 @@ const navGroups = [
     group: "Finance",
     items: [
       { label: "Fees & Payments", icon: DollarSign, path: "/fees", allowedRoles: ["admin", "principal", "accountant"] },
-      { label: "Payroll", icon: Wallet, path: "/payroll", allowedRoles: ["admin", "accountant"] },
-      { label: "Accounts", icon: FileText, path: "/accounts", allowedRoles: ["admin", "accountant"] },
+      { label: "Payroll", icon: Wallet, path: "/payroll", allowedRoles: ["admin", "principal", "accountant"] },
+      { label: "Accounts", icon: FileText, path: "/accounts", allowedRoles: ["admin", "principal", "accountant"] },
       { label: "Reports", icon: BarChart3, path: "/reports", allowedRoles: ["admin", "principal", "accountant"] },
     ],
   },
   {
     group: "School",
     items: [
-      { label: "Communication", icon: MessageSquare, path: "/communication" },
-      { label: "Transport", icon: Bus, path: "/transport" },
-      { label: "Library", icon: Library, path: "/library" },
-      { label: "Inventory", icon: Package, path: "/inventory" },
+      { label: "Communication", icon: MessageSquare, path: "/communication", allowedRoles: ["admin", "principal", "teacher"] },
+      { label: "Transport", icon: Bus, path: "/transport", allowedRoles: ["admin", "principal", "teacher"] },
+      { label: "Library", icon: Library, path: "/library", allowedRoles: ["admin", "principal", "teacher"] },
+      { label: "Inventory", icon: Package, path: "/inventory", allowedRoles: ["admin", "principal", "teacher"] },
       { label: "Settings", icon: Settings, path: "/settings" },
     ],
   },
@@ -55,7 +55,7 @@ const navGroups = [
 export function Sidebar() {
   const [location] = useLocation();
   const { data: session } = authClient.useSession();
-  const { isAdmin, isPrincipal, isTeacher, isAccountant, role, isLoading } = useRole();
+  const { isAdmin, isPrincipal, isAccountant, role, isLoading } = useRole();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const handleSignOut = async () => {
@@ -63,7 +63,7 @@ export function Sidebar() {
     window.location.href = "/sign-in";
   };
 
-  const toggleGroup = (g: string) => setCollapsed(c => ({ ...c, [g]: !c[g] }));
+  const toggleGroup = (group: string) => setCollapsed((current) => ({ ...current, [group]: !current[group] }));
 
   const roleLabel = isLoading
     ? "Loading"
@@ -84,7 +84,7 @@ export function Sidebar() {
     : "rgba(255,255,255,0.4)";
 
   const canSee = (allowedRoles?: string[]) => {
-    if (!allowedRoles) return true; // visible to all
+    if (!allowedRoles) return true;
     if (!role) return false;
     return allowedRoles.includes(role);
   };
@@ -103,10 +103,8 @@ export function Sidebar() {
       overflowY: "auto",
       boxShadow: "2px 0 16px rgba(0,0,0,0.12)",
     }}>
-      {/* Pink accent strip at top */}
       <div style={{ height: 4, background: "linear-gradient(90deg, #E91E8C, #ff6ecb, #E91E8C)", flexShrink: 0 }} />
 
-      {/* Logo / School Brand */}
       <div style={{ padding: "18px 20px 16px", borderBottom: "1px solid var(--sidebar-border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 38, height: 38, flexShrink: 0 }}>
@@ -124,10 +122,9 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Nav */}
       <nav style={{ flex: 1, padding: "12px 0" }}>
         {navGroups.map(({ group, items }) => {
-          const visibleItems = items.filter(item => canSee((item as any).allowedRoles));
+          const visibleItems = items.filter((item) => canSee((item as any).allowedRoles));
           if (visibleItems.length === 0) return null;
 
           return (
@@ -157,16 +154,16 @@ export function Sidebar() {
                     transition: "all 0.15s",
                     fontFamily: "'Poppins', sans-serif",
                   }}
-                    onMouseEnter={e => {
+                    onMouseEnter={(event) => {
                       if (!active) {
-                        (e.currentTarget as HTMLElement).style.color = "#FFFFFF";
-                        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
+                        (event.currentTarget as HTMLElement).style.color = "#FFFFFF";
+                        (event.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
                       }
                     }}
-                    onMouseLeave={e => {
+                    onMouseLeave={(event) => {
                       if (!active) {
-                        (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)";
-                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                        (event.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)";
+                        (event.currentTarget as HTMLElement).style.background = "transparent";
                       }
                     }}>
                     <Icon size={15} />
@@ -178,7 +175,6 @@ export function Sidebar() {
           );
         })}
 
-        {/* Profile — all roles */}
         <div style={{ marginTop: 4 }}>
           <Link href="/profile" style={{
             display: "flex", alignItems: "center", gap: 10,
@@ -191,16 +187,16 @@ export function Sidebar() {
             transition: "all 0.15s",
             fontFamily: "'Poppins', sans-serif",
           }}
-            onMouseEnter={e => {
+            onMouseEnter={(event) => {
               if (location !== "/profile") {
-                (e.currentTarget as HTMLElement).style.color = "#FFFFFF";
-                (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
+                (event.currentTarget as HTMLElement).style.color = "#FFFFFF";
+                (event.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.07)";
               }
             }}
-            onMouseLeave={e => {
+            onMouseLeave={(event) => {
               if (location !== "/profile") {
-                (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)";
-                (e.currentTarget as HTMLElement).style.background = "transparent";
+                (event.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.65)";
+                (event.currentTarget as HTMLElement).style.background = "transparent";
               }
             }}>
             <UserCircle size={15} />
@@ -208,7 +204,6 @@ export function Sidebar() {
           </Link>
         </div>
 
-        {/* Admin-only: User Management link */}
         {isAdmin && (
           <div style={{ marginTop: 8 }}>
             <div style={{
@@ -235,7 +230,6 @@ export function Sidebar() {
         )}
       </nav>
 
-      {/* User / Sign Out */}
       <div style={{ padding: "16px 20px", borderTop: "1px solid var(--sidebar-border)" }}>
         {session?.user && (
           <div style={{ marginBottom: 10 }}>
@@ -261,13 +255,13 @@ export function Sidebar() {
             color: "rgba(255,255,255,0.75)", cursor: "pointer", fontSize: 13, fontWeight: 500,
             fontFamily: "'Poppins', sans-serif", transition: "all 0.15s",
           }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(233,30,140,0.2)";
-            (e.currentTarget as HTMLElement).style.color = "#f9a8d4";
+          onMouseEnter={(event) => {
+            (event.currentTarget as HTMLElement).style.background = "rgba(233,30,140,0.2)";
+            (event.currentTarget as HTMLElement).style.color = "#f9a8d4";
           }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)";
-            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)";
+          onMouseLeave={(event) => {
+            (event.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)";
+            (event.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)";
           }}>
           <LogOut size={14} /> Sign Out
         </button>
