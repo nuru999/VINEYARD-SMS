@@ -175,7 +175,7 @@ export const feePaymentsRoutes = new Hono()
       })),
     }, 200);
   })
-  .post("/", requireFinanceAccess, async (c) => {
+  .post("/", requireAdminOrAccountant, async (c) => {
     const user = c.get("user")!;
     const body = await c.req.json();
     const studentId = validId(body.studentId);

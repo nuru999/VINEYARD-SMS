@@ -47,7 +47,7 @@ const navGroups = [
       { label: "Transport", icon: Bus, path: "/transport", allowedRoles: ["admin", "principal", "teacher"] },
       { label: "Library", icon: Library, path: "/library", allowedRoles: ["admin", "principal", "teacher"] },
       { label: "Inventory", icon: Package, path: "/inventory", allowedRoles: ["admin", "principal", "teacher"] },
-      { label: "Settings", icon: Settings, path: "/settings" },
+      { label: "Settings", icon: Settings, path: "/settings", allowedRoles: ["admin"] },
     ],
   },
 ];
@@ -88,6 +88,21 @@ export function Sidebar() {
     if (!role) return false;
     return allowedRoles.includes(role);
   };
+
+  const adminLinkStyle = (path: string) => ({
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "9px 20px",
+    color: location === path ? "#FFFFFF" : "rgba(255,255,255,0.65)",
+    background: location === path ? "rgba(233,30,140,0.2)" : "transparent",
+    borderLeft: location === path ? "3px solid #E91E8C" : "3px solid transparent",
+    textDecoration: "none",
+    fontSize: 13,
+    fontWeight: location === path ? 600 : 400,
+    transition: "all 0.15s",
+    fontFamily: "'Poppins', sans-serif",
+  });
 
   return (
     <aside style={{
@@ -212,19 +227,13 @@ export function Sidebar() {
               textTransform: "uppercase", letterSpacing: "0.08em",
               fontFamily: "'Poppins', sans-serif",
             }}>Admin</div>
-            <Link href="/user-management" style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "9px 20px",
-              color: location === "/user-management" ? "#FFFFFF" : "rgba(255,255,255,0.65)",
-              background: location === "/user-management" ? "rgba(233,30,140,0.2)" : "transparent",
-              borderLeft: location === "/user-management" ? "3px solid #E91E8C" : "3px solid transparent",
-              textDecoration: "none", fontSize: 13,
-              fontWeight: location === "/user-management" ? 600 : 400,
-              transition: "all 0.15s",
-              fontFamily: "'Poppins', sans-serif",
-            }}>
-              <ShieldCheck size={15} />
+            <Link href="/user-management" style={adminLinkStyle("/user-management")}>
+              <Users size={15} />
               User Management
+            </Link>
+            <Link href="/admin-security" style={adminLinkStyle("/admin-security")}>
+              <ShieldCheck size={15} />
+              Admin Security
             </Link>
           </div>
         )}
