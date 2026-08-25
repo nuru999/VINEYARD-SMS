@@ -11,12 +11,9 @@ export default defineConfig(({ mode }) => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { default: honoDevPlugin } = require("./vite/plugins/hono-dev-plugin");
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { default: runableAnalyticsPlugin } = require("./vite/plugins/runable-analytics-plugin");
       plugins.unshift(honoDevPlugin());
-      plugins.push(runableAnalyticsPlugin());
     } catch {
-      // skip
+      // Development can still start without the Hono helper plugin.
     }
   }
 
