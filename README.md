@@ -1,65 +1,93 @@
-# Vineyard Primary School — Management System
+<p align="center">
+  <img src="./assets/vineyard-banner.svg" width="100%" alt="Vineyard School Management System" />
+</p>
 
-A full-stack school management platform for Vineyard Primary School, with web, mobile, and desktop clients.
+<p align="center">
+  <a href="https://vineyard-sms-gq1q.onrender.com"><img src="https://img.shields.io/badge/Live_System-Open-0F766E?style=for-the-badge&logo=render&logoColor=white" alt="Open live system" /></a>
+  <img src="https://img.shields.io/badge/Status-Active_Development-14B8A6?style=for-the-badge" alt="Active development" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=111827" alt="React 19" />
+  <img src="https://img.shields.io/badge/Bun-1.3.5-111827?style=for-the-badge&logo=bun&logoColor=white" alt="Bun 1.3.5" />
+</p>
 
-**Production:** https://vineyard-sms-gq1q.onrender.com
+## Overview
 
-## Core modules
+**Vineyard School Management System** is a role-based platform that brings academic, financial, administrative, and communication workflows into one connected system.
 
-- Dashboard and role-specific dashboards
-- Students, staff, classes, subjects, and teacher assignment
-- Attendance, exams, results, timetables, report cards, and certificates
-- Fees, payments, payroll, accounts, and reports
-- Communication, transport, library, and inventory
-- User management, profile/settings, and admin security tools
+The project includes dedicated **web, mobile, and desktop clients** backed by a shared API and database. It is designed for real school operations rather than a single-purpose classroom demo.
 
-## Roles
+> **Production:** [vineyard-sms-gq1q.onrender.com](https://vineyard-sms-gq1q.onrender.com)
 
-The application currently supports four roles:
+## What the platform manages
 
-| Role | Main access |
+| Area | Capabilities |
 | --- | --- |
-| `admin` | Full system access, user management, security, academics, and finance |
-| `principal` | School oversight, staff, academics, fees, and reports |
-| `teacher` | Class/student academic workflows assigned to the teacher |
-| `accountant` | Fees, payroll, accounts, and finance reports |
+| **Academics** | Students, classes, subjects, teacher assignment, attendance, exams, results, report cards, certificates, and timetables |
+| **Finance** | Fees, payments, payroll, accounts, financial reporting, and accountant workflows |
+| **Operations** | Staff, transport, library, inventory, school settings, and profile management |
+| **Communication** | School-wide communication and role-specific information access |
+| **Security** | Authentication, server-side authorization, role permissions, protected routes, and admin security tools |
 
-Authorization is enforced server-side; the UI also hides or redirects users from pages outside their role.
+## Supported roles
 
-## Tech stack
+| Role | Primary access |
+| --- | --- |
+| **Admin** | Full system configuration, users, security, academics, operations, and finance |
+| **Principal** | School oversight, staff, academics, fees, and management reports |
+| **Teacher** | Assigned classes, students, attendance, exams, results, and academic workflows |
+| **Accountant** | Fees, payments, payroll, accounts, and finance reports |
 
-- **Web:** React 19, Vite, Wouter, TanStack Query
-- **API:** Hono on Bun
-- **Authentication:** Better Auth
-- **Database:** Turso/libSQL with Drizzle ORM
-- **Mobile:** Expo / React Native
-- **Desktop:** Electron
-- **Deployment:** Render
-- **CI:** GitHub Actions for web and mobile checks
+Permissions are enforced by the API. The interface also hides or redirects users from areas outside their assigned role.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    W["Web · React"] --> A["Hono API · Bun"]
+    M["Mobile · Expo"] --> A
+    D["Desktop · Electron"] --> A
+    A --> B["Better Auth"]
+    A --> O["Drizzle ORM"]
+    O --> T["Turso · libSQL"]
+```
+
+## Technology stack
+
+| Layer | Technology |
+| --- | --- |
+| **Web application** | React 19, Vite, Wouter, TanStack Query |
+| **API** | Hono running on Bun |
+| **Authentication** | Better Auth |
+| **Database** | Turso/libSQL with Drizzle ORM |
+| **Mobile application** | Expo and React Native |
+| **Desktop application** | Electron |
+| **Deployment** | Render |
+| **Automation** | GitHub Actions |
 
 ## Repository structure
 
 ```text
-.github/workflows/        CI workflows
-docs/                     Presentation/readiness documentation
+.github/workflows/        Continuous integration
+docs/                     Readiness and presentation documentation
 packages/
-  web/                    React web app + Hono API
+  web/                    React web app and Hono API
   mobile/                 Expo mobile client
   desktop/                Electron desktop client
+assets/                   Repository presentation assets
 Dockerfile                Production container build
-nixpacks.toml              Render/Nixpacks build configuration
+nixpacks.toml              Render/Nixpacks configuration
 package.json               Bun workspace configuration
 turbo.json                 Turborepo task configuration
 ```
 
-## Local development
+## Run locally
 
 ### Requirements
 
-- Bun 1.3.5 (matches the repository package manager and CI)
+- [Bun 1.3.5](https://bun.sh/)
 - A Turso/libSQL database
+- Git
 
-### Install
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/nuru999/VINEYARD-SMS.git
@@ -67,7 +95,9 @@ cd VINEYARD-SMS
 bun install
 ```
 
-Create a root `.env` file locally. Do **not** commit it.
+### 2. Configure the environment
+
+Create a root `.env` file. Never commit this file.
 
 ```env
 DATABASE_URL=libsql://your-database.turso.io
@@ -76,17 +106,22 @@ BETTER_AUTH_SECRET=replace-with-a-long-random-secret
 WEBSITE_URL=http://localhost:4200
 ```
 
-### Web app
+### 3. Start a client
 
 ```bash
+# Web application — http://localhost:4200
 bun run dev
+
+# Mobile application
+bun run dev:mobile
+
+# Desktop application
+bun run dev:desktop
 ```
 
-The Vite development server uses port `4200`.
+The Electron client uses the production service by default. Set `REMOTE_URL` or `WEBSITE_URL` when targeting another environment.
 
-### Database commands
-
-From the repository root:
+## Database commands
 
 ```bash
 bun run db:generate
@@ -95,42 +130,32 @@ bun run db:push
 bun run db:studio
 ```
 
-Use the command appropriate for the database change you are making; do not run destructive schema operations against production without a backup.
+Choose the command appropriate to the schema change. Back up production data before any destructive operation.
 
-### Mobile app
+## Quality and security
 
-```bash
-bun run dev:mobile
-```
+- CI checks the frozen Bun lockfile, regression tests, web type checking, production builds, and mobile TypeScript.
+- Secrets are stored in environment variables and excluded from source control.
+- Password handling is delegated to Better Auth; plaintext passwords are never stored.
+- Protected endpoints enforce role permissions server-side.
+- Admin recovery and credential-rotation tools are intended for controlled operational use.
+- The public health endpoint is limited to deployment and liveness checks.
 
-The checked-in Expo configuration points to the production API. For development builds, use the supported Expo environment configuration when you need to target another API.
+Before merging an application change, keep both web and mobile workflows green.
 
-### Desktop app
+## Presentation and deployment
 
-```bash
-bun run dev:desktop
-```
-
-The Electron client defaults to the production Render service and can be overridden by `REMOTE_URL` or `WEBSITE_URL`.
-
-## Quality checks
-
-Web CI installs dependencies with the frozen Bun lockfile, runs the Bun regression tests, type-checks the web package, and builds the production web bundle. Mobile CI provides a separate TypeScript gate.
-
-Before merging application changes, keep both workflows green.
-
-## Security notes
-
-- Secrets belong in environment variables, never source control.
-- Passwords are handled through Better Auth and are not stored in plaintext.
-- Protected API routes enforce role permissions server-side.
-- Admin credential recovery/rotation tooling is intended for controlled operational use.
-- The public health endpoint is for liveness/deployment verification and should not expose secrets.
-
-## Presentation readiness
-
-See `docs/PRESENTATION-READINESS.md` for the production/demo checklist, role checks, and acceptance guidance.
+- Review [`docs/PRESENTATION-READINESS.md`](./docs/PRESENTATION-READINESS.md) before a demonstration or release.
+- Verify all four roles independently.
+- Check the Render health endpoint and production environment variables.
+- Confirm web, mobile, and desktop clients target the intended API.
 
 ## License
 
-No open-source license file is currently included in this repository. Unless a license is added, normal copyright restrictions apply.
+No open-source license is currently included. Unless a license is added, normal copyright restrictions apply.
+
+---
+
+<p align="center">
+  Built and maintained by <a href="https://github.com/nuru999">Nuru Amudi</a>.
+</p>
