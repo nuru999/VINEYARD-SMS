@@ -7,6 +7,9 @@ dist/
 .DS_Store
 dev.db
 
+# Expo local development state
+packages/mobile/.expo/
+
 # desktop build artifacts
 packages/desktop/dist-electron/
 packages/desktop/dist/
