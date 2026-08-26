@@ -1,7 +1,6 @@
-import { app, BrowserWindow, ipcMain, dialog, Notification } from "electron";
+import { app, BrowserWindow, shell } from "electron";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import fs from "node:fs/promises";
 import fsSync from "node:fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -38,10 +37,19 @@ loadDotEnv();
 
 // Always point to Render — env vars can override for local dev
 const REMOTE_URL = process.env.REMOTE_URL || process.env.WEBSITE_URL || "https://vineyard-sms-gq1q.onrender.com";
+const REMOTE_ORIGIN = new URL(REMOTE_URL).origin;
 
 let win: BrowserWindow | null;
 
+function isAllowedNavigation(url: string) {
+  if (url === "about:blank" || url.startsWith("data:text/html,")) return true;
 
+  try {
+    return new URL(url).origin === REMOTE_ORIGIN;
+  } catch {
+    return false;
+  }
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -52,18 +60,37 @@ function createWindow() {
     title: "Vineyard School SMS",
     icon: path.join(__dirname, "../assets/icon.png"),
     backgroundColor: "#F8FAFC",
-    autoHideMenuBar: true,       // hides the File/Edit menu bar on Windows
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.mjs"),
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: false,
+      sandbox: true,
+      webSecurity: true,
       partition: "persist:vineyard",
     },
   });
 
   // Remove the default menu entirely on Windows/Linux
   win.setMenu(null);
+
+  // Keep the remote shell on the configured Vineyard origin. External links
+  // are opened by the operating system instead of being trusted inside Electron.
+  win.webContents.on("will-navigate", (event, url) => {
+    if (isAllowedNavigation(url)) return;
+
+    event.preventDefault();
+    if (url.startsWith("https://") || url.startsWith("http://")) {
+      void shell.openExternal(url);
+    }
+  });
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith("https://") || url.startsWith("http://")) {
+      void shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
 
   const offlineHtml = `data:text/html,
     <html>
@@ -155,48 +182,20 @@ function createWindow() {
     </html>`;
 
   // Load Render directly — no pre-check that can time out on cold start
-  win.loadURL(REMOTE_URL);
+  void win.loadURL(REMOTE_URL);
 
   // True offline fallback: only show offline page when the network request fails
   win.webContents.on("did-fail-load", (_e, code) => {
     // code -3 = ERR_ABORTED (navigation cancelled by new loadURL), ignore it
     if (code !== -3) {
-      win?.loadURL(offlineHtml);
+      void win?.loadURL(offlineHtml);
     }
   });
 
-  win.on("closed", () => { win = null; });
+  win.on("closed", () => {
+    win = null;
+  });
 }
-
-// --- IPC Handlers ---
-ipcMain.handle("dialog:open", async (_, opts) => {
-  const result = await dialog.showOpenDialog(opts);
-  return result.canceled ? [] : result.filePaths;
-});
-
-ipcMain.handle("dialog:save", async (_, opts) => {
-  const result = await dialog.showSaveDialog(opts);
-  return result.canceled ? null : result.filePath;
-});
-
-ipcMain.handle("fs:read", async (_, filePath: string) => {
-  return fs.readFile(filePath, "utf-8");
-});
-
-ipcMain.handle("fs:write", async (_, filePath: string, data: string) => {
-  await fs.writeFile(filePath, data, "utf-8");
-});
-
-ipcMain.handle("notification:show", (_, title: string, body: string) => {
-  new Notification({ title, body }).show();
-});
-
-ipcMain.handle("window:minimize", () => win?.minimize());
-ipcMain.handle("window:maximize", () => {
-  if (win?.isMaximized()) win.unmaximize();
-  else win?.maximize();
-});
-ipcMain.handle("window:close", () => win?.close());
 
 // --- App lifecycle ---
 app.on("window-all-closed", () => {
