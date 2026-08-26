@@ -79,6 +79,10 @@ const app = new Hono()
   // bypass the finance-only UI by calling an academic/operations API directly.
   .use("/students", requireSchoolOperationsAccess)
   .use("/students/*", requireSchoolOperationsAccess)
+  // The rich student profile includes fee/payment data, so it is intentionally
+  // restricted to Admin/Principal. Teachers can still access their scoped
+  // student list and basic student detail without receiving financial records.
+  .use("/students/:id/profile", requireAdminOrPrincipal)
   .use("/classes", requireSchoolOperationsAccess)
   .use("/classes/*", requireSchoolOperationsAccess)
   .use("/sections", requireSchoolOperationsAccess)
