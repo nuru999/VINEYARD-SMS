@@ -6,6 +6,7 @@ import { Button } from "../components/ui/button";
 import { Select } from "../components/ui/input";
 import { useToast } from "../components/ui/toast";
 import { api } from "../lib/api";
+import { examLabel } from "../lib/exam-label";
 
 const GRADE_COLOR: Record<string, string> = {
   A: "#3FB950", B: "#58A6FF", C: "#E3B341", D: "#F0883E", E: "#F85149",
@@ -125,6 +126,14 @@ export default function ReportCardsPage() {
     },
   });
 
+  const { data: classesData, error: classesError } = useQuery({
+    queryKey: ["classes"],
+    queryFn: async () => {
+      const result = await parseResponse(await api.classes.$get());
+      return Array.isArray(result) ? result : (result as any).classes ?? [];
+    },
+  });
+
   const { data: cardsData, isLoading: cardsLoading, error: cardsError } = useQuery({
     queryKey: ["report-cards", selectedExam],
     queryFn: async () => {
@@ -194,7 +203,7 @@ export default function ReportCardsPage() {
     setTimeout(() => { win.print(); win.close(); }, 800);
   };
 
-  const queryError = examsError || cardsError || singleError;
+  const queryError = examsError || classesError || cardsError || singleError;
 
   return (
     <Layout title="Report Cards" action={
@@ -222,7 +231,10 @@ export default function ReportCardsPage() {
               label="Select Exam"
               value={selectedExam}
               onChange={e => { setSelectedExam(e.target.value); setSelectedStudent(""); }}
-              options={(Array.isArray(examsData) ? examsData : []).map((ex: any) => ({ value: String(ex.id), label: `${ex.name} — ${ex.term} ${ex.year}` }))}
+              options={(Array.isArray(examsData) ? examsData : []).map((ex: any) => ({
+                value: String(ex.id),
+                label: examLabel(ex, Array.isArray(classesData) ? classesData : []),
+              }))}
             />
           </div>
           {cards.length > 0 && (

@@ -33,7 +33,7 @@ The project includes dedicated **web, mobile, and desktop clients** backed by a 
 | --- | --- |
 | **Admin** | Full system configuration, users, security, academics, operations, and finance |
 | **Principal** | School oversight, staff, academics, fees, and management reports |
-| **Teacher** | Assigned classes, students, attendance, exams, results, and academic workflows |
+| **Teacher** | Assigned-class academics, scoped parent communication and library loans, plus read-only transport and inventory views |
 | **Accountant** | Fees, payments, payroll, accounts, and finance reports |
 
 Permissions are enforced by the API. The interface also hides or redirects users from areas outside their assigned role.

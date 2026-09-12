@@ -48,10 +48,12 @@ Use a Teacher account assigned to one class.
 - [ ] Attendance opens for the assigned class and requires a class/date before saving.
 - [ ] A student from another class cannot be submitted into the teacher's attendance class through direct API behavior.
 - [ ] Exams/results visible to the teacher belong only to assigned classes.
+- [ ] Exam selectors include the class name so same-named assessments remain distinguishable.
 - [ ] Timetable shows assigned-class slots.
 - [ ] Staff directory is forbidden.
 - [ ] Fee payments and Accounts are forbidden.
 - [ ] Admin User Management is forbidden.
+- [ ] Library loans are limited to students in the teacher's assigned class; transport and inventory remain read-only.
 
 ## 5. Accountant acceptance test
 

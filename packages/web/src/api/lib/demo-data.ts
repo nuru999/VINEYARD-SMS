@@ -97,6 +97,15 @@ async function seedDemoData(batchId: string) {
     throw new Error("Teacher login account is required before demo data can be seeded");
   }
 
+  // Demo data must not give a teacher a second class. Preserve any existing
+  // real assignment and leave the demo class unassigned when one already exists.
+  const existingTeacherAssignment = await db
+    .select({ id: schema.classes.id })
+    .from(schema.classes)
+    .where(eq(schema.classes.teacherUserId, teacherUser.id))
+    .limit(1);
+  const demoTeacherUserId = existingTeacherAssignment.length ? null : teacherUser.id;
+
   const demoStaff = await db.insert(schema.staff).values([
     { name: "Grace Wanjiku", email: "grace.wanjiku@example.com", phone: "+254 700 000 401", designation: "Teacher", department: "Languages", qualification: "B.Ed. Languages", joiningDate: "2022-01-10", salary: 52000, status: "active" },
     { name: "Daniel Otieno", email: "daniel.otieno@example.com", phone: "+254 700 000 402", designation: "Teacher", department: "Mathematics", qualification: "B.Ed. Mathematics", joiningDate: "2021-05-03", salary: 55000, status: "active" },
@@ -110,7 +119,7 @@ async function seedDemoData(batchId: string) {
 
   const demoClasses = await db.insert(schema.classes).values([
     { name: "Grade 4 Blue", level: "primary", teacherUserId: null },
-    { name: "Grade 5 Green", level: "primary", teacherUserId: teacherUser.id },
+    { name: "Grade 5 Green", level: "primary", teacherUserId: demoTeacherUserId },
     { name: "Grade 6 Gold", level: "primary", teacherUserId: null },
   ]).returning();
   await registerRows(batchId, "classes", demoClasses);

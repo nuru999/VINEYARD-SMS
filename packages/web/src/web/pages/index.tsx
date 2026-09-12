@@ -61,9 +61,9 @@ function SectionHeader({ title, link, linkLabel }: { title: string; link?: strin
 // ── Chart card wrapper ──────────────────────────────────────────────────────
 function ChartCard({ title, children, height = 220 }: { title: string; children: React.ReactNode; height?: number }) {
   return (
-    <div style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: "18px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+    <div className="dashboard-chart-card" style={{ background: "#fff", border: "1px solid #E2E8F0", borderRadius: 14, padding: "18px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 16 }}>{title}</div>
-      <div style={{ height }}>{children}</div>
+      <div className="dashboard-chart-canvas" style={{ height }}>{children}</div>
     </div>
   );
 }
@@ -172,7 +172,7 @@ function AnalyticsSection() {
         </span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 18 }}>
+      <div className="dashboard-chart-grid" style={{ marginBottom: 18 }}>
 
         {/* Monthly fee collection — Line chart */}
         <ChartCard title="Monthly Fee Collection" height={220}>
@@ -181,7 +181,7 @@ function AnalyticsSection() {
           ) : noFeeData ? (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#94A3B8", fontSize: 13 }}>No payment data yet</div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <LineChart data={data.monthlyFees} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
                 <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
@@ -201,7 +201,7 @@ function AnalyticsSection() {
           ) : noFeeData ? (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#94A3B8", fontSize: 13 }}>No payment data yet</div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <BarChart data={data.feesByTerm} margin={{ top: 4, right: 16, bottom: 0, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
                 <XAxis dataKey="term" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
@@ -216,7 +216,7 @@ function AnalyticsSection() {
         </ChartCard>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+      <div className="dashboard-chart-grid">
 
         {/* Students per class — Bar chart */}
         <ChartCard title="Students per Class" height={220}>
@@ -225,7 +225,7 @@ function AnalyticsSection() {
           ) : noClassData ? (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#94A3B8", fontSize: 13 }}>No class data yet</div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <BarChart data={data.classStudents} layout="vertical" margin={{ top: 4, right: 16, bottom: 0, left: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} allowDecimals={false} />
@@ -244,7 +244,7 @@ function AnalyticsSection() {
           ) : noAttData ? (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#94A3B8", fontSize: 13 }}>No attendance data yet</div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie data={data.attendancePie} cx="50%" cy="50%" innerRadius={55} outerRadius={85}
                   dataKey="value" nameKey="name" paddingAngle={3}>
