@@ -10,6 +10,7 @@ import { Input, Select } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import { api } from "../lib/api";
 import { useRole } from "../lib/use-role";
+import { examLabel } from "../lib/exam-label";
 
 const emptyExam = { name: "", classId: "", term: "", year: new Date().getFullYear(), startDate: "", endDate: "" };
 const emptyResult = { examId: "", studentId: "", subjectId: "", marks: "", maxMarks: "100", remarks: "" };
@@ -187,7 +188,10 @@ export default function ExamsPage() {
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>{exam.name}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{exam.term || "No term"} • {exam.year || "—"}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 600 }}>
+                    {classes.find((item: any) => String(item.id) === String(exam.classId))?.name || "Unknown class"}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>{exam.term || "No term"} • {exam.year || "—"}</div>
                 </div>
                 {canManageExams && (
                   <div style={{ display: "flex", gap: 4 }}>
@@ -256,7 +260,7 @@ export default function ExamsPage() {
       <Modal open={resultModal} onClose={() => setResultModal(false)} title="Enter Result">
         <form onSubmit={e => { e.preventDefault(); saveResult.mutate(rf); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <Select label="Exam" value={rf.examId} onChange={e => setRf({ ...rf, examId: e.target.value, studentId: "", subjectId: "" })}
-            options={[{ value: "", label: "Select exam..." }, ...exams.map((ex: any) => ({ value: String(ex.id), label: `${ex.name}${ex.term ? ` — ${ex.term}` : ""}` }))]} />
+            options={[{ value: "", label: "Select exam..." }, ...exams.map((ex: any) => ({ value: String(ex.id), label: examLabel(ex, classes) }))]} />
           <Select label="Student" value={rf.studentId} onChange={e => setRf({ ...rf, studentId: e.target.value })}
             options={[{ value: "", label: selectedResultExam ? "Select student..." : "Select an exam first" }, ...resultStudents.map((s: any) => ({ value: String(s.id), label: `${s.name} (${s.admissionNo})` }))]} />
           <Select label="Subject" value={rf.subjectId} onChange={e => setRf({ ...rf, subjectId: e.target.value })}
