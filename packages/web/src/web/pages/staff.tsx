@@ -85,7 +85,7 @@ export default function StaffPage() {
           await parseResponse(loginResponse);
         } catch (err) {
           const message = err instanceof Error ? err.message : "Login account failed";
-          throw new Error(`Staff record was created, but the login account could not be created: ${message}`);
+          throw new Error(`Staff record was created, but the login account could not be created: ${message}`, { cause: err });
         }
       }
 

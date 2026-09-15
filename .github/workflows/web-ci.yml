@@ -25,6 +25,10 @@ jobs:
         working-directory: packages/web
         run: bun run test
 
+      - name: Lint web application
+        working-directory: packages/web
+        run: bun run lint
+
       - name: Typecheck and build web app
         working-directory: packages/web
         run: bun run build

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../components/ui/toast";
 import { CalendarCheck, Save } from "lucide-react";
@@ -52,7 +52,10 @@ export default function AttendancePage() {
 
   const allStudents: any[] = Array.isArray(studentsData) ? studentsData : [];
   const classes: any[] = Array.isArray(classesData) ? classesData : [];
-  const attendance: any[] = Array.isArray(attendanceData) ? attendanceData : [];
+  const attendance: any[] = useMemo(
+    () => Array.isArray(attendanceData) ? attendanceData : [],
+    [attendanceData],
+  );
   const filtered = classId
     ? allStudents.filter((student: any) => String(student.classId) === classId)
     : [];

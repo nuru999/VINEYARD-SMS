@@ -157,7 +157,6 @@ function AnalyticsSection() {
     },
   });
 
-  const hasData = !isLoading && data;
   const noFeeData = !data?.feesByTerm?.length && !data?.monthlyFees?.length;
   const noAttData = !data?.attendancePie?.length;
   const noClassData = !data?.classStudents?.length;
