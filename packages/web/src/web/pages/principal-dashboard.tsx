@@ -49,7 +49,10 @@ export default function PrincipalDashboard() {
   });
 
   const s = (stats.data as any)?.stats;
-  const classList: any[] = (classes.data as any)?.classes ?? [];
+  const classList: any[] = useMemo(
+    () => (classes.data as any)?.classes ?? [],
+    [classes.data],
+  );
   const staffList: any[] = (staff.data as any)?.staff ?? [];
   const teacherCount = staffList.filter((member) =>
     String(member.designation || "").toLowerCase() === "teacher" && String(member.status || "active").toLowerCase() === "active"

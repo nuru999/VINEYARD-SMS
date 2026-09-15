@@ -14,7 +14,6 @@ const rndFloat = (min: number, max: number) =>
 const dateStr = (y: number, m: number, d: number) =>
   `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 const today = new Date();
-const todayStr = today.toISOString().split("T")[0];
 const now = Math.floor(Date.now() / 1000);
 
 // ── names ────────────────────────────────────────────────────────────────────
@@ -26,8 +25,6 @@ const maleName = () => `${pick(maleFirstNames)} ${pick(lastNames)}`;
 const femaleName = () => `${pick(femaleFirstNames)} ${pick(lastNames)}`;
 const anyName = (gender: "Male" | "Female") => gender === "Male" ? maleName() : femaleName();
 
-const designations = ["Head Teacher","Deputy Head Teacher","Class Teacher","Subject Teacher","School Counselor","Librarian","Bursar","Sports Teacher","ICT Teacher","Music Teacher"];
-const departments = ["Administration","Sciences","Mathematics","Languages","Humanities","Arts","Physical Education","Library","ICT","Finance"];
 const qualifications = ["B.Ed (Primary)","B.Ed (Secondary)","B.Sc Education","Diploma in Education","M.Ed","PGDE","B.A Education","B.Com Education"];
 
 async function clearData() {

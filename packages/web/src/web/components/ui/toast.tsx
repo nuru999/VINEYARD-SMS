@@ -45,7 +45,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
       setTimeout(() => onRemove(toast.id), 300);
     }, 4000);
     return () => clearTimeout(t);
-  }, []);
+  }, [onRemove, toast.id]);
 
   return (
     <div style={{
@@ -140,6 +140,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// This hook intentionally shares the provider module's private context.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("useToast must be used within ToastProvider");

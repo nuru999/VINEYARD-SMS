@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { GraduationCap, Eye, EyeOff, ArrowLeft, Mail } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, Mail } from "lucide-react";
 import { authClient } from "../lib/auth";
 
 type View = "login" | "forgot" | "forgot-sent";
@@ -23,7 +23,7 @@ export default function SignInPage() {
       const res = await authClient.signIn.email({ email, password });
       if (res.error) { setError(res.error.message || "Invalid credentials"); setLoading(false); return; }
       setTimeout(() => setLocation("/"), 50);
-    } catch (e) {
+    } catch {
       setError("Something went wrong. Try again.");
     } finally {
       setLoading(false);

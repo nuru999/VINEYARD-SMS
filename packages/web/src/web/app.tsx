@@ -38,7 +38,7 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 
   useEffect(() => {
     if (!isLoading && !user) navigate("/sign-in");
-  }, [isLoading, user]);
+  }, [isLoading, navigate, user]);
 
   if (isLoading) {
     return (
@@ -66,7 +66,7 @@ function ProtectedRoleRoute({
   useEffect(() => {
     if (!roleLoading && !user) navigate("/sign-in");
     if (!roleLoading && user && role && !allowedRoles.includes(role)) navigate("/");
-  }, [roleLoading, user, role]);
+  }, [allowedRoles, navigate, role, roleLoading, user]);
 
   if (roleLoading) {
     return (

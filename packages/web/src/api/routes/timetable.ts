@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { db } from "../database";
 import * as schema from "../database/schema";
 import { requireAuth, requireAdminOrPrincipal } from "../middleware/auth";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] as const;
 
